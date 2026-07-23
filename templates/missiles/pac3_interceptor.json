@@ -1,0 +1,79 @@
+{
+  "id": "pac3_interceptor",
+  "name": "MIM-104 PAC-3",
+  "category": "surface_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "sam_heavy",
+    "color": "#e6e9ee",
+    "accent": "#00e5ff"
+  },
+  "physical": {
+    "length_m": 5.2,
+    "diameter_m": 0.255,
+    "launch_mass_kg": 315,
+    "empty_mass_kg": 154,
+    "max_g": 60
+  },
+  "propulsion": {
+    "cg_wet_m": 2.912,
+    "cg_dry_m": 2.6,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 161,
+        "ignition_time_s": 0.0,
+        "isp_s": 250,
+        "exit_area_m2": 0.03604,
+        "boost_sustain": {
+          "boost_thrust_n": 70000,
+          "boost_time_s": 5.64,
+          "sustain_thrust_n": 0,
+          "sustain_time_s": 0
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.26,
+      "cd0_transonic_peak": 0.68,
+      "cd0_supersonic": 0.42,
+      "cn_alpha0": 30,
+      "cm_alpha0": -0.28,
+      "cm_q": -240,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_active",
+    "params": {
+      "acquisition_range": 20000,
+      "gimbal_limit_deg": 65,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "Ku",
+      "angle_noise_mrad": 0.3,
+      "jam_susceptibility": 0.1
+    }
+  },
+  "loft": 0.6,
+  "battery_s": 120,
+  "max_mach": 5.0,
+  "ceiling_m": 20000,
+  "guidance": {
+    "law": "ogl",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 30,
+      "fin_rate_deg_s": 500,
+      "actuator_tau": 0.02,
+      "max_g": 60
+    }
+  },
+  "notes": "Hit-to-kill SAM with attitude-control thrusters; all-boost motor; ~20–35 km."
+}

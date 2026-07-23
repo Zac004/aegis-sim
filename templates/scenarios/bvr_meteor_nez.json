@@ -1,0 +1,21 @@
+{
+  "name": "BVR — Meteor ramjet NEZ vs Su-35",
+  "engagement_type": "air_to_air",
+  "atmosphere": "ussa1976",
+  "geometry": {
+    "range_km": 80, "aspect_deg": 180, "offboresight_deg": 0,
+    "altitude_m": 11000, "target_altitude_m": 10000,
+    "shooter_speed": 320, "target_speed": 280, "shooter_heading_deg": 90
+  },
+  "missile": {"template": "meteor"},
+  "shooter": {"platform": "typhoon", "support": "crank", "crank_angle_deg": 45},
+  "target": {
+    "platform": "su35_flanker", "initial": {},
+    "timeline": [
+      {"trigger": {"type": "range", "value": 35000}, "maneuver": "go_cold", "params": {"g": 7}},
+      {"trigger": {"type": "tti", "value": 6}, "maneuver": "jink",
+       "params": {"g": 8}, "countermeasure": {"type": "chaff", "count": 6, "intensity": 1.0, "duration": 4.0}}
+    ]
+  },
+  "sim": {"dt": 0.004, "max_time": 300, "output_rate_hz": 30, "hit_radius_m": 15}
+}

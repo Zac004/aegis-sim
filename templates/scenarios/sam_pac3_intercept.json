@@ -1,0 +1,27 @@
+{
+  "name": "Surface-to-Air — PAC-3 vs Cruise Missile",
+  "engagement_type": "surface_to_air",
+  "atmosphere": "ussa1976",
+  "missile": {
+    "template": "pac3_interceptor",
+    "launch": {
+      "position": [0, 0, 20],
+      "velocity": {"speed": 40, "heading_deg": 90, "climb_deg": 20}
+    }
+  },
+  "target": {
+    "platform": "cruise_missile_target",
+    "initial": {
+      "position": [0, 30000, 120],
+      "velocity": {"speed": 250, "heading_deg": 270, "climb_deg": 0}
+    },
+    "timeline": [
+      {
+        "trigger": {"type": "range", "value": 4000},
+        "maneuver": "weave",
+        "params": {"g": 4.0, "period": 3.0}
+      }
+    ]
+  },
+  "sim": {"dt": 0.004, "max_time": 60, "output_rate_hz": 60, "hit_radius_m": 15}
+}

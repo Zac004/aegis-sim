@@ -1,0 +1,79 @@
+{
+  "id": "python5",
+  "name": "Python-5",
+  "category": "air_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "cruise_dart",
+    "color": "#d9dde3",
+    "accent": "#ffb000"
+  },
+  "physical": {
+    "length_m": 3.1,
+    "diameter_m": 0.16,
+    "launch_mass_kg": 105,
+    "empty_mass_kg": 72,
+    "max_g": 60
+  },
+  "propulsion": {
+    "cg_wet_m": 1.736,
+    "cg_dry_m": 1.55,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 33,
+        "ignition_time_s": 0.0,
+        "isp_s": 238,
+        "exit_area_m2": 0.01419,
+        "boost_sustain": {
+          "boost_thrust_n": 15000,
+          "boost_time_s": 3.08,
+          "sustain_thrust_n": 3200,
+          "sustain_time_s": 9.63
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.36,
+      "cd0_transonic_peak": 0.98,
+      "cd0_supersonic": 0.62,
+      "cn_alpha0": 40,
+      "cm_alpha0": -0.34,
+      "cm_q": -220,
+      "induced_k": 0.005
+    }
+  },
+  "seeker": {
+    "type": "iir",
+    "params": {
+      "acquisition_range": 14000,
+      "gimbal_limit_deg": 90,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "LWIR",
+      "angle_noise_mrad": 0.15,
+      "jam_susceptibility": 0.06
+    }
+  },
+  "loft": 0.0,
+  "battery_s": 60,
+  "max_mach": 3.0,
+  "ceiling_m": 15000,
+  "guidance": {
+    "law": "apn",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 30,
+      "fin_rate_deg_s": 500,
+      "actuator_tau": 0.02,
+      "max_g": 60
+    }
+  },
+  "notes": "Israeli IIR HOBS with lock-after-launch; ~20 km class."
+}

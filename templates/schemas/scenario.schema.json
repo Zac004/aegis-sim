@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "aegis-sim/scenario",
+  "title": "Aegis-Sim Engagement Scenario",
+  "description": "A complete missile-vs-target engagement. Positions are [North, East, Altitude(up)] in metres; internally converted to NED.",
+  "type": "object",
+  "required": ["name", "missile", "target"],
+  "properties": {
+    "name": {"type": "string"},
+    "engagement_type": {"type": "string", "enum": ["air_to_air", "surface_to_air"]},
+    "atmosphere": {"type": "string", "description": "Registry key: ussa1976 | isothermal | <custom>."},
+    "missile": {
+      "type": "object",
+      "required": ["launch"],
+      "properties": {
+        "template": {"type": "string", "description": "Reference to a templates/missiles/<id>."},
+        "definition": {"type": "object", "description": "Inline missile definition (alternative to template)."},
+        "guidance_override": {"type": "object", "description": "Override law/N/params at launch."},
+        "launch": {
+          "type": "object",
+          "required": ["position"],
+          "properties": {
+            "position": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+            "velocity": {
+              "oneOf": [
+                {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+                {"type": "object", "properties": {"speed": {"type": "number"}, "heading_deg": {"type": "number"}, "climb_deg": {"type": "number"}}}
+              ]
+            }
+          }
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "required": ["initial"],
+      "properties": {
+        "platform": {"type": "string"},
+        "definition": {"type": "object"},
+        "initial": {
+          "type": "object",
+          "required": ["position"],
+          "properties": {
+            "position": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+            "velocity": {"oneOf": [
+              {"type": "array"},
+              {"type": "object", "properties": {"speed": {"type": "number"}, "heading_deg": {"type": "number"}, "climb_deg": {"type": "number"}}}
+            ]}
+          }
+        },
+        "timeline": {
+          "type": "array",
+          "description": "Ordered maneuver segments with time/event triggers.",
+          "items": {
+            "type": "object",
+            "required": ["trigger", "maneuver"],
+            "properties": {
+              "trigger": {
+                "type": "object",
+                "properties": {
+                  "type": {"type": "string", "enum": ["time", "event", "range", "tti"]},
+                  "value": {}
+                }
+              },
+              "maneuver": {"type": "string", "description": "Registry key: straight | break_turn | weave | barrel_roll | split_s | immelmann | notch | jink | <custom>."},
+              "params": {"type": "object"},
+              "countermeasure": {
+                "type": "object",
+                "properties": {
+                  "type": {"type": "string", "enum": ["flare", "chaff", "ecm"]},
+                  "count": {"type": "integer"},
+                  "intensity": {"type": "number"},
+                  "duration": {"type": "number"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "sim": {
+      "type": "object",
+      "properties": {
+        "dt": {"type": "number", "description": "Integration step (s)."},
+        "max_time": {"type": "number"},
+        "output_rate_hz": {"type": "number"},
+        "hit_radius_m": {"type": "number", "description": "Lethal radius / warhead + fuze proximity."}
+      }
+    }
+  }
+}

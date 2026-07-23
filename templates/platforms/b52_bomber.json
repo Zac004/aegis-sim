@@ -1,0 +1,27 @@
+{
+  "id": "b52_bomber",
+  "name": "B-52H Stratofortress",
+  "type": "bomber",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "bomber_heavy",
+    "color": "#6f7787",
+    "accent": "#ffb000"
+  },
+  "signatures": {
+    "rcs_m2": 100,
+    "ir_signature": 3.0
+  },
+  "performance": {
+    "max_g": 2,
+    "min_speed_mps": 150,
+    "max_speed_mps": 290,
+    "service_ceiling_m": 15000
+  },
+  "countermeasures": {
+    "flares": 200,
+    "chaff": 200,
+    "ecm": true
+  },
+  "notes": ""
+}

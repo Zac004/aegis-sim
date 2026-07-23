@@ -1,0 +1,79 @@
+{
+  "id": "s350_9m96e2",
+  "name": "9M96E2 (S-350/S-400)",
+  "category": "surface_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "sam_heavy",
+    "color": "#e6e9ee",
+    "accent": "#ff3d00"
+  },
+  "physical": {
+    "length_m": 5.65,
+    "diameter_m": 0.24,
+    "launch_mass_kg": 420,
+    "empty_mass_kg": 210,
+    "max_g": 60
+  },
+  "propulsion": {
+    "cg_wet_m": 3.164,
+    "cg_dry_m": 2.825,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 210,
+        "ignition_time_s": 0.0,
+        "isp_s": 250,
+        "exit_area_m2": 0.03192,
+        "boost_sustain": {
+          "boost_thrust_n": 120000,
+          "boost_time_s": 3.22,
+          "sustain_thrust_n": 15000,
+          "sustain_time_s": 8.58
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.28,
+      "cd0_transonic_peak": 0.74,
+      "cd0_supersonic": 0.44,
+      "cn_alpha0": 34,
+      "cm_alpha0": -0.3,
+      "cm_q": -200,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_active",
+    "params": {
+      "acquisition_range": 22000,
+      "gimbal_limit_deg": 65,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "Ku",
+      "angle_noise_mrad": 0.3,
+      "jam_susceptibility": 0.1
+    }
+  },
+  "loft": 1.0,
+  "battery_s": 200,
+  "max_mach": 5.0,
+  "ceiling_m": 30000,
+  "guidance": {
+    "law": "ogl",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 30,
+      "fin_rate_deg_s": 500,
+      "actuator_tau": 0.02,
+      "max_g": 60
+    }
+  },
+  "notes": "Agile gas-dynamic-control interceptor (60 g endgame); ~120 km class."
+}

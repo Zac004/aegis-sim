@@ -1,0 +1,79 @@
+{
+  "id": "r73_archer",
+  "name": "R-73 (Archer)",
+  "category": "air_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "cruise_dart",
+    "color": "#d9dde3",
+    "accent": "#ff3d00"
+  },
+  "physical": {
+    "length_m": 2.9,
+    "diameter_m": 0.17,
+    "launch_mass_kg": 105,
+    "empty_mass_kg": 74,
+    "max_g": 50
+  },
+  "propulsion": {
+    "cg_wet_m": 1.624,
+    "cg_dry_m": 1.45,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 31,
+        "ignition_time_s": 0.0,
+        "isp_s": 235,
+        "exit_area_m2": 0.01602,
+        "boost_sustain": {
+          "boost_thrust_n": 15000,
+          "boost_time_s": 2.86,
+          "sustain_thrust_n": 3200,
+          "sustain_time_s": 8.93
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.36,
+      "cd0_transonic_peak": 0.98,
+      "cd0_supersonic": 0.62,
+      "cn_alpha0": 40,
+      "cm_alpha0": -0.34,
+      "cm_q": -220,
+      "induced_k": 0.005
+    }
+  },
+  "seeker": {
+    "type": "ir",
+    "params": {
+      "acquisition_range": 11000,
+      "gimbal_limit_deg": 75,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "MWIR",
+      "angle_noise_mrad": 0.25,
+      "jam_susceptibility": 0.22
+    }
+  },
+  "loft": 0.0,
+  "battery_s": 50,
+  "max_mach": 2.5,
+  "ceiling_m": 14000,
+  "guidance": {
+    "law": "pn",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 30,
+      "fin_rate_deg_s": 500,
+      "actuator_tau": 0.02,
+      "max_g": 50
+    }
+  },
+  "notes": "Russian HOBS IR with TVC; helmet-cued; ~30 km class."
+}

@@ -1,0 +1,27 @@
+{
+  "id": "cruise_missile_target",
+  "name": "Subsonic Cruise Missile",
+  "type": "cruise_missile",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "cruise_missile",
+    "color": "#9aa4b0",
+    "accent": "#66ccff"
+  },
+  "signatures": {
+    "rcs_m2": 0.1,
+    "ir_signature": 0.6
+  },
+  "performance": {
+    "max_g": 4,
+    "min_speed_mps": 200,
+    "max_speed_mps": 300,
+    "service_ceiling_m": 8000
+  },
+  "countermeasures": {
+    "flares": 0,
+    "chaff": 0,
+    "ecm": false
+  },
+  "notes": "Sea-skimmer threat."
+}

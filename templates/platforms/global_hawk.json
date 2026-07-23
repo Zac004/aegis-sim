@@ -1,0 +1,27 @@
+{
+  "id": "global_hawk",
+  "name": "RQ-4 Global Hawk",
+  "type": "uav",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "uav_recon",
+    "color": "#c2b280",
+    "accent": "#00e5ff"
+  },
+  "signatures": {
+    "rcs_m2": 1.0,
+    "ir_signature": 0.5
+  },
+  "performance": {
+    "max_g": 2.5,
+    "min_speed_mps": 80,
+    "max_speed_mps": 175,
+    "service_ceiling_m": 18000
+  },
+  "countermeasures": {
+    "flares": 0,
+    "chaff": 0,
+    "ecm": false
+  },
+  "notes": ""
+}

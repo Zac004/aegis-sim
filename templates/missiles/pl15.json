@@ -1,0 +1,92 @@
+{
+  "id": "pl15",
+  "name": "PL-15",
+  "category": "air_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "aam_slender",
+    "color": "#d9dde3",
+    "accent": "#22ff9c"
+  },
+  "physical": {
+    "length_m": 4.0,
+    "diameter_m": 0.203,
+    "launch_mass_kg": 210,
+    "empty_mass_kg": 122,
+    "max_g": 40
+  },
+  "propulsion": {
+    "cg_wet_m": 2.24,
+    "cg_dry_m": 2.0,
+    "stages": [
+      {
+        "name": "pulse 1 (boost)",
+        "propellant_mass_kg": 54.6,
+        "ignition_time_s": 0.0,
+        "isp_s": 252,
+        "exit_area_m2": 0.02284,
+        "boost_sustain": {
+          "boost_thrust_n": 26000,
+          "boost_time_s": 5.19,
+          "sustain_thrust_n": 0,
+          "sustain_time_s": 0
+        }
+      },
+      {
+        "name": "pulse 2 (endgame)",
+        "propellant_mass_kg": 33.4,
+        "ignition_time_s": 22.0,
+        "isp_s": 252,
+        "exit_area_m2": 0.02284,
+        "boost_sustain": {
+          "boost_thrust_n": 15000,
+          "boost_time_s": 5.5,
+          "sustain_thrust_n": 0,
+          "sustain_time_s": 0
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.28,
+      "cd0_transonic_peak": 0.74,
+      "cd0_supersonic": 0.44,
+      "cn_alpha0": 34,
+      "cm_alpha0": -0.3,
+      "cm_q": -200,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_active",
+    "params": {
+      "acquisition_range": 25000,
+      "gimbal_limit_deg": 65,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "Ku",
+      "angle_noise_mrad": 0.3,
+      "jam_susceptibility": 0.1
+    }
+  },
+  "loft": 1.6,
+  "battery_s": 260,
+  "max_mach": 5.0,
+  "ceiling_m": 26000,
+  "guidance": {
+    "law": "ogl",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 26,
+      "fin_rate_deg_s": 400,
+      "actuator_tau": 0.02,
+      "max_g": 40
+    }
+  },
+  "notes": "Chinese dual-pulse ARH with AESA seeker; ~200–300 km class."
+}

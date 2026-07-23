@@ -1,0 +1,27 @@
+{
+  "id": "su30_flanker",
+  "name": "Su-30MKI Flanker-H",
+  "type": "fighter",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "fighter_swept",
+    "color": "#77828f",
+    "accent": "#ff3d00"
+  },
+  "signatures": {
+    "rcs_m2": 5.0,
+    "ir_signature": 1.3
+  },
+  "performance": {
+    "max_g": 9,
+    "min_speed_mps": 130,
+    "max_speed_mps": 700,
+    "service_ceiling_m": 17300
+  },
+  "countermeasures": {
+    "flares": 96,
+    "chaff": 96,
+    "ecm": true
+  },
+  "notes": ""
+}

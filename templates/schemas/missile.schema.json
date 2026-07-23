@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "aegis-sim/missile",
+  "title": "Aegis-Sim Missile Template",
+  "description": "Fully customizable interceptor definition. All lengths in metres, masses in kg, thrust in Newtons, time in seconds. Units are human-friendly and converted to SI-internal on load.",
+  "type": "object",
+  "required": ["name", "physical", "propulsion"],
+  "properties": {
+    "id": {"type": "string", "description": "Stable identifier used in references."},
+    "name": {"type": "string"},
+    "category": {"type": "string", "enum": ["air_to_air", "surface_to_air", "custom"]},
+    "physical": {
+      "type": "object",
+      "required": ["length_m", "diameter_m", "launch_mass_kg"],
+      "properties": {
+        "length_m": {"type": "number", "minimum": 0.1},
+        "diameter_m": {"type": "number", "minimum": 0.01},
+        "launch_mass_kg": {"type": "number", "minimum": 0.1},
+        "empty_mass_kg": {"type": "number", "minimum": 0.1},
+        "reference_area_m2": {"type": "number", "description": "Aerodynamic reference area; defaults to π·(d/2)²."},
+        "max_g": {"type": "number", "description": "Structural lateral acceleration limit in g."}
+      }
+    },
+    "propulsion": {
+      "type": "object",
+      "description": "One or more motor stages. CG/inertia interpolate wet→dry as propellant burns.",
+      "properties": {
+        "cg_wet_m": {"type": "number", "description": "CG from nose at launch."},
+        "cg_dry_m": {"type": "number", "description": "CG from nose at burnout."},
+        "inertia_wet": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3, "description": "[Ixx(roll), Iyy(pitch), Izz(yaw)] at launch."},
+        "inertia_dry": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {"type": "string"},
+              "propellant_mass_kg": {"type": "number"},
+              "ignition_time_s": {"type": "number", "description": "Absolute time from launch when this stage lights."},
+              "isp_s": {"type": "number", "description": "Specific impulse (defines mass-flow with the thrust curve)."},
+              "exit_area_m2": {"type": "number", "description": "Nozzle exit area for altitude pressure-thrust correction."},
+              "thrust_curve": {
+                "type": "array",
+                "description": "Piecewise-linear [t_since_ignition_s, thrust_N] points.",
+                "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+              },
+              "boost_sustain": {
+                "type": "object",
+                "description": "Convenience alternative to thrust_curve.",
+                "properties": {
+                  "boost_thrust_n": {"type": "number"},
+                  "boost_time_s": {"type": "number"},
+                  "sustain_thrust_n": {"type": "number"},
+                  "sustain_time_s": {"type": "number"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "aero": {
+      "type": "object",
+      "properties": {
+        "model": {"type": "string", "description": "Registry key, e.g. 'parametric'."},
+        "params": {"type": "object"}
+      }
+    },
+    "seeker": {
+      "type": "object",
+      "properties": {
+        "type": {"type": "string", "description": "Registry key: rf_active | rf_semiactive | ir | iir | <custom>."},
+        "params": {
+          "type": "object",
+          "properties": {
+            "acquisition_range": {"type": "number"},
+            "gimbal_limit_deg": {"type": "number"},
+            "fov_deg": {"type": "number"},
+            "track_bandwidth_hz": {"type": "number"},
+            "angle_noise_mrad": {"type": "number"},
+            "cm_break_prob": {"type": "number"}
+          }
+        }
+      }
+    },
+    "guidance": {
+      "type": "object",
+      "properties": {
+        "law": {"type": "string", "description": "Registry key: pn | pure_pn | apn | ogl | clos | <custom>."},
+        "N": {"type": "number", "description": "Navigation constant / gain (typically 3–5)."},
+        "params": {"type": "object"}
+      }
+    },
+    "autopilot": {
+      "type": "object",
+      "properties": {
+        "type": {"type": "string", "description": "Registry key: three_loop | ideal | <custom>."},
+        "params": {
+          "type": "object",
+          "properties": {
+            "max_fin_deg": {"type": "number"},
+            "fin_rate_deg_s": {"type": "number"},
+            "actuator_tau": {"type": "number"},
+            "max_g": {"type": "number"}
+          }
+        }
+      }
+    }
+  }
+}

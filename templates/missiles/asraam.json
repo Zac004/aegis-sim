@@ -1,0 +1,79 @@
+{
+  "id": "asraam",
+  "name": "ASRAAM",
+  "category": "air_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "cruise_dart",
+    "color": "#d9dde3",
+    "accent": "#00e5ff"
+  },
+  "physical": {
+    "length_m": 2.9,
+    "diameter_m": 0.166,
+    "launch_mass_kg": 88,
+    "empty_mass_kg": 60,
+    "max_g": 50
+  },
+  "propulsion": {
+    "cg_wet_m": 1.624,
+    "cg_dry_m": 1.45,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 28,
+        "ignition_time_s": 0.0,
+        "isp_s": 238,
+        "exit_area_m2": 0.01527,
+        "boost_sustain": {
+          "boost_thrust_n": 16000,
+          "boost_time_s": 2.65,
+          "sustain_thrust_n": 3000,
+          "sustain_time_s": 7.62
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.36,
+      "cd0_transonic_peak": 0.98,
+      "cd0_supersonic": 0.62,
+      "cn_alpha0": 40,
+      "cm_alpha0": -0.34,
+      "cm_q": -220,
+      "induced_k": 0.005
+    }
+  },
+  "seeker": {
+    "type": "iir",
+    "params": {
+      "acquisition_range": 15000,
+      "gimbal_limit_deg": 90,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "LWIR",
+      "angle_noise_mrad": 0.15,
+      "jam_susceptibility": 0.06
+    }
+  },
+  "loft": 0.0,
+  "battery_s": 60,
+  "max_mach": 3.5,
+  "ceiling_m": 16000,
+  "guidance": {
+    "law": "apn",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 26,
+      "fin_rate_deg_s": 400,
+      "actuator_tau": 0.02,
+      "max_g": 50
+    }
+  },
+  "notes": "UK long-burn IIR WVR — fastest of its class off the rail; ~25 km+."
+}

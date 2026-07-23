@@ -1,0 +1,27 @@
+{
+  "id": "f15e_strike",
+  "name": "F-15E Strike Eagle",
+  "type": "fighter",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "fighter_swept",
+    "color": "#6f7787",
+    "accent": "#ffb000"
+  },
+  "signatures": {
+    "rcs_m2": 8,
+    "ir_signature": 1.6
+  },
+  "performance": {
+    "max_g": 9,
+    "min_speed_mps": 140,
+    "max_speed_mps": 800,
+    "service_ceiling_m": 18000
+  },
+  "countermeasures": {
+    "flares": 120,
+    "chaff": 120,
+    "ecm": true
+  },
+  "notes": ""
+}

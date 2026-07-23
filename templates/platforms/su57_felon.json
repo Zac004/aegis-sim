@@ -1,0 +1,27 @@
+{
+  "id": "su57_felon",
+  "name": "Su-57 Felon",
+  "type": "fighter",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "fighter_delta",
+    "color": "#5b6572",
+    "accent": "#ff3d00"
+  },
+  "signatures": {
+    "rcs_m2": 0.1,
+    "ir_signature": 1.0
+  },
+  "performance": {
+    "max_g": 9,
+    "min_speed_mps": 130,
+    "max_speed_mps": 720,
+    "service_ceiling_m": 20000
+  },
+  "countermeasures": {
+    "flares": 96,
+    "chaff": 96,
+    "ecm": true
+  },
+  "notes": "LO stealth."
+}

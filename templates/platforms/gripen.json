@@ -1,0 +1,27 @@
+{
+  "id": "gripen",
+  "name": "JAS 39 Gripen E",
+  "type": "fighter",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "fighter_delta",
+    "color": "#9fb2c8",
+    "accent": "#00e5ff"
+  },
+  "signatures": {
+    "rcs_m2": 0.5,
+    "ir_signature": 0.9
+  },
+  "performance": {
+    "max_g": 9,
+    "min_speed_mps": 120,
+    "max_speed_mps": 680,
+    "service_ceiling_m": 15200
+  },
+  "countermeasures": {
+    "flares": 60,
+    "chaff": 60,
+    "ecm": true
+  },
+  "notes": ""
+}

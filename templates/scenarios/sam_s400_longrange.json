@@ -1,0 +1,19 @@
+{
+  "name": "SAM — S-400 48N6 vs Su-30 @ 120 km",
+  "engagement_type": "surface_to_air",
+  "atmosphere": "ussa1976",
+  "geometry": {
+    "range_km": 120, "bearing_deg": 90, "altitude_m": 10000,
+    "threat_speed": 250, "launch_elevation_deg": 70,
+    "launch_speed": 40, "site_altitude_m": 20
+  },
+  "missile": {"template": "s400_48n6"},
+  "target": {
+    "platform": "su30_flanker", "initial": {},
+    "timeline": [
+      {"trigger": {"type": "range", "value": 30000}, "maneuver": "notch",
+       "params": {"g": 6}, "countermeasure": {"type": "chaff", "count": 8, "intensity": 1.0, "duration": 4.0}}
+    ]
+  },
+  "sim": {"dt": 0.004, "max_time": 420, "output_rate_hz": 30, "hit_radius_m": 20}
+}

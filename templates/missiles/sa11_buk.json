@@ -1,0 +1,79 @@
+{
+  "id": "sa11_buk",
+  "name": "9M38M1 (SA-11 Buk)",
+  "category": "surface_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "sam_heavy",
+    "color": "#e6e9ee",
+    "accent": "#ff8a3a"
+  },
+  "physical": {
+    "length_m": 5.55,
+    "diameter_m": 0.4,
+    "launch_mass_kg": 690,
+    "empty_mass_kg": 398,
+    "max_g": 24
+  },
+  "propulsion": {
+    "cg_wet_m": 3.108,
+    "cg_dry_m": 2.775,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 292,
+        "ignition_time_s": 0.0,
+        "isp_s": 245,
+        "exit_area_m2": 0.08867,
+        "boost_sustain": {
+          "boost_thrust_n": 120000,
+          "boost_time_s": 2.92,
+          "sustain_thrust_n": 22000,
+          "sustain_time_s": 15.94
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.26,
+      "cd0_transonic_peak": 0.68,
+      "cd0_supersonic": 0.42,
+      "cn_alpha0": 30,
+      "cm_alpha0": -0.28,
+      "cm_q": -240,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_semiactive",
+    "params": {
+      "acquisition_range": 30000,
+      "gimbal_limit_deg": 50,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "X",
+      "angle_noise_mrad": 0.4,
+      "jam_susceptibility": 0.14
+    }
+  },
+  "loft": 0.5,
+  "battery_s": 60,
+  "max_mach": 3.5,
+  "ceiling_m": 22000,
+  "guidance": {
+    "law": "apn",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 26,
+      "fin_rate_deg_s": 400,
+      "actuator_tau": 0.02,
+      "max_g": 24
+    }
+  },
+  "notes": "Medium-range SARH SAM; ~35–50 km class."
+}

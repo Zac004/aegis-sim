@@ -1,0 +1,79 @@
+{
+  "id": "r37_axehead",
+  "name": "R-37 (early)",
+  "category": "air_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "aam_slender",
+    "color": "#d9dde3",
+    "accent": "#ff3d00"
+  },
+  "physical": {
+    "length_m": 4.2,
+    "diameter_m": 0.38,
+    "launch_mass_kg": 600,
+    "empty_mass_kg": 340,
+    "max_g": 28
+  },
+  "propulsion": {
+    "cg_wet_m": 2.352,
+    "cg_dry_m": 2.1,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 260,
+        "ignition_time_s": 0.0,
+        "isp_s": 255,
+        "exit_area_m2": 0.08002,
+        "boost_sustain": {
+          "boost_thrust_n": 90000,
+          "boost_time_s": 4.33,
+          "sustain_thrust_n": 20000,
+          "sustain_time_s": 13.0
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.26,
+      "cd0_transonic_peak": 0.68,
+      "cd0_supersonic": 0.42,
+      "cn_alpha0": 30,
+      "cm_alpha0": -0.28,
+      "cm_q": -240,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_semiactive",
+    "params": {
+      "acquisition_range": 35000,
+      "gimbal_limit_deg": 50,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "X",
+      "angle_noise_mrad": 0.4,
+      "jam_susceptibility": 0.14
+    }
+  },
+  "loft": 1.4,
+  "battery_s": 300,
+  "max_mach": 6.0,
+  "ceiling_m": 27000,
+  "guidance": {
+    "law": "ogl",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 26,
+      "fin_rate_deg_s": 400,
+      "actuator_tau": 0.02,
+      "max_g": 28
+    }
+  },
+  "notes": "Original very-long-range interceptor missile; ~150–200 km class."
+}

@@ -1,0 +1,79 @@
+{
+  "id": "hq9b",
+  "name": "HQ-9B",
+  "category": "surface_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "sam_heavy",
+    "color": "#e6e9ee",
+    "accent": "#22ff9c"
+  },
+  "physical": {
+    "length_m": 6.8,
+    "diameter_m": 0.47,
+    "launch_mass_kg": 1300,
+    "empty_mass_kg": 650,
+    "max_g": 22
+  },
+  "propulsion": {
+    "cg_wet_m": 3.808,
+    "cg_dry_m": 3.4,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 650,
+        "ignition_time_s": 0.0,
+        "isp_s": 250,
+        "exit_area_m2": 0.12242,
+        "boost_sustain": {
+          "boost_thrust_n": 280000,
+          "boost_time_s": 3.41,
+          "sustain_thrust_n": 48000,
+          "sustain_time_s": 13.28
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.26,
+      "cd0_transonic_peak": 0.68,
+      "cd0_supersonic": 0.42,
+      "cn_alpha0": 30,
+      "cm_alpha0": -0.28,
+      "cm_q": -240,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_active",
+    "params": {
+      "acquisition_range": 30000,
+      "gimbal_limit_deg": 55,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "X",
+      "angle_noise_mrad": 0.4,
+      "jam_susceptibility": 0.1
+    }
+  },
+  "loft": 1.2,
+  "battery_s": 300,
+  "max_mach": 6.0,
+  "ceiling_m": 27000,
+  "guidance": {
+    "law": "ogl",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 26,
+      "fin_rate_deg_s": 400,
+      "actuator_tau": 0.02,
+      "max_g": 22
+    }
+  },
+  "notes": "Chinese long-range SAM; TVM midcourse + ARH terminal; ~200–260 km class."
+}

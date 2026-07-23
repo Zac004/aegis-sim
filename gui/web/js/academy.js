@@ -1,0 +1,1785 @@
+// academy.js — the interactive teaching widgets for the Learn guide.
+// Each widget is a self-contained, dependency-free mini-app that mounts into a
+// <div data-widget="name"> placeholder inside a help section. They turn abstract
+// BVR concepts (aspect, radar horizon, proportional navigation, the Doppler
+// notch, MAR decision bands) into things you can drag, sweep and watch.
+//
+// help.js calls mountWidgets(rootEl) after rendering a section and calls the
+// returned teardown before rendering the next one (so animation loops stop).
+
+const COL = { blue: '#00E5FF', amber: '#FFB000', red: '#FF3D00', green: '#22ff9c',
+              ink: '#e4eefc', dim: '#93accb', faint: '#6d84a6', grid: 'rgba(78,128,178,0.28)' };
+
+function el(tag, attrs = {}, kids = []) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v;
+    else if (k === 'html') e.innerHTML = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v != null) e.setAttribute(k, v);
+  }
+  (Array.isArray(kids) ? kids : [kids]).forEach(c =>
+    e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c));
+  return e;
+}
+const R = (n, d = 0) => (Math.round(n * 10 ** d) / 10 ** d);
+
+const REGISTRY = {};
+const reg = (name, fn) => { REGISTRY[name] = fn; };
+
+export function mountWidgets(root) {
+  const teardowns = [];
+  root.querySelectorAll('[data-widget]').forEach(node => {
+    const fn = REGISTRY[node.dataset.widget];
+    if (!fn) return;
+    node.innerHTML = '';
+    try { const t = fn(node); if (t) teardowns.push(t); }
+    catch (e) { node.innerHTML = `<div class="wx-err">widget error: ${e.message}</div>`; }
+  });
+  return () => teardowns.forEach(t => { try { t(); } catch (_) {} });
+}
+
+// shared canvas helper: crisp DPR-scaled 2D context sized to the element width
+function makeCanvas(parent, h) {
+  const cv = el('canvas', { class: 'wx-canvas' });
+  cv.style.height = h + 'px';
+  parent.appendChild(cv);
+  const g = cv.getContext('2d');
+  const V = { cv, g, get w() { return cv._w; }, get h() { return cv._h; }, redraw: null };
+  const fit = () => {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const w = cv.clientWidth || parent.clientWidth || 640;
+    cv.width = w * dpr; cv.height = h * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cv._w = w; cv._h = h;
+  };
+  V.fit = fit;
+  fit();
+  // A widget mounted into a hidden modal first measures a 0/fallback width; a
+  // ResizeObserver refits + redraws the instant it gets its real layout size,
+  // which works even when requestAnimationFrame is throttled (background tab).
+  if (window.ResizeObserver) {
+    let lastW = cv._w;
+    const ro = new ResizeObserver(() => {
+      if (cv.clientWidth && cv.clientWidth !== lastW) {
+        lastW = cv.clientWidth; fit();
+        if (V.redraw) { try { V.redraw(); } catch (_) {} }
+      }
+    });
+    ro.observe(cv);
+    V._ro = ro;
+  }
+  return V;
+}
+function slider(label, min, max, step, val, oninput) {
+  const out = el('b', { class: 'wx-val' }, String(val));
+  const input = el('input', { type: 'range', min, max, step, value: val,
+    oninput: (e) => { out.textContent = e.target.value; oninput(+e.target.value); } });
+  return { row: el('label', { class: 'wx-slider' }, [el('span', {}, label), input, out]), input, out };
+}
+function frame(fn) {   // rAF loop with a stop flag
+  let live = true;
+  const tick = (t) => { if (!live) return; fn(t); requestAnimationFrame(tick); };
+  // paint the first frame SYNCHRONOUSLY so the widget shows content even if
+  // requestAnimationFrame is throttled (background tab / headless preview),
+  // then hand off to the rAF loop for animation.
+  try { fn(performance.now()); } catch (_) {}
+  requestAnimationFrame(tick);
+  return () => { live = false; };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  1 · ASPECT & ANGLE-OFF DIAL  (NATO aspect / brevity)
+// ─────────────────────────────────────────────────────────────────────────────
+reg('aspect', (node) => {
+  const _V = makeCanvas(node, 300); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' });
+  node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  let bandit = 200;   // bandit heading, ° (0 = pointing straight at you)
+  const s1 = slider('Bandit heading (drag)', 0, 359, 1, bandit, v => { bandit = v; draw(); });
+  controls.appendChild(s1.row);
+
+  function term(aspect) {
+    if (aspect >= 150) return ['HOT', COL.red, 'nose-on — max closure, he sees you, shot incoming'];
+    if (aspect >= 110) return ['FLANKING', COL.amber, 'angling in — high closure, still threatening'];
+    if (aspect >= 70) return ['BEAM', COL.green, '~90° — near-zero closure, the Doppler-notch geometry'];
+    if (aspect >= 30) return ['DRAG', COL.blue, 'angling away — low closure, running for the door'];
+    return ['COLD / STERN', COL.blue, 'tail-on — you are behind him, minimum closure'];
+  }
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const cx = _V.w / 2, you = _V.h - 34, band = 70, R0 = 30;
+    // LOS
+    g.strokeStyle = 'rgba(147,172,203,.5)'; g.setLineDash([5, 5]); g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(cx, you); g.lineTo(cx, band); g.stroke(); g.setLineDash([]);
+    g.fillStyle = COL.faint; g.font = '10px "Share Tech Mono"';
+    g.fillText('LINE OF SIGHT', cx + 8, (you + band) / 2);
+    // you (interceptor) — arrow pointing up (at the bandit)
+    drawJet(g, cx, you, 0, COL.blue, 'YOU');
+    // bandit velocity heading: 0 = toward you (down the LOS, i.e. +y screen)
+    const hd = bandit * Math.PI / 180;
+    // aspect = 180 - angle between bandit velocity and bandit→you
+    // bandit→you points DOWN (+y). velocity dir for heading 0 should be down.
+    const vdir = { x: Math.sin(hd), y: Math.cos(hd) };     // heading 0 → (0,+1) down = toward you
+    const toYou = { x: 0, y: 1 };
+    let ang = Math.acos(Math.max(-1, Math.min(1, vdir.x * toYou.x + vdir.y * toYou.y)));
+    const aspect = 180 - ang * 180 / Math.PI;
+    // screen heading: velocity vector on canvas points along (vdir.x, vdir.y)
+    const scrHead = Math.atan2(vdir.x, -vdir.y);   // 0 = up
+    drawJet(g, cx, band, scrHead, COL.red, 'BANDIT');
+    // aspect arc at bandit
+    g.strokeStyle = COL.amber; g.lineWidth = 2;
+    g.beginPath(); g.arc(cx, band, R0 + 6, Math.PI / 2, Math.PI / 2 + ang * Math.sign(vdir.x || 1), vdir.x < 0);
+    g.stroke();
+    const [t, c, desc] = term(aspect);
+    read.innerHTML =
+      `<div class="wx-big" style="color:${c}">${t}</div>` +
+      `<div class="wx-line">Aspect angle <b style="color:${COL.amber}">${R(aspect)}°</b>` +
+      ` &nbsp;·&nbsp; ${desc}</div>` +
+      `<div class="wx-hint">Aspect is measured at the <b>bandit</b>, between his tail and the line to you: ` +
+      `180° = hot (nose-on), 90° = beam, 0° = cold (you're on his stern). It's what he presents to <i>you</i> — ` +
+      `distinct from <b>angle-off</b> (the difference between your two headings) and <b>AOT</b> (angle off tail).</div>`;
+  }
+  _V.redraw = draw;
+  const onResize = () => { fit(); draw(); };
+  window.addEventListener('resize', onResize);
+  draw();
+  return () => window.removeEventListener('resize', onResize);
+});
+
+function drawJet(g, x, y, heading, color, label) {
+  g.save(); g.translate(x, y); g.rotate(heading);
+  g.fillStyle = color; g.strokeStyle = color; g.shadowColor = color; g.shadowBlur = 8;
+  g.beginPath(); g.moveTo(0, -13); g.lineTo(9, 11); g.lineTo(0, 5); g.lineTo(-9, 11); g.closePath();
+  g.fill(); g.shadowBlur = 0; g.restore();
+  g.fillStyle = color; g.font = 'bold 10px "Share Tech Mono"';
+  g.fillText(label, x + 14, y + 3);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  2 · RADAR HORIZON / LRSAM VULNERABILITY
+// ─────────────────────────────────────────────────────────────────────────────
+reg('horizon', (node) => {
+  const _V = makeCanvas(node, 260); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' });
+  node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  let hRadar = 25, hTgt = 100, tgtRange = 120;   // m, m, km
+  const s1 = slider('Radar/emitter alt (m)', 0, 10000, 25, hRadar, v => { hRadar = v; draw(); });
+  const s2 = slider('Target alt (m)', 30, 12000, 30, hTgt, v => { hTgt = v; draw(); });
+  const s3 = slider('Target range (km)', 5, 400, 5, tgtRange, v => { tgtRange = v; draw(); });
+  controls.append(s1.row, s2.row, s3.row);
+
+  const horizonKm = (h) => 4.12 * Math.sqrt(Math.max(h, 0));   // 4/3-earth radar horizon
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const hd = horizonKm(hRadar), ht = horizonKm(hTgt), maxDet = hd + ht;
+    const detectable = tgtRange <= maxDet;
+    // side view: curved earth arc
+    const pad = 30, base = _V.h - 26, span = _V.w - 2 * pad;
+    const Rearth = span * 3.4;   // exaggerated curvature for legibility
+    const cx = _V.w / 2, cyEarth = base + Rearth;
+    g.strokeStyle = COL.grid; g.lineWidth = 2;
+    g.beginPath();
+    for (let px = pad; px <= _V.w - pad; px += 4) {
+      const dx = px - cx, y = cyEarth - Math.sqrt(Rearth * Rearth - dx * dx);
+      px === pad ? g.moveTo(px, y) : g.lineTo(px, y);
+    }
+    g.stroke();
+    g.fillStyle = 'rgba(78,128,178,0.06)';
+    g.fillRect(0, base, _V.w, _V.h - base);
+    // km→x mapping (0 km at left radar site)
+    const kmMax = 400, X = (km) => pad + (km / kmMax) * span;
+    const surfY = (km) => { const dx = X(km) - cx; return cyEarth - Math.sqrt(Rearth * Rearth - dx * dx); };
+    const altPx = (m) => m / 12000 * 120;   // vertical exaggeration
+    // radar
+    const rx = X(0), ry = surfY(0) - altPx(hRadar);
+    g.fillStyle = COL.blue; g.shadowColor = COL.blue; g.shadowBlur = 8;
+    g.beginPath(); g.arc(rx, ry, 4, 0, 7); g.fill(); g.shadowBlur = 0;
+    g.fillStyle = COL.blue; g.font = '9px "Share Tech Mono"'; g.fillText('RADAR', rx - 6, ry - 8);
+    // horizon tangent line to the radar's horizon distance
+    const hx = X(hd), hy = surfY(hd);
+    g.strokeStyle = 'rgba(0,229,255,.5)'; g.setLineDash([4, 4]); g.lineWidth = 1.4;
+    g.beginPath(); g.moveTo(rx, ry); g.lineTo(hx + (hx - rx) * 0.5, hy - (surfY(hd) - surfY(hd * 1.5)) * -1);
+    g.lineTo(X(maxDet), surfY(maxDet) - altPx(hTgt)); g.stroke(); g.setLineDash([]);
+    // radar-horizon marker on the surface
+    g.fillStyle = COL.amber; g.beginPath(); g.arc(hx, hy, 3, 0, 7); g.fill();
+    // target
+    const tx = X(tgtRange), ty = surfY(tgtRange) - altPx(hTgt);
+    const tc = detectable ? COL.green : COL.red;
+    g.save(); g.translate(tx, ty); g.fillStyle = tc; g.strokeStyle = tc; g.shadowColor = tc; g.shadowBlur = 8;
+    g.beginPath(); g.moveTo(-8, 0); g.lineTo(6, -4); g.lineTo(6, 4); g.closePath(); g.fill();
+    g.shadowBlur = 0; g.restore();
+    g.fillStyle = tc; g.font = '9px "Share Tech Mono"';
+    g.fillText(detectable ? 'SEEN' : 'BELOW HORIZON', tx - 20, ty - 9);
+    read.innerHTML =
+      `<div class="wx-line">Radar horizon to target: <b style="color:${COL.amber}">${R(maxDet)} km</b>` +
+      ` &nbsp;(radar ${R(hd)} + target ${R(ht)} km)</div>` +
+      `<div class="wx-big" style="color:${tc}">${detectable ? 'TARGET DETECTABLE' : 'TARGET HIDDEN BELOW THE HORIZON'}</div>` +
+      `<div class="wx-hint"><b>The LRSAM problem:</b> a 400 km missile is useless against what its radar can't see. ` +
+      `A jet at ${R(hTgt)} m stays under a ${R(hRadar) === 0 ? 'ground' : R(hRadar) + ' m'} radar's horizon until ≈${R(maxDet)} km — ` +
+      `so a low-level ingress shrinks a monster SAM's effective reach to a knife-fight unless an <b>elevated sensor</b> ` +
+      `(AWACS, aerostat, fighter, another radar) cues it over the horizon via datalink. Formula: horizon(km) ≈ 4.12·(√h₁ + √h₂), h in metres.</div>`;
+  }
+  _V.redraw = draw;
+  const onResize = () => { fit(); draw(); };
+  window.addEventListener('resize', onResize);
+  draw();
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  3 · PROPORTIONAL NAVIGATION SANDBOX
+// ─────────────────────────────────────────────────────────────────────────────
+reg('pnlab', (node) => {
+  const _V = makeCanvas(node, 320); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' });
+  node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  let N = 4, tgtManeuver = false, running = true;
+  const s1 = slider('Navigation constant N', 2, 6, 0.5, N, v => { N = v; reset(); });
+  const chk = el('label', { class: 'wx-chk' }, [
+    el('input', { type: 'checkbox', onchange: (e) => { tgtManeuver = e.target.checked; reset(); } }),
+    el('span', {}, 'Target jinks')]);
+  const btn = el('button', { class: 'wx-btn', onclick: () => reset() }, '↻ Re-fire');
+  controls.append(s1.row, chk, btn);
+
+  let m, tgt, losPrev, trailM, trailT, t0, done, missDist, losHistory;
+  function reset() {
+    m = { x: _V.w * 0.15, y: _V.h - 30, vx: 0, vy: 0, spd: 260 };
+    tgt = { x: _V.w * 0.55, y: 40, vx: 95, vy: 0, spd: 95 };
+    // aim missile initial velocity roughly at target
+    const dx = tgt.x - m.x, dy = tgt.y - m.y, d = Math.hypot(dx, dy);
+    m.vx = m.spd * dx / d; m.vy = m.spd * dy / d;
+    losPrev = Math.atan2(dy, dx); trailM = []; trailT = []; losHistory = [];
+    t0 = performance.now(); done = false; missDist = Infinity;
+  }
+  reset();
+
+  const SCALE = 0.02;   // world→display time compression
+  function step(dt) {
+    if (done) return;
+    // target kinematics
+    if (tgtManeuver) { const w = 1.1; tgt.vy = 55 * Math.sin((performance.now() - t0) / 1000 * w); }
+    tgt.x += tgt.vx * dt * 4; tgt.y += tgt.vy * dt * 4;
+    if (tgt.x > _V.w - 12) tgt.x = _V.w - 12;
+    // LOS + PN
+    const dx = tgt.x - m.x, dy = tgt.y - m.y, d = Math.hypot(dx, dy);
+    const los = Math.atan2(dy, dx);
+    let losRate = (los - losPrev); losRate = Math.atan2(Math.sin(losRate), Math.cos(losRate)) / dt;
+    losPrev = los;
+    const closing = -((dx * (m.vx - tgt.vx) + dy * (m.vy - tgt.vy)) / (d || 1));
+    // a_cmd = N·Vc·λ̇, applied ⟂ velocity
+    const aMag = N * Math.max(closing, 40) * losRate;
+    const vh = Math.atan2(m.vy, m.vx);
+    m.vx += -Math.sin(vh) * aMag * dt; m.vy += Math.cos(vh) * aMag * dt;
+    const sp = Math.hypot(m.vx, m.vy) || 1; m.vx = m.vx / sp * m.spd; m.vy = m.vy / sp * m.spd;
+    m.x += m.vx * dt * 4; m.y += m.vy * dt * 4;
+    trailM.push([m.x, m.y]); trailT.push([tgt.x, tgt.y]);
+    losHistory.push(los);
+    if (d < missDist) missDist = d;
+    if (d < 10) { done = true; missDist = d; }
+    if (m.x > _V.w || m.y < -20 || tgt.x >= _V.w - 12 || trailM.length > 900) done = true;
+  }
+  let last = performance.now();
+  const stop = frame((now) => {
+    const dt = Math.min((now - last) / 1000, 0.04); last = now;
+    if (running) step(dt);
+    render();
+  });
+  function render() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    // LOS fan — the key insight: parallel LOS lines = collision course
+    const step2 = Math.max(1, Math.floor(trailM.length / 12));
+    g.lineWidth = 1;
+    for (let i = 0; i < trailM.length; i += step2) {
+      g.strokeStyle = 'rgba(147,172,203,0.16)';
+      g.beginPath(); g.moveTo(trailM[i][0], trailM[i][1]); g.lineTo(trailT[i][0], trailT[i][1]); g.stroke();
+    }
+    poly(g, trailT, COL.red, 2); poly(g, trailM, COL.amber, 2);
+    dot(g, tgt.x, tgt.y, COL.red, 'TGT'); dot(g, m.x, m.y, COL.amber, 'MSL');
+    // verdict
+    const hit = done && missDist < 12;
+    read.innerHTML =
+      `<div class="wx-line">N = <b style="color:${COL.blue}">${N}</b> · closest approach ` +
+      `<b style="color:${hit ? COL.green : COL.amber}">${missDist === Infinity ? '—' : R(missDist / 6, 1) + ' "m"'}</b>` +
+      (done ? (hit ? ` · <span style="color:${COL.green}">INTERCEPT</span>` : ` · <span style="color:${COL.red}">flew past</span>`) : ' · guiding…') +
+      `</div>` +
+      `<div class="wx-hint">Watch the faint <b>line-of-sight lines</b> between missile and target. When they stay ` +
+      `<b>parallel</b> (constant bearing), the range is closing on a collision course — that's the whole trick. ` +
+      `PN commands turn ∝ how fast the LOS <i>rotates</i> (λ̇), driving that rotation to zero. Higher <b>N</b> nulls it ` +
+      `sooner and leads a ${tgtManeuver ? 'jinking ' : ''}target harder, but a real seeker's noise gets amplified too.</div>`;
+  }
+  const onResize = () => { fit(); reset(); };
+  window.addEventListener('resize', onResize);
+  return () => { stop(); window.removeEventListener('resize', onResize); };
+});
+function poly(g, pts, color, w) {
+  if (pts.length < 2) return;
+  g.strokeStyle = color; g.lineWidth = w; g.beginPath();
+  pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]));
+  g.stroke();
+}
+function dot(g, x, y, color, label) {
+  g.fillStyle = color; g.shadowColor = color; g.shadowBlur = 8;
+  g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill(); g.shadowBlur = 0;
+  g.font = '9px "Share Tech Mono"'; g.fillText(label, x + 7, y - 6);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  4 · DOPPLER NOTCH DEMONSTRATOR
+// ─────────────────────────────────────────────────────────────────────────────
+reg('notch', (node) => {
+  const _V = makeCanvas(node, 250); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' });
+  node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  let heading = 90, speed = 250;   // target heading rel. to radar LOS, target speed
+  const s1 = slider('Target heading vs radar (°)', 0, 180, 1, heading, v => { heading = v; draw(); });
+  const s2 = slider('Target speed (m/s)', 100, 400, 10, speed, v => { speed = v; draw(); });
+  controls.append(s1.row, s2.row);
+  const NOTCH = 65;   // m/s — the ± clutter-rejection notch half-width
+
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const rx = 40, ry = _V.h / 2, tx = _V.w * 0.62, ty = _V.h * 0.4;
+    // radial velocity = speed·cos(angle between velocity and LOS); heading 0 = straight at radar
+    const radial = speed * Math.cos(heading * Math.PI / 180);
+    const notched = Math.abs(radial) < NOTCH;
+    // top-down picture
+    g.strokeStyle = 'rgba(147,172,203,.4)'; g.setLineDash([5, 5]); g.lineWidth = 1.3;
+    g.beginPath(); g.moveTo(rx, ry); g.lineTo(tx, ty); g.stroke(); g.setLineDash([]);
+    g.fillStyle = COL.blue; g.shadowColor = COL.blue; g.shadowBlur = 8;
+    g.beginPath(); g.arc(rx, ry, 5, 0, 7); g.fill(); g.shadowBlur = 0;
+    g.font = '9px "Share Tech Mono"'; g.fillStyle = COL.blue; g.fillText('RADAR', rx - 8, ry + 20);
+    // target with velocity arrow (heading measured from LOS)
+    const los = Math.atan2(ty - ry, tx - rx);
+    const vdir = los + Math.PI - heading * Math.PI / 180;   // heading 0 → toward radar
+    const tc = notched ? COL.red : COL.green;
+    g.save(); g.translate(tx, ty);
+    g.strokeStyle = tc; g.lineWidth = 2; g.shadowColor = tc; g.shadowBlur = notched ? 2 : 8;
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(vdir) * 34, Math.sin(vdir) * 34); g.stroke();
+    g.fillStyle = tc; g.beginPath(); g.arc(0, 0, 5, 0, 7); g.fill(); g.shadowBlur = 0; g.restore();
+    g.fillStyle = tc; g.fillText(notched ? 'NOTCHED — GONE' : 'TRACKED', tx - 16, ty - 12);
+    // Doppler scope on the right
+    const bx = _V.w - 150, bw = 130, by = 30, bh = _V.h - 60;
+    g.strokeStyle = COL.grid; g.strokeRect(bx, by, bw, bh);
+    g.fillStyle = COL.faint; g.font = '9px "Share Tech Mono"';
+    g.fillText('DOPPLER', bx, by - 8); g.fillText('+Vc', bx - 2, by + 10); g.fillText('−Vc', bx - 2, by + bh - 2);
+    // clutter notch band (around zero Doppler)
+    const V = (v) => by + bh / 2 - (v / 450) * (bh / 2);
+    g.fillStyle = 'rgba(255,61,0,.14)';
+    g.fillRect(bx, V(NOTCH), bw, V(-NOTCH) - V(NOTCH));
+    g.strokeStyle = 'rgba(255,61,0,.5)'; g.setLineDash([3, 3]);
+    g.beginPath(); g.moveTo(bx, V(NOTCH)); g.lineTo(bx + bw, V(NOTCH)); g.moveTo(bx, V(-NOTCH)); g.lineTo(bx + bw, V(-NOTCH)); g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = COL.red; g.fillText('CLUTTER NOTCH', bx + 8, V(0) + 3);
+    // target return blip on the scope
+    g.fillStyle = tc; g.shadowColor = tc; g.shadowBlur = notched ? 0 : 8;
+    g.beginPath(); g.arc(bx + bw / 2, V(Math.max(-449, Math.min(449, radial))), 5, 0, 7); g.fill(); g.shadowBlur = 0;
+    read.innerHTML =
+      `<div class="wx-line">Radial (closing) velocity <b style="color:${COL.amber}">${R(radial)} m/s</b>` +
+      ` &nbsp;→&nbsp; <span style="color:${tc}">${notched ? 'inside the clutter notch' : 'above the notch — clean return'}</span></div>` +
+      `<div class="wx-big" style="color:${tc}">${notched ? 'TARGET LOST IN THE NOTCH' : 'TARGET TRACKED'}</div>` +
+      `<div class="wx-hint">A pulse-Doppler radar rejects near-zero-Doppler returns to filter out the huge, ` +
+      `stationary <b>ground clutter</b>. Turn to the <b>beam (~90°)</b> and your closing velocity drops toward zero — ` +
+      `your return falls into that same rejection notch and you <b>vanish</b>. That's the <b>notch</b>. Pair it with ` +
+      `chaff (which keeps some closure and blooms where you were) and drop low so the clutter behind you is worst. ` +
+      `Counter: the shooter can go high (look-down separates you from clutter) or a modern radar may track through it.</div>`;
+  }
+  _V.redraw = draw;
+  const onResize = () => { fit(); draw(); };
+  window.addEventListener('resize', onResize);
+  draw();
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  5 · MAR / NEZ DECISION-BAND RULER
+// ─────────────────────────────────────────────────────────────────────────────
+reg('marband', (node) => {
+  const _V = makeCanvas(node, 150); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' });
+  node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  let rmax = 100, mar = 40, shot = 55;
+  const s1 = slider('Rmax (km)', 20, 300, 5, rmax, v => { rmax = v; if (mar > rmax) mar = rmax; if (shot > rmax * 1.2) shot = rmax; clamp(); draw(); });
+  const s2 = slider('MAR (km)', 5, 200, 5, mar, v => { mar = Math.min(v, rmax); draw(); });
+  const s3 = slider('Shot taken at (km)', 5, 320, 1, shot, v => { shot = v; draw(); });
+  controls.append(s1.row, s2.row, s3.row);
+  function clamp() { s2.input.max = rmax; }
+  clamp();
+
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const pad = 20, y = 60, h = 34, w = _V.w - 2 * pad, axMax = Math.max(rmax * 1.25, shot * 1.1);
+    const X = (km) => pad + (km / axMax) * w;
+    // bands
+    band(g, X(0), X(mar), y, h, 'rgba(255,61,0,.35)', COL.red);       // NEZ
+    band(g, X(mar), X(rmax), y, h, 'rgba(255,176,0,.28)', COL.amber);  // abort works
+    band(g, X(rmax), X(axMax), y, h, 'rgba(34,255,156,.20)', COL.green); // beyond Rmax
+    g.fillStyle = COL.dim; g.font = '9px "Share Tech Mono"'; g.textAlign = 'center';
+    g.fillText('NO-ESCAPE ZONE', (X(0) + X(mar)) / 2, y - 6);
+    g.fillText('ABORT WORKS', (X(mar) + X(rmax)) / 2, y - 6);
+    g.fillText('OUT OF RANGE', (X(rmax) + X(axMax)) / 2, y - 6);
+    g.textAlign = 'left';
+    // axis ticks
+    g.strokeStyle = COL.grid; g.fillStyle = COL.faint;
+    for (let km = 0; km <= axMax; km += axMax > 160 ? 50 : 20) {
+      g.beginPath(); g.moveTo(X(km), y + h); g.lineTo(X(km), y + h + 4); g.stroke();
+      g.fillText(km + '', X(km) - 6, y + h + 15);
+    }
+    // shot marker
+    const sxx = X(shot);
+    g.strokeStyle = COL.ink; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(sxx, y - 16); g.lineTo(sxx, y + h + 6); g.stroke();
+    g.fillStyle = COL.ink; g.beginPath(); g.moveTo(sxx, y - 16); g.lineTo(sxx - 5, y - 24); g.lineTo(sxx + 5, y - 24); g.closePath(); g.fill();
+    let verdict, vc;
+    if (shot > rmax) { verdict = 'Beyond Rmax — the shot can\'t reach you. Note it and keep working the intercept.'; vc = COL.green; }
+    else if (shot > mar) { verdict = 'Inside Rmax but outside MAR — an immediate abort (turn cold & run) defeats it. Do it now.'; vc = COL.amber; }
+    else { verdict = 'Inside MAR — the NO-ESCAPE ZONE. Running won\'t save you; go to your best last-ditch defence (notch + chaff, then break) and pray.'; vc = COL.red; }
+    read.innerHTML =
+      `<div class="wx-big" style="color:${vc}">${shot > rmax ? 'SAFE' : shot > mar ? 'ABORT' : 'NO ESCAPE — DEFEND'}</div>` +
+      `<div class="wx-line">${verdict}</div>` +
+      `<div class="wx-hint">MAR is typically <b>30–50% of Rmax</b> and both grow with <b>altitude</b> (thin air extends reach) ` +
+      `and closure (a hot, fast, high target is killable from much farther). The Tactical-AI computes these exact numbers for ` +
+      `your chosen weapon — set them here from that brief and rehearse the decision.</div>`;
+  }
+  function band(g, x0, x1, y, h, fill, stroke) {
+    g.fillStyle = fill; g.fillRect(x0, y, x1 - x0, h);
+    g.strokeStyle = stroke; g.lineWidth = 1; g.strokeRect(x0, y, x1 - x0, h);
+  }
+  _V.redraw = draw;
+  const onResize = () => { fit(); draw(); };
+  window.addEventListener('resize', onResize);
+  draw();
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  PROGRESS & RANK — the gamification spine (persisted in localStorage)
+// ─────────────────────────────────────────────────────────────────────────────
+export const progress = {
+  _get() { try { return JSON.parse(localStorage.aegis_learn || '{}'); } catch { return {}; } },
+  _set(p) { try { localStorage.aegis_learn = JSON.stringify(p); } catch (_) {} },
+  markRead(id) { const p = this._get(); p.read = p.read || {}; if (!p.read[id]) { p.read[id] = 1; this._set(p); } },
+  isRead(id) { return !!(this._get().read || {})[id]; },
+  readCount() { return Object.keys(this._get().read || {}).length; },
+  quizResult(score, total) {
+    const p = this._get();
+    p.quizBest = Math.max(p.quizBest || 0, score);
+    p.quizTotal = total;
+    p.quizRuns = (p.quizRuns || 0) + 1;
+    p.streakBest = Math.max(p.streakBest || 0, p.streakNow || 0);
+    this._set(p);
+  },
+  bumpStreak(ok) { const p = this._get(); p.streakNow = ok ? (p.streakNow || 0) + 1 : 0; p.streakBest = Math.max(p.streakBest || 0, p.streakNow); this._set(p); },
+  addXP(n, key) {
+    const p = this._get();
+    p.xp = (p.xp || 0) + n;
+    if (key) { p.done = p.done || {}; p.done[key] = 1; }   // one-time credit per challenge
+    this._set(p);
+    if (typeof window !== 'undefined' && window._aegisXPtoast) window._aegisXPtoast(n);
+    return p.xp;
+  },
+  hasDone(key) { return !!(this._get().done || {})[key]; },
+  xp() { return this._get().xp || 0; },
+  wing() {   // flight-hours "wings" earned from XP (a fun second progression)
+    const xp = this.xp();
+    const tiers = [[0, 'Rookie'], [200, 'Bronze Wings'], [600, 'Silver Wings'],
+                   [1400, 'Gold Wings'], [3000, 'Ace'], [6000, 'Double Ace'], [12000, 'Legend']];
+    let t = tiers[0]; for (const x of tiers) if (xp >= x[0]) t = x;
+    const next = tiers.find(x => x[0] > xp);
+    return { name: t[1], xp, next: next ? next[0] : null };
+  },
+  stats() { const p = this._get(); return { read: Object.keys(p.read || {}).length, quizBest: p.quizBest || 0, quizTotal: p.quizTotal || 0, streakBest: p.streakBest || 0, runs: p.quizRuns || 0, xp: p.xp || 0 }; },
+  rank(totalSections) {
+    const s = this.stats();
+    const readFrac = totalSections ? s.read / totalSections : 0;
+    const quizFrac = s.quizTotal ? s.quizBest / s.quizTotal : 0;
+    const pct = Math.round(100 * (0.6 * readFrac + 0.4 * quizFrac));
+    const ladder = [
+      [0, 'CADET', '▱'], [15, 'STUDENT PILOT', '▰'], [30, 'WINGMAN', '◈'],
+      [50, 'ELEMENT LEAD', '◆'], [70, 'FLIGHT LEAD', '★'], [85, 'INSTRUCTOR PILOT', '✦'],
+      [96, 'WEAPONS SCHOOL', '⚔'],
+    ];
+    let r = ladder[0];
+    for (const l of ladder) if (pct >= l[0]) r = l;
+    return { pct, name: r[1], icon: r[2] };
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  6 · CHECK-RIDE QUIZ — categorised bank, streaks, rank progression
+// ─────────────────────────────────────────────────────────────────────────────
+const QUIZ = [
+  // ── geometry / doctrine ──
+  { c: 'GEOMETRY', q: 'A bandit presents 90° aspect and is fast. What is he doing, and what does it buy him?',
+    a: ['Coming straight at you (hot) — max closure', 'Flying the beam — near-zero closure, hunting your Doppler notch', 'Running away cold — you\'re safe', 'Diving on you from above'],
+    correct: 1, why: 'Beam aspect (~90°) means his velocity is perpendicular to your LOS, so his closing velocity ≈ 0 — he\'s trying to fall into your pulse-Doppler notch and disappear.' },
+  { c: 'DOCTRINE', q: 'You\'re fired on from 60 km; your MAR at this altitude is 40 km. Best move?',
+    a: ['Press straight in for your own shot', 'Immediately abort — turn cold and run', 'Hold heading and pop flares', 'Climb to gain energy'],
+    correct: 1, why: 'You\'re outside MAR (40 km), so a timely abort defeats the shot kinematically — the missile runs out of energy chasing you. Inside MAR it would be too late to out-run it.' },
+  { c: 'DOCTRINE', q: 'In the brevity of 4-ship BVR timelines, a "SKATE" game plan means…',
+    a: ['Press to the visual merge regardless', 'Launch and leave: shoot, then be out (cold) at or before MAR', 'Never fire — sensor only', 'Fly the beam the whole way in'],
+    correct: 1, why: 'SKATE = launch-and-leave: take the BVR shot, then abort out before entering the threat\'s MAR/NEZ. SHORT SKATE presses a bit closer before the out; BANZAI accepts the merge.' },
+  { c: 'DOCTRINE', q: 'Your element aborts a shot at MAR. When is the recommit cue?',
+    a: ['A fixed 30 s after the abort', 'When the threat missile is kinematically dead (energy-depleted), plus a margin', 'When the bandit turns cold too', 'Immediately after your RWR goes quiet'],
+    correct: 1, why: 'You recommit when the shot chasing you is energy-dead — the Tactical Brief computes that time from the missile\'s actual coast-down. RWR silence alone doesn\'t mean the (active-seeker) missile is gone.' },
+  { c: 'GEOMETRY', q: 'F-pole vs A-pole: which statement is right?',
+    a: ['A-pole is your range from the target at YOUR missile\'s impact; F-pole at its pitbull', 'F-pole is at impact, A-pole at pitbull — bigger of both = safer shot', 'They are two names for the same range', 'Both measure the missile\'s range, not yours'],
+    correct: 1, why: 'A-pole = shooter→target range when your missile goes active (you\'re free to maneuver); F-pole = shooter→target range at impact. Cranking grows both — that\'s the pole game.' },
+  // ── guidance / missile ──
+  { c: 'GUIDANCE', q: 'Raising the navigation constant N in Proportional Navigation…',
+    a: ['Makes the missile fly straight at the target\'s current position', 'Nulls line-of-sight rotation sooner but amplifies seeker noise', 'Reduces the missile\'s turn rate', 'Only affects the boost phase'],
+    correct: 1, why: 'a = N·Vc·λ̇. A higher N corrects LOS rotation harder and earlier (leads a maneuvering target better), but it also multiplies the seeker\'s angular noise into the command — a real trade.' },
+  { c: 'GUIDANCE', q: 'The tell-tale sign of a collision course, and the whole basis of PN, is…',
+    a: ['The target grows larger in the HUD', 'Constant bearing — the line-of-sight direction stops rotating', 'Closure rate reaching zero', 'The target\'s aspect going to 90°'],
+    correct: 1, why: 'Constant bearing + decreasing range = collision. PN measures LOS rotation (λ̇) and drives it to zero; sailors have used the same rule to avoid collisions for centuries.' },
+  { c: 'MISSILE', q: 'What most reliably extends a shot\'s no-escape zone against a reacting fighter?',
+    a: ['A bigger warhead', 'A brighter seeker', 'More terminal energy — dual-pulse or ramjet keeping speed to the merge', 'A longer datalink'],
+    correct: 2, why: 'The NEZ is an energy problem. A missile that arrives fast can still out-turn a last-ditch break; a coasting one can\'t. Dual-pulse and ramjet motors keep energy to the merge — that\'s why Meteor/PL-15 have huge NEZs.' },
+  { c: 'MISSILE', q: 'A ramjet missile like Meteor flames out permanently if…',
+    a: ['It flies above 20 km', 'It decelerates below its minimum operating Mach', 'It turns harder than 20 g', 'The datalink drops'],
+    correct: 1, why: 'An air-breathing ducted rocket needs supersonic intake flow. Decelerate below ~M1.7 and the engine cannot run — or relight. Dragging a ramjet missile into thick, slow air is a real defeat mechanism.' },
+  { c: 'MISSILE', q: 'A missile\'s thermal battery dying mid-flight means…',
+    a: ['The seeker switches to backup power', 'Fins freeze, guidance stops — the round is a ballistic slug', 'Only the datalink is lost', 'The motor cuts off'],
+    correct: 1, why: 'The one-shot thermal battery powers seeker, computer and fin actuators. When it\'s exhausted the missile can no longer steer at all — battery life is the hard ceiling on flight time, sized to the weapon\'s mission.' },
+  { c: 'MISSILE', q: 'Why do long-range missiles loft high during midcourse?',
+    a: ['To stay above the target\'s radar', 'Thin high air has a tenth the drag — coasting there can double the range', 'To cool the seeker', 'To arm the warhead'],
+    correct: 1, why: 'Drag ∝ air density × V². Climbing into ~20-30 km air spends some energy once but saves far more over a long coast, then the dive converts altitude back to terminal speed.' },
+  // ── radar / EW ──
+  { c: 'RADAR', q: 'Radar detection range scales with target RCS as…',
+    a: ['Linearly — 10× RCS = 10× range', 'As the square root', 'As the fourth root — 10,000× smaller RCS = 10× shorter detection', 'It doesn\'t depend on RCS'],
+    correct: 2, why: 'The radar equation has R⁴ in the denominator, so R_detect ∝ σ^(1/4). That fourth root is why stealth works: an 0.0001 m² target is seen at ~1/10 the range of a 1 m² one, collapsing the enemy\'s timeline.' },
+  { c: 'RADAR', q: 'A pulse-Doppler radar\'s clutter notch exists because…',
+    a: ['The antenna can\'t look down', 'It must reject the enormous zero-Doppler ground return, and a beaming target falls into the same filter', 'Chaff jams the receiver', 'The radar runs out of power at short range'],
+    correct: 1, why: 'Look-down radars filter returns near zero closing velocity to kill ground clutter. Beam the radar and your closure ≈ 0 — you\'re filtered out with the dirt. That\'s the notch.' },
+  { c: 'EW', q: 'Burn-through range is…',
+    a: ['Where the missile motor burns out', 'Where the real echo (∝1/R⁴) finally overpowers the jamming (∝1/R²) as range closes', 'The range a laser destroys the seeker', 'Where chaff stops blooming'],
+    correct: 1, why: 'Skin return strengthens with R⁻⁴ but jamming only R⁻² (one-way), so closing range always favours the radar eventually. Inside burn-through, noise jamming stops protecting you.' },
+  { c: 'EW', q: 'DRFM jammers are dangerous because they…',
+    a: ['Transmit more raw power than anyone else', 'Record the radar\'s own pulse and replay believable false targets / walk the range gate off you (RGPO)', 'Physically blind the seeker head', 'Work even when switched off'],
+    correct: 1, why: 'Digital RF Memory captures the victim radar\'s waveform and re-transmits it with controlled delay/Doppler — creating coherent phantoms and gate-pull-off deception that look real to the radar, unlike crude noise.' },
+  { c: 'EW', q: 'The counter to a noise jammer that a modern missile can employ directly is…',
+    a: ['Bigger fins', 'Home-on-jam — the jam strobe itself becomes the beacon it guides on', 'Flying slower', 'Turning off its seeker'],
+    correct: 1, why: 'A jammer is a bright RF point source. HOJ mode lets the missile guide passively on the jamming itself — jam too loudly, too long, and you\'ve built the missile a lighthouse.' },
+  { c: 'EW', q: 'Chaff is most effective when the target is…',
+    a: ['Hot, head-on at high closure', 'In the notch — the chaff bloom decelerates fast and both fall near zero Doppler together', 'Directly above the radar', 'Supersonic and climbing'],
+    correct: 1, why: 'Chaff blooms then rapidly slows to wind speed. Head-on, radar Doppler easily separates a 400 m/s jet from stationary chaff. In the beam, your Doppler is near zero too — the deception is coherent with your kinematics.' },
+  { c: 'EW', q: 'Flares struggle against imaging-IR (IIR) seekers because…',
+    a: ['Flares are too bright for them', 'An imaging seeker recognises the target\'s shape and trajectory — a point-source fireball with a falling, decelerating track is rejected', 'IIR seekers only see radar energy', 'Flares only work at night'],
+    correct: 1, why: 'IIR seekers image the scene: spatial (shape/size), spectral (flare burns hotter/differently) and kinematic (flares decelerate and fall) discriminants reject classic flares — hence back-to-back modern flare programs + maneuver, and DIRCM lasers.' },
+  // ── SAM / IADS ──
+  { c: 'SAM/IADS', q: 'Why can a 400 km LRSAM fail to engage a jet only 50 km away at low level?',
+    a: ['The missile is too fast to turn', 'The target is below the radar horizon — the radar can\'t see it', 'Low air is too thin for the motor', 'The warhead won\'t arm that close'],
+    correct: 1, why: 'Radar is line-of-sight. A low flyer stays below the curved-earth horizon (a few tens of km for a ground radar) until close — unless an elevated sensor cues the shot over the horizon via datalink.' },
+  { c: 'SAM/IADS', q: 'A vertically-launched SAM steers onto its intercept profile at low speed using…',
+    a: ['Its fins, which work at any speed', 'Thrust-borne lift / TVC — lateral force from the motor while dynamic pressure is still tiny', 'The ground radar pushing it over', 'Gravity alone'],
+    correct: 1, why: 'Off the rail there\'s no airflow for fins to bite. Tilting the thrust vector (jet vanes, TVC, or flying angle-of-attack under thrust) provides the pitch-over force — exactly what the sim\'s autopilot models.' },
+  { c: 'SAM/IADS', q: 'An integrated air defence system (IADS) is layered because…',
+    a: ['One big radar is illegal', 'Each layer covers another\'s weakness: EW radars cue, LRSAMs force you low, SHORAD kills what sneaks under', 'Missiles are cheaper in bulk', 'It looks better on parade'],
+    correct: 1, why: 'The long-range layer denies altitude; flying under it puts you in gun/MANPADS/SHORAD range and terrain risk. The layers + netted sensors turn each system\'s blind spot into another\'s kill zone.' },
+  { c: 'SAM/IADS', q: 'SEAD aircraft "wild weasel" tactics work by…',
+    a: ['Outrunning every SAM', 'Baiting emitters to radiate, then attacking the radar (ARM/standoff) — forcing emission discipline that blinds the IADS', 'Jamming GPS', 'Flying higher than the missiles'],
+    correct: 1, why: 'The duel is sensor vs anti-radiation: if the SAM radiates, it eats a HARM; if it stays silent, it\'s blind and the strike walks past. Decoys (MALD) inflate the picture and drain missiles.' },
+  // ── WVR ──
+  { c: 'WVR', q: 'Corner velocity is…',
+    a: ['The fastest the jet can fly', 'The slowest speed at which you can pull maximum G — where turn rate peaks', 'The speed for minimum fuel burn', 'The landing speed'],
+    correct: 1, why: 'Below corner speed you\'re lift-limited (can\'t reach max G); above it you\'re G-limited and the radius balloons. Best sustained turning happens near corner — the heart of the energy-vs-angles game.' },
+  { c: 'WVR', q: 'Against a HOBS + helmet-sight equipped bandit, the classic advice is…',
+    a: ['Always take the merge — skill decides', 'Avoid the merge: with 90°+ off-boresight shots, entering the visual arena is close to mutual death', 'Fly directly above him', 'Turn off your radar'],
+    correct: 1, why: 'High-off-boresight IR missiles cued by helmet sights can be fired far off the nose in the first second of a merge — both fighters can usually generate a shot. Modern doctrine: win BVR, don\'t donate a merge.' },
+];
+reg('quiz', (node) => {
+  const RUN = 8;   // questions per check-ride
+  let deck = [], idx = 0, score = 0, answered = false, streak = 0;
+  const wrap = el('div', { class: 'wx-quiz' });
+  node.appendChild(wrap);
+  function newDeck() {
+    deck = [...QUIZ].sort(() => Math.random() - 0.5).slice(0, RUN);
+    idx = 0; score = 0; streak = 0; answered = false;
+    render();
+  }
+  function render() {
+    const item = deck[idx];
+    const st = progress.stats();
+    wrap.innerHTML = '';
+    wrap.appendChild(el('div', { class: 'wx-qmeta' },
+      `Q ${idx + 1}/${RUN} · score ${score} · streak ${streak} · best ${st.quizBest}/${RUN} · best streak ${st.streakBest}`));
+    wrap.appendChild(el('div', { class: 'wx-qcat' }, item.c));
+    wrap.appendChild(el('div', { class: 'wx-q' }, item.q));
+    const opts = el('div', { class: 'wx-opts' });
+    item.a.forEach((txt, i) => opts.appendChild(el('button', { class: 'wx-opt', onclick: (e) => choose(i, opts) }, txt)));
+    wrap.appendChild(opts);
+    wrap.appendChild(el('div', { class: 'wx-why', id: 'wx-why' }));
+  }
+  function choose(i, opts) {
+    if (answered) return;
+    answered = true;
+    const item = deck[idx];
+    const ok = i === item.correct;
+    [...opts.children].forEach((b, j) => {
+      b.classList.add(j === item.correct ? 'correct' : (j === i ? 'wrong' : 'dim'));
+      b.disabled = true;
+    });
+    if (ok) { score++; streak++; progress.addXP(10 + Math.min(streak - 1, 5) * 2); } else streak = 0;
+    progress.bumpStreak(ok);
+    const why = wrap.querySelector('#wx-why');
+    why.innerHTML = `<b style="color:${ok ? COL.green : COL.red}">${ok ? '✓ Correct. +XP' : '✗ Not quite.'}</b> ${item.why}`;
+    const last = idx === RUN - 1;
+    if (last) { progress.quizResult(score, RUN); if (score === RUN) progress.addXP(50); }
+    const next = el('button', { class: 'wx-btn', style: 'margin-top:10px',
+      onclick: () => { answered = false; if (last) newDeck(); else { idx++; render(); } } },
+      last ? `Finish — ${score}/${RUN} · ↻ new check-ride` : 'Next question →');
+    why.appendChild(el('div', {}, next));
+    if (last) {
+      const verdict = score >= 7 ? 'WEAPONS-SCHOOL STANDARD. Outstanding.' : score >= 5 ? 'Solid — review the missed topics and refly.' : 'Back to the books, then refly the check-ride.';
+      why.appendChild(el('div', { class: 'wx-line', style: 'margin-top:8px;color:' + (score >= 5 ? COL.green : COL.amber) },
+        `Check-ride complete: ${score}/${RUN}. ${verdict} (Your rank on the Learn header updates with your best score and sections read.)`));
+    }
+  }
+  newDeck();
+  return () => {};
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  7 · RADAR EQUATION EXPLORER — why stealth works
+// ─────────────────────────────────────────────────────────────────────────────
+reg('radareq', (node) => {
+  const _V = makeCanvas(node, 240); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' });
+  node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  let pwr = 50, rcsExp = 0.7;   // rcs = 10^x, x in [-4, 2]
+  const s1 = slider('Radar power (rel)', 10, 100, 5, pwr, v => { pwr = v; draw(); });
+  const s2 = slider('Target RCS 10^x m²', -4, 2, 0.1, rcsExp, v => { rcsExp = v; draw(); });
+  controls.append(s1.row, s2.row);
+  const R0 = 160;   // km detection at pwr 50 vs 5 m²
+  function draw() {
+    const rcs = 10 ** rcsExp;
+    const rdet = R0 * ((pwr / 50) * (rcs / 5)) ** 0.25;
+    g.clearRect(0, 0, _V.w, _V.h);
+    const cx = 90, cy = _V.h / 2, pxPerKm = (_V.w - 140) / 220;
+    // reference ring (5 m² fighter) and current ring
+    ring(g, cx, cy, R0 * ((pwr / 50)) ** 0.25 * pxPerKm, 'rgba(147,172,203,.35)', '5 m² ref');
+    ring(g, cx, cy, rdet * pxPerKm, COL.amber, null, true);
+    g.fillStyle = COL.blue; g.shadowColor = COL.blue; g.shadowBlur = 8;
+    g.beginPath(); g.arc(cx, cy, 5, 0, 7); g.fill(); g.shadowBlur = 0;
+    g.fillStyle = COL.blue; g.font = '9px "Share Tech Mono"'; g.fillText('RADAR', cx - 16, cy + 18);
+    // targets legend
+    const cls = rcs <= 0.001 ? ['VLO STEALTH (F-22 class)', COL.green]
+      : rcs <= 0.1 ? ['LO / reduced (F-35, Rafale-class front)', COL.green]
+      : rcs <= 6 ? ['FIGHTER', COL.amber] : ['BOMBER / TANKER', COL.red];
+    read.innerHTML =
+      `<div class="wx-line">σ = <b style="color:${COL.amber}">${rcs < 0.01 ? rcs.toExponential(1) : R(rcs, 2)} m²</b> (${cls[0]})` +
+      ` &nbsp;→&nbsp; detection range <b style="color:${COL.amber}">${R(rdet)} km</b></div>` +
+      `<div class="wx-hint">R<sub>detect</sub> ∝ (P·σ)<sup>¼</sup> — the brutal fourth root. Cutting RCS from 5 m² to ` +
+      `0.0005 m² (10,000×) only shrinks detection 10× — but that 10× collapses the enemy's entire timeline: he detects, sorts and ` +
+      `shoots you a hundred kilometres later than you shoot him. Notice power is also under the fourth root: doubling radar ` +
+      `power buys only 19% more range. Stealth beats wattage.</div>`;
+  }
+  function ring(g, x, y, r, color, label, glow) {
+    g.strokeStyle = color; g.lineWidth = glow ? 2 : 1.2;
+    if (glow) { g.shadowColor = color; g.shadowBlur = 8; }
+    g.beginPath(); g.arc(x, y, Math.max(r, 4), 0, 7); g.stroke(); g.shadowBlur = 0;
+    if (label) { g.fillStyle = color; g.font = '9px "Share Tech Mono"'; g.fillText(label, x + Math.max(r, 4) * 0.72, y - Math.max(r, 4) * 0.72); }
+  }
+  _V.redraw = draw;
+  const onResize = () => { fit(); draw(); };
+  window.addEventListener('resize', onResize);
+  draw();
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  8 · JAMMING — J/S RATIO & BURN-THROUGH
+// ─────────────────────────────────────────────────────────────────────────────
+reg('jammer', (node) => {
+  const _V = makeCanvas(node, 260); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' });
+  node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  let erp = 40, rcsExp = 0.7, rng = 80;   // jammer power, rcs exp, current range km
+  const s1 = slider('Jammer power ERP (rel)', 5, 100, 5, erp, v => { erp = v; draw(); });
+  const s2 = slider('Your RCS 10^x m²', -3, 1.5, 0.1, rcsExp, v => { rcsExp = v; draw(); });
+  const s3 = slider('Range to radar (km)', 5, 150, 1, rng, v => { rng = v; draw(); });
+  controls.append(s1.row, s2.row, s3.row);
+  function draw() {
+    const rcs = 10 ** rcsExp;
+    // relative received powers at the radar: skin ∝ σ/R⁴ ; jam ∝ ERP/R²
+    const skin = (R_) => 3e7 * rcs / R_ ** 4;
+    const jam = (R_) => 12 * erp / R_ ** 2;
+    const rBT = Math.sqrt(Math.sqrt(3e7 * rcs / (12 * erp)) ** 2);   // where skin = jam → R² = σk/ERPk
+    const rBurn = Math.sqrt(3e7 * rcs / (12 * erp)) ** 0.5 * 1;      // solve R^2 = 3e7σ/(12·ERP) → R = (…)^(1/2)
+    const rbt = Math.sqrt(3e7 * rcs / (12 * erp));
+    const RBT = Math.sqrt(rbt);
+    g.clearRect(0, 0, _V.w, _V.h);
+    const padL = 46, padB = 24, x0 = padL, x1 = _V.w - 14, y0 = 16, y1 = _V.h - padB;
+    const X = (km) => x0 + ((km - 5) / 145) * (x1 - x0);
+    const Y = (db) => y1 - ((db + 40) / 110) * (y1 - y0);   // dB scale -40..70
+    const dB = (v) => 10 * Math.log10(Math.max(v, 1e-9));
+    // axes + grid
+    g.strokeStyle = COL.grid; g.lineWidth = 1; g.font = '9px "Share Tech Mono"'; g.fillStyle = COL.faint;
+    for (let d = -40; d <= 70; d += 20) { g.beginPath(); g.moveTo(x0, Y(d)); g.lineTo(x1, Y(d)); g.stroke(); g.fillText(d + 'dB', 6, Y(d) + 3); }
+    for (let km = 25; km <= 150; km += 25) { g.fillText(km + '', X(km) - 8, _V.h - 8); }
+    // curves
+    curve(g, X, Y, dB, skin, COL.amber); curve(g, X, Y, dB, jam, COL.red);
+    g.fillStyle = COL.amber; g.fillText('SKIN ECHO ∝ σ/R⁴', x0 + 8, Y(dB(skin(140))) - 18);
+    g.fillStyle = COL.red; g.fillText('JAMMING ∝ ERP/R²', x1 - 130, Y(dB(jam(140))) - 8);
+    // burn-through marker
+    if (RBT > 5 && RBT < 150) {
+      g.strokeStyle = COL.green; g.setLineDash([4, 4]); g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(X(RBT), y0); g.lineTo(X(RBT), y1); g.stroke(); g.setLineDash([]);
+      g.fillStyle = COL.green; g.fillText('BURN-THROUGH', X(RBT) - 34, y0 + 10);
+    }
+    // current range marker
+    const jammed = jam(rng) > skin(rng);
+    g.strokeStyle = COL.ink; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(X(rng), y0); g.lineTo(X(rng), y1); g.stroke();
+    const js = dB(jam(rng)) - dB(skin(rng));
+    read.innerHTML =
+      `<div class="wx-line">J/S at ${R(rng)} km: <b style="color:${COL.amber}">${R(js, 1)} dB</b> · burn-through ≈ ` +
+      `<b style="color:${COL.green}">${RBT < 5 ? '&lt;5' : RBT > 150 ? '&gt;150' : R(RBT)} km</b></div>` +
+      `<div class="wx-big" style="color:${jammed ? COL.red : COL.green}">${jammed ? 'RADAR JAMMED (J > S)' : 'BURNED THROUGH (S > J)'}</div>` +
+      `<div class="wx-hint">Your skin echo makes a two-way trip (∝1/R⁴); the jammer's noise only one way (∝1/R²). ` +
+      `Closing range therefore always favours the radar — the crossover is <b>burn-through</b>. Bigger RCS moves it out ` +
+      `(more to hide), more jammer power moves it in. This is why noise jamming buys <i>time and ambiguity</i>, never immunity — ` +
+      `and why a jammer that keeps radiating inside burn-through has become a <b>home-on-jam beacon</b>.</div>`;
+  }
+  function curve(g, X, Y, dB, f, color) {
+    g.strokeStyle = color; g.lineWidth = 2; g.shadowColor = color; g.shadowBlur = 5; g.beginPath();
+    for (let km = 5; km <= 150; km += 2) { const x = X(km), y = Y(dB(f(km))); km === 5 ? g.moveTo(x, y) : g.lineTo(x, y); }
+    g.stroke(); g.shadowBlur = 0;
+  }
+  _V.redraw = draw;
+  const onResize = () => { fit(); draw(); };
+  window.addEventListener('resize', onResize);
+  draw();
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  9 · FLARE FIGHT — dispense-timing mini-game
+// ─────────────────────────────────────────────────────────────────────────────
+reg('flarefight', (node) => {
+  const _V = makeCanvas(node, 260); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' });
+  node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  let seekerType = 'ir', state;
+  const sel = el('select', { class: 'wx-sel', onchange: (e) => { seekerType = e.target.value; reset(); } }, [
+    el('option', { value: 'ir' }, 'IR seeker (AIM-9M class)'),
+    el('option', { value: 'iir' }, 'Imaging IR (AIM-9X / IRIS-T class)')]);
+  const dispenseBtn = el('button', { class: 'wx-btn', onclick: () => dispense() }, '☀ DISPENSE ×2 (8 carried)');
+  const resetBtn = el('button', { class: 'wx-btn', onclick: () => reset() }, '↻ New attack');
+  controls.append(el('label', { class: 'wx-chk' }, [el('span', {}, 'Threat: '), sel]), dispenseBtn, resetBtn);
+  function reset() {
+    state = { t: 0, msl: { x: 30, y: 60 }, jet: { x: _V.w - 60, y: _V.h / 2 }, flares: [],
+              flaresLeft: 8, tracking: 'jet', done: false, result: null,
+              wins: state ? state.wins : 0, tries: state ? state.tries : 0 };
+    dispenseBtn.disabled = false;
+    updateBtn();
+  }
+  function updateBtn() { dispenseBtn.textContent = `☀ DISPENSE ×2 (${state.flaresLeft} carried)`; }
+  function dispense() {
+    if (state.done || state.flaresLeft <= 0) return;
+    for (let k = 0; k < 2 && state.flaresLeft > 0; k++) {
+      state.flaresLeft--;
+      const f = { x: state.jet.x - 8, y: state.jet.y + 4, vx: -40 - 30 * Math.random(), vy: 30 + 40 * Math.random(), age: 0 };
+      state.flares.push(f);
+      // seduction check at release: distance-weighted
+      const p = seekerType === 'ir' ? 0.42 : 0.07;
+      if (state.tracking === 'jet' && Math.random() < p) state.tracking = f;
+    }
+    updateBtn();
+  }
+  reset();
+  let last = performance.now();
+  const stop = frame((now) => {
+    const dt = Math.min((now - last) / 1000, 0.05); last = now;
+    step(dt); render();
+  });
+  function step(dt) {
+    if (state.done) return;
+    state.t += dt;
+    // jet flies gentle weave
+    state.jet.y = _V.h / 2 + Math.sin(state.t * 1.2) * 34;
+    // flares fall & decelerate & burn out
+    state.flares.forEach(f => { f.age += dt; f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= 0.985; f.vy += 25 * dt; });
+    state.flares = state.flares.filter(f => f.age < 4.2);
+    if (state.tracking !== 'jet' && (!state.flares.includes(state.tracking))) {
+      // flare burned out: IIR re-acquires jet almost always, IR sometimes stays lost then re-locks
+      state.tracking = 'jet';
+    }
+    // missile homes on whatever it tracks (simple pursuit for the demo)
+    const tgt = state.tracking === 'jet' ? state.jet : state.tracking;
+    const dx = tgt.x - state.msl.x, dy = tgt.y - state.msl.y, d = Math.hypot(dx, dy) || 1;
+    const sp = 150;
+    state.msl.x += sp * dx / d * dt * 1.6; state.msl.y += sp * dy / d * dt * 1.6;
+    // outcomes
+    if (Math.hypot(state.jet.x - state.msl.x, state.jet.y - state.msl.y) < 13) {
+      state.done = true; state.result = 'HIT'; state.tries++;
+    } else if (state.tracking !== 'jet' && Math.hypot(tgt.x - state.msl.x, tgt.y - state.msl.y) < 10) {
+      state.done = true; state.result = 'DECOYED'; state.wins++; state.tries++;
+    } else if (state.msl.x > _V.w + 20) {
+      state.done = true; state.result = 'MISSED'; state.wins++; state.tries++;
+    }
+  }
+  function render() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    // jet
+    drawJet(g, state.jet.x, state.jet.y, Math.PI / 2, COL.blue, 'YOU');
+    // flares
+    state.flares.forEach(f => {
+      const a = Math.max(0, 1 - f.age / 4.2);
+      g.fillStyle = `rgba(255,${140 + 60 * a},40,${0.5 + 0.5 * a})`; g.shadowColor = '#ffb000'; g.shadowBlur = 10 * a;
+      g.beginPath(); g.arc(f.x, f.y, 3 + 2 * a, 0, 7); g.fill(); g.shadowBlur = 0;
+    });
+    // missile + track line
+    const tgt = state.tracking === 'jet' ? state.jet : state.tracking;
+    g.strokeStyle = state.tracking === 'jet' ? 'rgba(255,61,0,.5)' : 'rgba(255,176,0,.6)';
+    g.setLineDash([4, 4]); g.beginPath(); g.moveTo(state.msl.x, state.msl.y); g.lineTo(tgt.x, tgt.y); g.stroke(); g.setLineDash([]);
+    dot(g, state.msl.x, state.msl.y, COL.red, 'MSL');
+    g.fillStyle = COL.faint; g.font = '9px "Share Tech Mono"';
+    g.fillText(`seeker: ${seekerType.toUpperCase()} · tracking: ${state.tracking === 'jet' ? 'YOU' : 'FLARE'}`, 12, 16);
+    if (state.done) {
+      const win = state.result !== 'HIT';
+      g.fillStyle = win ? COL.green : COL.red; g.font = 'bold 18px "Share Tech Mono"';
+      g.fillText(state.result === 'HIT' ? '✗ HIT — you\'re dead' : state.result === 'DECOYED' ? '✓ SEEKER TOOK THE FLARE' : '✓ MISSED', _V.w / 2 - 90, _V.h / 2);
+    }
+    read.innerHTML =
+      `<div class="wx-line">Survived <b style="color:${COL.green}">${state.wins}</b> of <b>${state.tries}</b> attacks</div>` +
+      `<div class="wx-hint">Time your flares: each pair has a chance to seduce the seeker <i>while it can see them near you</i> — ` +
+      `dispense too early and they burn out before the endgame; too late and the missile is inside your miss distance. ` +
+      `Switch to the <b>imaging-IR</b> threat and feel the difference: shape/kinematic discrimination rejects almost every flare — ` +
+      `against modern IIR your real defences are pre-emptive programs, hard maneuver at the right second, and DIRCM.</div>`;
+  }
+  const onResize = () => { fit(); };
+  window.addEventListener('resize', onResize);
+  return () => { stop(); window.removeEventListener('resize', onResize); };
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  10 · DOGHOUSE — turn rate / radius vs speed (corner velocity)
+// ─────────────────────────────────────────────────────────────────────────────
+reg('doghouse', (node) => {
+  const _V = makeCanvas(node, 260); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' });
+  node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  let spd = 200, gmax = 9;
+  const s1 = slider('Your speed (m/s)', 80, 420, 5, spd, v => { spd = v; draw(); });
+  const s2 = slider('G limit', 4, 12, 0.5, gmax, v => { gmax = v; draw(); });
+  controls.append(s1.row, s2.row);
+  const G0 = 9.80665, VCORN = (gm) => 120 * Math.sqrt(gm / 9);   // stall-limited: n = (V/Vs)², Vs≈40·..; corner where n=gmax
+  function nAvail(v, gm) { const vs = 62; return Math.min(gm, (v / vs) ** 2); }
+  function rate(v, gm) { const n = nAvail(v, gm); return n <= 1 ? 0 : G0 * Math.sqrt(n * n - 1) / v * 180 / Math.PI; }
+  function radius(v, gm) { const n = nAvail(v, gm); return n <= 1 ? Infinity : v * v / (G0 * Math.sqrt(n * n - 1)); }
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const x0 = 46, x1 = _V.w - 14, y0 = 14, y1 = _V.h - 26;
+    const X = (v) => x0 + ((v - 80) / 340) * (x1 - x0);
+    const maxRate = 28;
+    const Y = (r) => y1 - (r / maxRate) * (y1 - y0);
+    g.strokeStyle = COL.grid; g.font = '9px "Share Tech Mono"'; g.fillStyle = COL.faint;
+    for (let r = 0; r <= maxRate; r += 7) { g.beginPath(); g.moveTo(x0, Y(r)); g.lineTo(x1, Y(r)); g.stroke(); g.fillText(r + '°/s', 6, Y(r) + 3); }
+    for (let v = 100; v <= 400; v += 100) g.fillText(v + '', X(v) - 10, _V.h - 8);
+    // the doghouse top: rate vs speed
+    g.strokeStyle = COL.blue; g.lineWidth = 2; g.shadowColor = COL.blue; g.shadowBlur = 5; g.beginPath();
+    for (let v = 80; v <= 420; v += 4) { const x = X(v), y = Y(rate(v, gmax)); v === 80 ? g.moveTo(x, y) : g.lineTo(x, y); }
+    g.stroke(); g.shadowBlur = 0;
+    // corner velocity marker (peak of the curve)
+    let vc = 80, best = 0;
+    for (let v = 80; v <= 420; v += 2) { const r = rate(v, gmax); if (r > best) { best = r; vc = v; } }
+    g.strokeStyle = COL.green; g.setLineDash([4, 4]);
+    g.beginPath(); g.moveTo(X(vc), y0); g.lineTo(X(vc), y1); g.stroke(); g.setLineDash([]);
+    g.fillStyle = COL.green; g.fillText('CORNER ' + vc + ' m/s', X(vc) - 30, y0 + 10);
+    // your point
+    const yr = rate(spd, gmax), yd = radius(spd, gmax);
+    g.fillStyle = COL.amber; g.shadowColor = COL.amber; g.shadowBlur = 8;
+    g.beginPath(); g.arc(X(spd), Y(yr), 5, 0, 7); g.fill(); g.shadowBlur = 0;
+    const region = spd < vc - 8 ? ['LIFT-LIMITED', 'below corner: pulling to the buffet, can\'t reach max G — rate AND radius both suffer']
+      : spd > vc + 8 ? ['G-LIMITED', 'above corner: you have the G but the radius balloons with V² — you turn like a bus']
+      : ['AT CORNER', 'maximum instantaneous turn rate — the knife-fight speed'];
+    read.innerHTML =
+      `<div class="wx-line">At <b style="color:${COL.amber}">${spd} m/s</b>: turn rate <b style="color:${COL.blue}">${R(yr, 1)}°/s</b>, ` +
+      `radius <b style="color:${COL.blue}">${yd === Infinity ? '∞' : R(yd) + ' m'}</b> — <b style="color:${COL.green}">${region[0]}</b></div>` +
+      `<div class="wx-hint">${region[1]}. Rate ω = g·√(n²−1)/V and radius R = V²/(g·√(n²−1)) — the two sides of every dogfight ` +
+      `decision. Energy fighters (fast wings, thrust) fight in the G-limited region and dictate range; angles fighters slow toward ` +
+      `corner to point first. Missiles obey the same math — which is why arriving fast (dual-pulse/ramjet) at the endgame matters.</div>`;
+  }
+  _V.redraw = draw;
+  const onResize = () => { fit(); draw(); };
+  window.addEventListener('resize', onResize);
+  draw();
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  11 · MOTOR RACE — boost-sustain vs dual-pulse vs ramjet Mach profiles
+// ─────────────────────────────────────────────────────────────────────────────
+reg('motorrace', (node) => {
+  const _V = makeCanvas(node, 250); const { cv, g, fit } = _V;
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  // hand-shaped but physics-faithful Mach(t) profiles over an 80 s / ~80 km shot
+  const T = 80;
+  const prof = {
+    'BOOST-SUSTAIN': { c: COL.amber, f: (t) => t < 3 ? 1 + t : t < 10 ? 4 + 0.05 * (t - 3) : Math.max(0.8, 4.3 - 0.055 * (t - 10) - 0.0006 * (t - 10) ** 2) },
+    'DUAL-PULSE': { c: COL.green, f: (t) => t < 3 ? 1 + t : t < 22 ? Math.max(1.6, 4 - 0.07 * (t - 3)) : t < 27 ? 2.7 + 0.34 * (t - 22) : Math.max(1.0, 4.4 - 0.05 * (t - 27)) },
+    'RAMJET': { c: COL.blue, f: (t) => t < 2 ? 1 + 0.9 * t : t < 5 ? 2.8 + 0.3 * (t - 2) : t < 60 ? 3.7 : Math.max(0.9, 3.7 - 0.06 * (t - 60)) },
+  };
+  let t = 0, last = performance.now();
+  const stop = frame((now) => {
+    const dt = Math.min((now - last) / 1000, 0.05); last = now;
+    t = (t + dt * 8) % (T + 12);
+    draw();
+  });
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const x0 = 44, x1 = _V.w - 12, y0 = 14, y1 = _V.h - 24;
+    const X = (tt) => x0 + (tt / T) * (x1 - x0);
+    const Y = (m) => y1 - (m / 5) * (y1 - y0);
+    g.strokeStyle = COL.grid; g.font = '9px "Share Tech Mono"'; g.fillStyle = COL.faint;
+    for (let m = 0; m <= 5; m++) { g.beginPath(); g.moveTo(x0, Y(m)); g.lineTo(x1, Y(m)); g.stroke(); g.fillText('M' + m, 8, Y(m) + 3); }
+    for (let s = 0; s <= T; s += 20) g.fillText(s + 's', X(s) - 8, _V.h - 8);
+    const tNow = Math.min(t, T);
+    let iy = 16;
+    for (const [name, p] of Object.entries(prof)) {
+      g.strokeStyle = p.c; g.lineWidth = 2; g.shadowColor = p.c; g.shadowBlur = 4; g.beginPath();
+      for (let s = 0; s <= tNow; s += 0.6) { const x = X(s), y = Y(p.f(s)); s === 0 ? g.moveTo(x, y) : g.lineTo(x, y); }
+      g.stroke(); g.shadowBlur = 0;
+      g.fillStyle = p.c; g.beginPath(); g.arc(X(tNow), Y(p.f(tNow)), 3.5, 0, 7); g.fill();
+      g.fillText(name, x1 - 96, iy); iy += 12;
+    }
+    // playhead + endgame shading
+    g.fillStyle = 'rgba(255,61,0,.08)'; g.fillRect(X(60), y0, x1 - X(60), y1 - y0);
+    g.fillStyle = COL.red; g.fillText('ENDGAME', X(62), y0 + 10);
+  }
+  read.innerHTML =
+    `<div class="wx-hint">The same shot, three motors. <b style="color:${COL.amber}">Boost-sustain</b> peaks early then bleeds for a ` +
+    `minute — a defender just waits it out. <b style="color:${COL.green}">Dual-pulse</b> saves a grain and re-lights right before the ` +
+    `endgame (the second hump) — energy exactly when the terminal fight starts. <b style="color:${COL.blue}">Ramjet</b> throttles ` +
+    `fuel to hold cruise Mach the whole way — still under power in the red endgame band, the biggest no-escape zone of all. ` +
+    `Fire the PL-15 and Meteor in the sim and find these exact shapes on the Mach chart.</div>`;
+  const onResize = () => { fit(); };
+  window.addEventListener('resize', onResize);
+  return () => { stop(); window.removeEventListener('resize', onResize); };
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  12 · LAYERED IADS vs INGRESS ALTITUDE
+// ─────────────────────────────────────────────────────────────────────────────
+reg('iads', (node) => {
+  const _V = makeCanvas(node, 280); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' });
+  node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  let alt = 6000;
+  const s1 = slider('Your ingress altitude (m)', 30, 12000, 30, alt, v => { alt = v; draw(); });
+  controls.append(s1.row);
+  const LAYERS = [
+    { name: 'EW / SURVEILLANCE RADAR', nom: 400, h: 40, c: 'rgba(147,172,203,.5)' },
+    { name: 'LRSAM (40N6/48N6 class)', nom: 250, h: 30, c: COL.red },
+    { name: 'MRSAM (9M96/PAC-3 class)', nom: 100, h: 25, c: COL.amber },
+    { name: 'SHORAD (Tor/gun class)', nom: 15, h: 12, c: COL.green },
+  ];
+  const horizon = (h1, h2) => 4.12 * (Math.sqrt(Math.max(h1, 0)) + Math.sqrt(Math.max(h2, 0)));
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const cx = _V.w / 2, cy = _V.h / 2 + 10, pxPerKm = Math.min(_V.w, 2 * (_V.h - 40)) / 2 / 420;
+    let rows = [];
+    LAYERS.forEach((L, i) => {
+      const eff = Math.min(L.nom, horizon(L.h, alt));
+      rows.push({ ...L, eff });
+      // nominal (ghost) + effective ring
+      g.strokeStyle = 'rgba(147,172,203,.18)'; g.lineWidth = 1; g.setLineDash([3, 5]);
+      g.beginPath(); g.arc(cx, cy, L.nom * pxPerKm, 0, 7); g.stroke(); g.setLineDash([]);
+      g.strokeStyle = L.c; g.lineWidth = i === 0 ? 1.2 : 2;
+      if (i > 0) { g.shadowColor = L.c; g.shadowBlur = 6; }
+      g.beginPath(); g.arc(cx, cy, Math.max(eff * pxPerKm, 3), 0, 7); g.stroke(); g.shadowBlur = 0;
+    });
+    g.fillStyle = COL.red; g.beginPath(); g.arc(cx, cy, 4, 0, 7); g.fill();
+    g.fillStyle = COL.faint; g.font = '9px "Share Tech Mono"'; g.fillText('SAM COMPLEX', cx + 8, cy + 3);
+    const list = rows.map(r =>
+      `<div class="wx-line" style="display:flex;justify-content:space-between"><span style="color:${r.c}">${r.name}</span>` +
+      `<span>nominal <b>${r.nom}</b> km → at your altitude <b style="color:${r.eff < r.nom * 0.5 ? COL.green : COL.amber}">${R(r.eff)}</b> km</span></div>`).join('');
+    read.innerHTML = list +
+      `<div class="wx-hint">Dashed rings are brochure ranges; glowing rings are what the radar horizon actually allows against ` +
+      `you at ${R(alt)} m. Fly low and the giant rings collapse — but notice what's waiting under them: the SHORAD ring barely ` +
+      `shrinks, terrain and guns join in, and you've traded missile risk for a knife-fight at 100 ft. That trade — and elevated ` +
+      `sensors (AWACS, aerostats) restoring the big rings — is the entire game of strike planning against an IADS.</div>`;
+  }
+  _V.redraw = draw;
+  const onResize = () => { fit(); draw(); };
+  window.addEventListener('resize', onResize);
+  draw();
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  13 · BVR TIMELINE PLAYER — the engagement sequence, animated & scrubbable
+// ─────────────────────────────────────────────────────────────────────────────
+reg('timeline_play', (node) => {
+  const _V = makeCanvas(node, 200); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' });
+  node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  // events keyed to shooter→target range (km), inbound (range shrinks left→right)
+  const EV = [
+    { r: 80, t: 'COMMIT', c: COL.blue, d: 'Decide to fight — lock the picture, sort who takes whom.' },
+    { r: 65, t: 'FOX-3 (launch)', c: COL.amber, d: 'Active-radar missile away; it flies midcourse on your datalink.' },
+    { r: 52, t: 'CRANK', c: COL.green, d: 'Turn to the gimbal edge — keep guiding while opening range.' },
+    { r: 30, t: 'PITBULL', c: COL.red, d: 'Missile seeker active — it homes on its own. You are free (A-pole).' },
+    { r: 24, t: 'MAR — ABORT?', c: COL.amber, d: 'Your abort line: turn cold now or accept the merge.' },
+    { r: 8, t: 'MERGE', c: COL.red, d: 'Visual arena — WVR rules, HOBS shots, the vertical.' },
+  ];
+  let play = true, rng = 90, dir = -1;
+  const btn = el('button', { class: 'wx-btn', onclick: () => { play = !play; btn.textContent = play ? '❚❚ Pause' : '▶ Play'; } }, '❚❚ Pause');
+  const s1 = slider('Range to bandit (km)', 4, 90, 1, rng, v => { rng = v; play = false; btn.textContent = '▶ Play'; draw(); });
+  controls.append(btn, s1.row);
+  let last = performance.now();
+  const stop = frame((now) => {
+    const dt = Math.min((now - last) / 1000, 0.05); last = now;
+    if (play) { rng += dir * 14 * dt; if (rng <= 4) { rng = 90; } s1.input.value = rng; s1.out.textContent = Math.round(rng); }
+    draw();
+  });
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const x0 = 20, x1 = _V.w - 20, y = 96;
+    const X = (r) => x1 - (r / 90) * (x1 - x0);     // far left, close right
+    // baseline
+    g.strokeStyle = COL.grid; g.lineWidth = 2; g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
+    g.fillStyle = COL.faint; g.font = '9px "Share Tech Mono"';
+    g.fillText('90 km', x0 - 4, y + 26); g.fillText('MERGE', x1 - 30, y + 26);
+    // zones: NEZ shading inside MAR
+    g.fillStyle = 'rgba(255,61,0,.08)'; g.fillRect(X(24), y - 30, X(0) - X(24), 60);
+    // event ticks
+    EV.forEach(e => {
+      const x = X(e.r), passed = rng <= e.r;
+      g.strokeStyle = e.c; g.globalAlpha = passed ? 1 : 0.4; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(x, y - 14); g.lineTo(x, y + 14); g.stroke();
+      g.fillStyle = e.c; g.save(); g.translate(x, y - 20); g.rotate(-Math.PI / 5);
+      g.font = '8.5px "Share Tech Mono"'; g.fillText(e.t, 0, 0); g.restore();
+      g.globalAlpha = 1;
+    });
+    // playhead (your jet closing)
+    const px = X(rng);
+    g.fillStyle = COL.ink; g.shadowColor = COL.ink; g.shadowBlur = 8;
+    g.beginPath(); g.moveTo(px, y + 16); g.lineTo(px - 5, y + 26); g.lineTo(px + 5, y + 26); g.closePath(); g.fill(); g.shadowBlur = 0;
+    // current phase
+    let cur = EV[0];
+    for (const e of EV) if (rng <= e.r) cur = e;
+    read.innerHTML =
+      `<div class="wx-big" style="color:${cur.c}">${Math.round(rng)} km — ${cur.t}</div>` +
+      `<div class="wx-line">${cur.d}</div>` +
+      `<div class="wx-hint">This is the BVR <b>timeline</b>: a scripted sequence of decision ranges, each a one-word radio ` +
+      `call so a four-ship fights as one brain. Scrub the range and watch the game plan unfold. The red band is the no-escape ` +
+      `zone inside <b>MAR</b> — a SKATE game plan keeps you left of it; BANZAI accepts the merge. Numbers like these come from ` +
+      `the <a data-goto="mar">Tactical-AI kneeboard</a> for your exact weapon.</div>`;
+  }
+  const onResize = () => { fit(); };
+  window.addEventListener('resize', onResize);
+  return () => { stop(); window.removeEventListener('resize', onResize); };
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  14 · KILL-CHAIN RACE — F2T2EA / OODA, "who finishes first wins"
+// ─────────────────────────────────────────────────────────────────────────────
+reg('killchain', (node) => {
+  const _V = makeCanvas(node, 220); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' });
+  node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  const STEPS = ['DETECT', 'TRACK', 'IDENTIFY', 'ENGAGE', 'LAUNCH'];
+  let blueRcs = 0.01, redRcs = 5, running = true;
+  const s1 = slider('YOUR RCS 10^x m²', -4, 1, 0.2, Math.log10(blueRcs), v => { blueRcs = 10 ** v; reset(); });
+  const s2 = slider('THEIR RCS 10^x m²', -4, 1, 0.2, Math.log10(redRcs), v => { redRcs = 10 ** v; reset(); });
+  const btn = el('button', { class: 'wx-btn', onclick: () => reset() }, '↻ Race again');
+  controls.append(s1.row, s2.row, btn);
+  let blue, red, t0, winner;
+  function reset() {
+    // detection range ∝ σ^0.25 ; the side that detects first gets a head start
+    const bDet = 200 * (redRcs / 5) ** 0.25;   // YOU detect THEM (their rcs)
+    const rDet = 200 * (blueRcs / 5) ** 0.25;  // THEY detect YOU (your rcs)
+    // closure ~ constant; time-to-complete-chain ∝ 1/detection-lead
+    blue = { prog: 0, rate: 0.10 * (bDet / 120), det: bDet };
+    red = { prog: 0, rate: 0.10 * (rDet / 120), det: rDet };
+    t0 = performance.now(); winner = null;
+  }
+  reset();
+  let last = performance.now();
+  const stop = frame((now) => {
+    const dt = Math.min((now - last) / 1000, 0.05); last = now;
+    if (!winner) {
+      blue.prog = Math.min(1, blue.prog + blue.rate * dt);
+      red.prog = Math.min(1, red.prog + red.rate * dt);
+      if (blue.prog >= 1) winner = 'BLUE';
+      else if (red.prog >= 1) winner = 'RED';
+    }
+    draw();
+  });
+  function bar(y, prog, color, label, det) {
+    const x0 = 90, x1 = _V.w - 20, w = x1 - x0;
+    g.fillStyle = COL.faint; g.font = '10px "Share Tech Mono"'; g.fillText(label, 12, y + 4);
+    g.fillText(Math.round(det) + ' km', 12, y + 17);
+    g.strokeStyle = COL.grid; g.strokeRect(x0, y - 8, w, 18);
+    // step ticks
+    for (let i = 1; i < STEPS.length; i++) { const x = x0 + w * i / STEPS.length; g.strokeStyle = 'rgba(78,128,178,.25)'; g.beginPath(); g.moveTo(x, y - 8); g.lineTo(x, y + 10); g.stroke(); }
+    g.fillStyle = color; g.shadowColor = color; g.shadowBlur = 6; g.fillRect(x0, y - 8, w * prog, 18); g.shadowBlur = 0;
+    // current step label
+    const si = Math.min(STEPS.length - 1, Math.floor(prog * STEPS.length));
+    g.fillStyle = '#04121f'; g.font = 'bold 9px "Share Tech Mono"';
+    if (prog > 0.06) g.fillText(STEPS[si], x0 + 6, y + 4);
+  }
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    g.fillStyle = COL.dim; g.font = '9px "Share Tech Mono"';
+    g.fillText('KILL CHAIN: DETECT → TRACK → IDENTIFY → ENGAGE → LAUNCH', 12, 18);
+    bar(70, blue.prog, COL.blue, 'YOU', blue.det);
+    bar(120, red.prog, COL.red, 'THREAT', red.det);
+    if (winner) {
+      g.fillStyle = winner === 'BLUE' ? COL.green : COL.red; g.font = 'bold 16px "Share Tech Mono"';
+      g.fillText(winner === 'BLUE' ? '✓ YOU SHOOT FIRST' : '✗ HE SHOOTS FIRST', _V.w / 2 - 90, 175);
+    }
+    read.innerHTML =
+      `<div class="wx-hint">The <b>kill chain</b> (military <b>F2T2EA</b>, or Boyd's <b>OODA loop</b>): detect → track → ` +
+      `identify → engage → launch. Whoever completes it first usually wins — often before the merge. Detection range ` +
+      `∝ RCS<sup>¼</sup>, so shrink <b>your</b> RCS and you complete the chain a hundred kilometres before he even ` +
+      `<i>detects</i> you. That head start is what <a data-goto="modern">stealth, AESA and networking</a> all buy: not ` +
+      `invulnerability, but <b>finishing the loop faster</b> — or breaking his (jamming, IRST-passive, emission control).</div>`;
+  }
+  const onResize = () => { fit(); };
+  window.addEventListener('resize', onResize);
+  return () => { stop(); window.removeEventListener('resize', onResize); };
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  15 · TACTICAL DECISION CHALLENGE — applied "what would you do" scenarios (XP)
+// ─────────────────────────────────────────────────────────────────────────────
+const CHALLENGES = [
+  { id: 'ch_abort', pic: 'You: 9 km alt, 300 m/s, hot. Bandit: FOX-3 AMRAAM launched at 55 km. Your MAR here is ~35 km.',
+    q: 'The missile is midcourse, still ~50 km out. Best move?',
+    a: ['Press for your own shot — you have time', 'Abort now: turn cold and run before MAR', 'Notch immediately and hold the beam', 'Descend to the deck and accelerate'],
+    correct: 1, xp: 20,
+    why: 'You are outside MAR (35 km) with a shot inbound. A timely abort wins kinematically — turn cold and the missile chases you to energy death. Waiting to react near MAR is how BVR deaths happen.' },
+  { id: 'ch_notch', pic: 'A radar SAM has locked you. You are committed inside its MAR — you cannot out-run it.',
+    q: 'Committed, no escape. Your best surviving play?',
+    a: ['Climb straight ahead for energy', 'Turn to the beam (notch) + chaff, then a last-ditch break at TTI ~3 s', 'Fly straight and dispense flares', 'Accelerate directly away'],
+    correct: 1, xp: 20,
+    why: 'Inside MAR, defeat the SENSOR, not the kinematics: beam the radar so your closure ≈ 0 and you fall into its Doppler clutter notch, back it with chaff (coherent at the same zero Doppler), then a late max-G break to spike the LOS rate.' },
+  { id: 'ch_low', pic: 'You must penetrate an S-400 (380 km missile) belt to strike a target 120 km behind it.',
+    q: 'How do you shrink that 380 km bubble?',
+    a: ['Fly high and fast to overfly it', 'Ingress low — stay below its radar horizon until close', 'Jam it from directly underneath', 'Fire chaff continuously the whole way'],
+    correct: 1, xp: 25,
+    why: 'Radar is line-of-sight. A low-level ingress keeps you below the curved-earth horizon (tens of km against a ground radar), collapsing a 380 km engagement zone to a knife-fight — unless an elevated sensor (AWACS) cues the shot over the horizon.' },
+  { id: 'ch_meteor', pic: 'You face a Meteor shooter. Its ramjet holds Mach to the merge, giving a huge no-escape zone.',
+    q: 'Why is aborting against a Meteor so much harder than against an AMRAAM?',
+    a: ['Its warhead is bigger', 'It keeps energy to the merge, so its MAR is a much larger fraction of Rmax', 'Its seeker sees farther', 'It flies higher'],
+    correct: 1, xp: 20,
+    why: 'A solid-motor AMRAAM coasts and can be out-run once its energy bleeds (MAR ≈ 30–40% of Rmax). A ramjet stays powered, so it can still run you down deep inside its envelope — MAR ≈ 60–70% of Rmax. Respect the shot earlier.' },
+  { id: 'ch_stealth', pic: 'You (F-15, RCS ~10 m²) vs an F-35 (RCS ~0.005 m²), both with similar radars, head-on.',
+    q: 'Who most likely shoots first, and why?',
+    a: ['The F-15 — bigger radar antenna', 'The F-35 — it detects you ~7× farther (detection ∝ RCS^¼)', 'Simultaneous — same radar', 'Neither can lock the other'],
+    correct: 1, xp: 20,
+    why: 'Detection range scales as the fourth root of RCS. A 2000× smaller RCS still shrinks the F-35\'s detectability ~7×, so it completes detect→track→launch long before you even see it. Stealth wins the kill-chain race.' },
+  { id: 'ch_crank', pic: 'You just fired FOX-3 at 40 km. The missile flies midcourse on your datalink.',
+    q: 'What does CRANKING (turning toward the gimbal edge) buy you?',
+    a: ['Faster missile', 'Opens your F-pole/A-pole (more separation) while still supporting the shot', 'Makes the missile go active sooner', 'Nothing — it drops the datalink'],
+    correct: 1, xp: 20,
+    why: 'Cranking turns you toward your radar\'s gimbal limit: you keep the target trackable (datalink alive) while opening range from him and any return shot. Bigger A-pole/F-pole = the same kill with more of your own separation.' },
+];
+reg('challenge', (node) => {
+  let idx = 0;
+  const wrap = el('div', { class: 'wx-quiz' });
+  node.appendChild(wrap);
+  function render() {
+    const c = CHALLENGES[idx];
+    wrap.innerHTML = '';
+    wrap.appendChild(el('div', { class: 'wx-qmeta' }, `Scenario ${idx + 1} / ${CHALLENGES.length} · ${progress.hasDone(c.id) ? '✓ solved' : '+' + c.xp + ' XP'} · your XP ${progress.xp()}`));
+    wrap.appendChild(el('div', { class: 'wx-scenario' }, [el('b', {}, '◈ PICTURE  '), c.pic]));
+    wrap.appendChild(el('div', { class: 'wx-q' }, c.q));
+    const opts = el('div', { class: 'wx-opts' });
+    let answered = false;
+    c.a.forEach((txt, i) => opts.appendChild(el('button', { class: 'wx-opt', onclick: () => {
+      if (answered) return; answered = true;
+      const ok = i === c.correct;
+      [...opts.children].forEach((b, j) => { b.classList.add(j === c.correct ? 'correct' : (j === i ? 'wrong' : 'dim')); b.disabled = true; });
+      if (ok && !progress.hasDone(c.id)) progress.addXP(c.xp, c.id);
+      const why = wrap.querySelector('#wx-why');
+      why.innerHTML = `<b style="color:${ok ? COL.green : COL.red}">${ok ? '✓ Good call.' + (progress.hasDone(c.id) ? '' : ' +' + c.xp + ' XP') : '✗ Reconsider.'}</b> ${c.why}`;
+      const next = el('button', { class: 'wx-btn', style: 'margin-top:10px',
+        onclick: () => { idx = (idx + 1) % CHALLENGES.length; render(); } }, idx === CHALLENGES.length - 1 ? '↻ First scenario' : 'Next scenario →');
+      why.appendChild(el('div', {}, next));
+    } }, txt)));
+    wrap.appendChild(opts);
+    wrap.appendChild(el('div', { class: 'wx-why', id: 'wx-why' }));
+  }
+  render();
+  return () => {};
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  16 · WEAPON-ID MATCH GAME — recognise the weapon from its signature traits
+// ─────────────────────────────────────────────────────────────────────────────
+const CARDS = [
+  { name: 'AIM-9X', clue: 'Short-range imaging-IR dogfighter with thrust-vectoring; ~30 km; no datalink.' },
+  { name: 'AIM-120 AMRAAM', clue: 'US medium-range active-radar workhorse; boost-sustain solid; ~70–160 km by variant.' },
+  { name: 'MBDA Meteor', clue: 'Throttleable ramjet — powered to the merge; the largest no-escape zone of any AAM.' },
+  { name: 'PL-15', clue: 'Chinese dual-pulse active-radar with an AESA seeker; second pulse restores endgame energy; ~200–300 km.' },
+  { name: 'R-37M', clue: 'Russian very-long-range Mach-6 interceptor missile, carried by the MiG-31; ~300 km.' },
+  { name: 'S-400 (48N6/40N6)', clue: 'Long/very-long-range SAM; Mach 6+, huge loft, active seeker on the 40N6; up to ~380 km.' },
+  { name: 'MIM-104 PAC-3', clue: 'Hit-to-kill SAM with attitude thrusters — no warhead, pure kinetic impact; ~20–35 km.' },
+  { name: 'AIM-7 Sparrow', clue: 'Legacy semi-active radar — needs the shooter to illuminate all the way; ~50 km, never lofts.' },
+];
+reg('matchgame', (node) => {
+  const wrap = el('div', { class: 'wx-match' });
+  node.appendChild(wrap);
+  const read = el('div', { class: 'wx-readout' });
+  node.appendChild(read);
+  let round, clue, choices, solved = 0, tries = 0;
+  function newRound() {
+    const pool = [...CARDS].sort(() => Math.random() - 0.5);
+    round = pool[0];
+    choices = [round, ...pool.slice(1, 4)].sort(() => Math.random() - 0.5);
+    draw();
+  }
+  function draw() {
+    wrap.innerHTML = '';
+    wrap.appendChild(el('div', { class: 'wx-clue' }, [el('b', {}, '◈ IDENTIFY  '), round.clue]));
+    const row = el('div', { class: 'wx-cards' });
+    let answered = false;
+    choices.forEach(c => row.appendChild(el('button', { class: 'wx-card', onclick: () => {
+      if (answered) return; answered = true; tries++;
+      const ok = c.name === round.name;
+      [...row.children].forEach(b => { b.classList.add(b.textContent === round.name ? 'correct' : (b.textContent === c.name ? 'wrong' : 'dim')); b.disabled = true; });
+      if (ok) { solved++; progress.addXP(8); }
+      read.innerHTML = `<div class="wx-line" style="color:${ok ? COL.green : COL.red}">${ok ? '✓ Correct — ' + round.name + '. +8 XP' : '✗ It was ' + round.name + '.'}</div>` +
+        `<div class="wx-hint">Solved ${solved} of ${tries}. Every weapon has a fingerprint — motor type, seeker, range class, datalink. Learn to read the fingerprint and you can predict a threat\'s envelope before the merge.</div>` +
+        `<button class="wx-btn" style="margin-top:8px">↻ Next weapon</button>`;
+      read.querySelector('.wx-btn').addEventListener('click', newRound);
+    } }, c.name)));
+    wrap.appendChild(row);
+  }
+  newRound();
+  return () => {};
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  TECHNICAL DIAGRAM WIDGETS — radar, seekers, motors, datalinks, guidance
+//  Drawn to teach the real machinery, not to dumb it down.
+// ═════════════════════════════════════════════════════════════════════════════
+
+function arrow(g, x1, y1, x2, y2, color, head = 6, w = 1.4) {
+  g.strokeStyle = color; g.fillStyle = color; g.lineWidth = w;
+  g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  g.beginPath(); g.moveTo(x2, y2);
+  g.lineTo(x2 - head * Math.cos(a - 0.4), y2 - head * Math.sin(a - 0.4));
+  g.lineTo(x2 - head * Math.cos(a + 0.4), y2 - head * Math.sin(a + 0.4));
+  g.closePath(); g.fill();
+}
+function lbl(g, x, y, text, color, align = 'left', size = 10, bold = false) {
+  g.fillStyle = color; g.font = `${bold ? 'bold ' : ''}${size}px "Share Tech Mono", monospace`;
+  g.textAlign = align; g.textBaseline = 'alphabetic';
+  g.fillText(text, x, y); g.textAlign = 'left';
+}
+function chip(g, x, y, w, h, text, color, sub) {
+  g.strokeStyle = color; g.fillStyle = 'rgba(10,18,30,.6)'; g.lineWidth = 1;
+  g.beginPath(); g.rect(x, y, w, h); g.fill(); g.stroke();
+  g.fillStyle = color; g.font = '9px "Share Tech Mono"'; g.textAlign = 'left';
+  g.fillText(text, x + 6, y + 13);
+  if (sub) { g.fillStyle = COL.dim; g.fillText(sub, x + 6, y + 25); }
+}
+
+// ── 1 · MECHANICAL vs AESA SCANNING ──────────────────────────────────────────
+reg('radarscan', (node) => {
+  const _V = makeCanvas(node, 240); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' }); node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let aesa = false;
+  const btn = el('button', { class: 'wx-btn', onclick: () => { aesa = !aesa; btn.textContent = aesa ? '◧ Show MECHANICAL' : '▦ Show AESA'; } }, '▦ Show AESA');
+  controls.appendChild(btn);
+  const tgts = [[-0.55, 0.55], [-0.15, 0.85], [0.3, 0.7], [0.6, 0.45]];   // az fraction, range fraction
+  let t0 = performance.now();
+  const stop = frame((now) => {
+    const T = (now - t0) / 1000;
+    g.clearRect(0, 0, _V.w, _V.h);
+    const cx = _V.w / 2, cy = _V.h - 26, Rr = _V.h - 60, half = Math.PI * 0.42;
+    // coverage sector
+    g.strokeStyle = 'rgba(78,128,178,.3)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(cx, cy);
+    g.arc(cx, cy, Rr, -Math.PI / 2 - half, -Math.PI / 2 + half); g.closePath(); g.stroke();
+    for (const rr of [0.4, 0.7, 1.0]) { g.beginPath(); g.arc(cx, cy, Rr * rr, -Math.PI / 2 - half, -Math.PI / 2 + half); g.stroke(); }
+    // targets
+    const tpos = tgts.map(([az, rf]) => [cx + Math.sin(az * half * 2) * Rr * rf, cy - Math.cos(az * half * 2) * Rr * rf]);
+    // beams
+    const beamTo = (px, py, col, wdt) => { g.strokeStyle = col; g.lineWidth = wdt; g.beginPath(); g.moveTo(cx, cy); g.lineTo(px, py); g.stroke(); };
+    if (!aesa) {
+      // one mechanical beam sweeping sinusoidally
+      const az = Math.sin(T * 1.1) * half;
+      const bx = cx + Math.sin(az) * Rr, by = cy - Math.cos(az) * Rr;
+      g.save(); g.shadowColor = COL.blue; g.shadowBlur = 8; beamTo(bx, by, 'rgba(0,229,255,.7)', 8); g.restore();
+      // dish icon rotating
+      g.save(); g.translate(cx, cy); g.rotate(az);
+      g.strokeStyle = COL.dim; g.lineWidth = 2; g.beginPath(); g.arc(0, -2, 9, Math.PI * 0.8, Math.PI * 2.2); g.stroke(); g.restore();
+      tpos.forEach((p, i) => {
+        const seen = Math.abs(Math.sin(T * 1.1) * half - Math.atan2(p[0] - cx, cy - p[1])) < 0.12;
+        g.fillStyle = seen ? COL.green : COL.faint; g.beginPath(); g.arc(p[0], p[1], seen ? 5 : 3, 0, 7); g.fill();
+      });
+      lbl(g, 10, 16, 'MECHANICAL DISH — 1 pencil beam, inertia-limited', COL.blue, 'left', 10, true);
+      read.innerHTML = `<div class="wx-hint">A spinning/nodding dish points <b>one</b> beam at a time and its scan rate is limited by <b>mechanical inertia</b>. It can search OR track, not both at once, and the whole picture is only as fresh as the last time the beam swept past a target (green = illuminated this instant).</div>`;
+    } else {
+      // AESA: flat panel, multiple beams jumping to all targets + a search beam
+      g.fillStyle = COL.blue; g.fillRect(cx - 16, cy - 3, 32, 6);   // flat array
+      const searchAz = ((T * 2.2) % 1 * 2 - 1) * half;
+      beamTo(cx + Math.sin(searchAz) * Rr, cy - Math.cos(searchAz) * Rr, 'rgba(0,229,255,.35)', 4);
+      tpos.forEach(p => { g.save(); g.shadowColor = COL.green; g.shadowBlur = 6; beamTo(p[0], p[1], 'rgba(34,255,156,.8)', 2); g.restore(); g.fillStyle = COL.green; g.beginPath(); g.arc(p[0], p[1], 5, 0, 7); g.fill(); });
+      lbl(g, 10, 16, 'AESA — agile beam, ALL targets tracked while searching', COL.green, 'left', 10, true);
+      read.innerHTML = `<div class="wx-hint">A flat array of hundreds of tiny transmit/receive modules steers the beam <b>electronically</b> — no moving parts. It repositions in <b>microseconds</b>, so it <b>interleaves</b> search + multi-target track + jamming + datalink from the same aperture (green beams hold every target while the faint beam keeps searching). Plus <b>frequency agility</b> (hard to jam), <b>LPI</b> low-probability-of-intercept emissions, and <b>graceful degradation</b> (lose modules, not the radar). This is the modern fighter and SAM radar.</div>`;
+    }
+    tpos.forEach(p => { /* keep blips above beams already drawn */ });
+  });
+  const onResize = () => fit(); window.addEventListener('resize', onResize);
+  return () => { stop(); window.removeEventListener('resize', onResize); };
+});
+
+// ── 2 · PULSE-DOPPLER PRF TRADE ──────────────────────────────────────────────
+reg('prf', (node) => {
+  const _V = makeCanvas(node, 250); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' }); node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let prf = 3;   // kHz (1=low .. 100=high on a log-ish feel; use 3 discrete-ish)
+  const s1 = slider('PRF (kHz)', 1, 100, 1, prf, v => { prf = v; draw(); });
+  controls.appendChild(s1.row);
+  function draw() {
+    const C = 299792.458;  // km/s
+    const R_ua = C / (2 * prf * 1000) ;      // km  (c/(2·PRF))
+    const V_ua = prf * 1000 * 0.03 / 4;      // arbitrary-scaled unambiguous velocity (∝ PRF)
+    g.clearRect(0, 0, _V.w, _V.h);
+    const x0 = 14, x1 = _V.w - 14;
+    // pulse train
+    const py = 40, pri = Math.max(14, 220 / (prf ** 0.5));
+    lbl(g, x0, 20, 'PULSE TRAIN (time →)   PRI = 1/PRF', COL.dim, 'left', 9);
+    g.strokeStyle = COL.grid; g.beginPath(); g.moveTo(x0, py); g.lineTo(x1, py); g.stroke();
+    g.strokeStyle = COL.amber; g.lineWidth = 2;
+    for (let x = x0; x < x1; x += pri) { g.beginPath(); g.moveTo(x, py); g.lineTo(x, py - 14); g.lineTo(x + 2, py - 14); g.lineTo(x + 2, py); g.stroke(); }
+    // two trade bars
+    const barY1 = 95, barY2 = 150, bw = x1 - x0 - 90;
+    const rangeFrac = Math.min(1, R_ua / 300);         // 300 km full scale
+    const dopFrac = Math.min(1, prf / 100);
+    lbl(g, x0, barY1 - 6, 'RANGE unambiguity', COL.blue, 'left', 10, true);
+    g.fillStyle = 'rgba(0,229,255,.18)'; g.fillRect(x0, barY1, bw, 16);
+    g.fillStyle = COL.blue; g.fillRect(x0, barY1, bw * rangeFrac, 16);
+    lbl(g, x0 + bw + 8, barY1 + 13, `${R_ua < 1 ? (R_ua * 1000).toFixed(0) + ' m' : R_ua.toFixed(0) + ' km'}`, COL.blue, 'left', 11);
+    lbl(g, x0, barY2 - 6, 'DOPPLER / velocity unambiguity', COL.green, 'left', 10, true);
+    g.fillStyle = 'rgba(34,255,156,.16)'; g.fillRect(x0, barY2, bw, 16);
+    g.fillStyle = COL.green; g.fillRect(x0, barY2, bw * dopFrac, 16);
+    lbl(g, x0 + bw + 8, barY2 + 13, dopFrac >= 0.66 ? 'clean' : dopFrac >= 0.33 ? 'ok' : 'aliased', COL.green, 'left', 11);
+    // regime label
+    const regime = prf < 8 ? ['LOW PRF', 'unambiguous RANGE, aliased Doppler → poor look-down. Old search radars.'] :
+      prf < 40 ? ['MEDIUM PRF', 'BOTH ambiguous but resolved by hopping PRFs — the fighter-radar workhorse, decent everywhere.'] :
+      ['HIGH PRF', 'clean DOPPLER (great vs closing/look-down targets) but ambiguous range — "velocity search".'];
+    g.fillStyle = COL.amber; g.font = 'bold 13px "Share Tech Mono"'; g.textAlign = 'left';
+    g.fillText(regime[0], x0, _V.h - 30);
+    read.innerHTML = `<div class="wx-big" style="color:${COL.amber}">${regime[0]}</div>` +
+      `<div class="wx-line">${regime[1]}</div>` +
+      `<div class="wx-hint">A pulse radar can\'t have it both ways. Space pulses far apart (<b>low PRF</b>) and each echo returns before the next pulse → you know range unambiguously, but you sample the target\'s Doppler too slowly to measure velocity (and can\'t reject ground clutter well). Pack them close (<b>high PRF</b>) and Doppler is beautifully clean — perfect for spotting fast, closing, look-down targets against clutter — but range wraps around. <b>Medium PRF</b> hops between several PRFs to unwrap both. This trade is why the <a data-goto="ew">notch</a> exists and why look-down/shoot-down needed pulse-Doppler.</div>`;
+  }
+  _V.redraw = draw;
+  const onResize = () => { fit(); draw(); }; window.addEventListener('resize', onResize); draw();
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ── 3 · RADAR FAMILY: EARLY WARNING → ACQUISITION → FIRE CONTROL ──────────────
+reg('radarfamily', (node) => {
+  const _V = makeCanvas(node, 300); const { cv, g, fit } = _V;
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const cx = 60, cy = _V.h - 30;
+    const rows = [
+      { r: 1.0, half: 1.15, col: 'rgba(147,172,203,.6)', name: 'EARLY WARNING', band: 'VHF/UHF · wide', job: 'detect & cue far (coarse)', y: 40 },
+      { r: 0.66, half: 0.85, col: COL.amber, name: 'ACQUISITION', band: 'S/C · medium', job: 'build a firm track, hand off', y: 90 },
+      { r: 0.42, half: 0.5, col: COL.red, name: 'FIRE CONTROL', band: 'X/Ku · pencil', job: 'precise track + guide weapon', y: 140 },
+    ];
+    const Rmax = Math.min(_V.w - 90, 340);
+    rows.forEach(rw => {
+      g.strokeStyle = rw.col; g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, Rmax * rw.r, -rw.half, rw.half); g.closePath(); g.stroke();
+      g.fillStyle = rw.col.includes('rgba') ? rw.col : rw.col;
+    });
+    // radar site
+    g.fillStyle = COL.ink; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx - 6, cy + 8); g.lineTo(cx + 6, cy + 8); g.closePath(); g.fill();
+    // handoff arrows + spec chips (right side)
+    const bx = _V.w - 230, cw = 216;
+    rows.forEach((rw, i) => {
+      chip(g, bx, rw.y - 14, cw, 34, `${rw.name}  ·  ${rw.band}  ·  ${rw.beam}`, rw.col, rw.job);
+      if (i < rows.length - 1) arrow(g, bx + cw / 2, rw.y + 22, bx + cw / 2, rows[i + 1].y - 16, COL.dim, 5);
+    });
+    lbl(g, 12, 18, 'ONE IADS, THREE RADAR JOBS (coverage arcs, left)', COL.blue, 'left', 10, true);
+    read.innerHTML = `<div class="wx-hint">These are three <b>different jobs</b>, often three different radars, chained together. <b>Early-warning</b> radars are huge, low-frequency and long-ranged — they see hundreds of km (and see stealth best) but only roughly; their product is a <i>cue</i>. The <b>acquisition</b> radar takes that cue and builds a firm track. The <b>fire-control radar (FCR)</b> is a narrow, high-update pencil that <i>tracks the target precisely and guides the weapon</i> (illuminating for SARH, or uplinking a datalink). A fighter\'s single AESA does all three roles interleaved; a ground <a data-goto="iadsnet">IADS</a> splits them across dedicated radars so killing one doesn\'t blind the system.</div>`;
+  }
+  _V.redraw = draw;
+  const onResize = () => { fit(); draw(); }; window.addEventListener('resize', onResize); draw();
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ── 4 · GROUND-BASED vs AIRBORNE RADAR ───────────────────────────────────────
+reg('groundvsair', (node) => {
+  const _V = makeCanvas(node, 260); const { cv, g, fit } = _V;
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const midX = _V.w / 2;
+    g.strokeStyle = COL.grid; g.beginPath(); g.moveTo(midX, 6); g.lineTo(midX, _V.h - 20); g.stroke();
+    // curved earth on both
+    const drawEarth = (ox) => {
+      const base = _V.h - 40, cxE = ox + (_V.w / 2) / 2, Re = (_V.w / 2) * 2.6;
+      g.strokeStyle = 'rgba(78,128,178,.35)'; g.lineWidth = 2; g.beginPath();
+      for (let px = ox + 8; px <= ox + _V.w / 2 - 8; px += 4) { const dx = px - cxE; const y = base + Re - Math.sqrt(Re * Re - dx * dx); px === ox + 8 ? g.moveTo(px, y) : g.lineTo(px, y); }
+      g.stroke(); return { base, cxE, Re };
+    };
+    // LEFT: ground radar
+    const L = drawEarth(0);
+    const gx = L.cxE, gy = L.base + L.Re - Math.sqrt(L.Re * L.Re) ; // on surface at center
+    const gsy = L.base + L.Re - Math.sqrt(L.Re * L.Re - 0) - 0;
+    g.fillStyle = COL.blue; g.beginPath(); g.moveTo(gx, gsy); g.lineTo(gx - 5, gsy + 8); g.lineTo(gx + 5, gsy + 8); g.closePath(); g.fill();
+    lbl(g, gx - 26, gsy + 22, 'GROUND', COL.blue, 'left', 9);
+    // horizon tangent (line of sight grazing earth) + a low target hidden
+    g.strokeStyle = 'rgba(0,229,255,.5)'; g.setLineDash([4, 4]);
+    g.beginPath(); g.moveTo(gx, gsy); g.lineTo(0 + _V.w / 2 - 14, gsy - 30); g.stroke(); g.setLineDash([]);
+    // hidden low target (below horizon on the right of left panel)
+    const htx = 0 + _V.w / 2 - 30, hty = L.base + L.Re - Math.sqrt(L.Re * L.Re - (htx - L.cxE) ** 2) - 6;
+    g.fillStyle = COL.red; g.save(); g.translate(htx, hty); g.beginPath(); g.moveTo(-7, 0); g.lineTo(5, -3); g.lineTo(5, 3); g.closePath(); g.fill(); g.restore();
+    lbl(g, htx - 40, hty + 12, 'hidden low', COL.red, 'left', 8);
+    // RIGHT: airborne radar
+    const Rp = drawEarth(_V.w / 2);
+    const ax = Rp.cxE - 30, ay = 40;
+    g.fillStyle = COL.green; g.save(); g.translate(ax, ay); g.beginPath(); g.moveTo(-8, 0); g.lineTo(6, -3); g.lineTo(6, 3); g.closePath(); g.fill(); g.restore();
+    lbl(g, ax - 10, ay - 6, 'AIRBORNE', COL.green, 'left', 9);
+    // look-down beam + clutter cone
+    const tgx = Rp.cxE + 40, tgy = Rp.base + Rp.Re - Math.sqrt(Rp.Re * Rp.Re - (tgx - Rp.cxE) ** 2) - 6;
+    g.strokeStyle = 'rgba(34,255,156,.6)'; g.beginPath(); g.moveTo(ax, ay); g.lineTo(tgx, tgy); g.stroke();
+    g.fillStyle = 'rgba(255,61,0,.14)'; g.beginPath(); g.moveTo(ax, ay); g.lineTo(tgx - 30, tgy + 6); g.lineTo(tgx + 40, tgy + 8); g.closePath(); g.fill();
+    g.fillStyle = COL.green; g.save(); g.translate(tgx, tgy); g.beginPath(); g.moveTo(-7, 0); g.lineTo(5, -3); g.lineTo(5, 3); g.closePath(); g.fill(); g.restore();
+    lbl(g, tgx - 20, tgy + 12, 'low target SEEN', COL.green, 'left', 8);
+    lbl(g, Rp.cxE - 20, _V.h - 6, 'ground clutter', COL.red, 'left', 8);
+    read.innerHTML = `<div class="wx-hint"><b>Ground radar</b> (left): big antenna, huge power, no self-clutter looking up — but it\'s <b>horizon-limited</b>. A low flyer hides below the curved-earth <a data-goto="horizon">radar horizon</a> until close, and terrain masks whole sectors. <b>Airborne radar</b> (right): elevated, so it can <b>look DOWN over the horizon</b> and catch low flyers — but now it stares into <b>ground clutter</b> (the huge stationary return from the earth), which is exactly why airborne radars are <a data-goto="prf">pulse-Doppler</a> (they filter by velocity to separate movers from dirt). The airborne radar trades antenna size, power and cooling for that elevated geometry and mobility. This ground-vs-air difference is the whole reason AWACS exists — an elevated radar restores the low-altitude coverage a ground site can\'t reach.</div>`;
+  }
+  _V.redraw = draw;
+  const onResize = () => { fit(); draw(); }; window.addEventListener('resize', onResize); draw();
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ── 5 · MONOPULSE ANGLE TRACKING ─────────────────────────────────────────────
+reg('monopulse', (node) => {
+  const _V = makeCanvas(node, 240); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' }); node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let off = 0.3;   // target offset from boresight, -1..1
+  const s1 = slider('Target off boresight', -1, 1, 0.02, off, v => { off = v; draw(); });
+  controls.appendChild(s1.row);
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const cx = _V.w / 2, top = 20, bw = _V.w - 60, x0 = 30;
+    // two squinted beam patterns (left/right lobes)
+    const patY = 120, ph = 80;
+    const gauss = (x, mu) => Math.exp(-((x - mu) ** 2) / 0.14);
+    g.lineWidth = 2;
+    for (const [mu, col, nm] of [[-0.35, COL.blue, 'A'], [0.35, COL.amber, 'B']]) {
+      g.strokeStyle = col; g.beginPath();
+      for (let i = 0; i <= 100; i++) { const xf = -1 + i / 50; const px = cx + xf * bw / 2; const py = patY - gauss(xf, mu) * ph; i ? g.lineTo(px, py) : g.moveTo(px, py); }
+      g.stroke();
+    }
+    // boresight + target
+    g.strokeStyle = COL.grid; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(cx, top); g.lineTo(cx, patY); g.stroke(); g.setLineDash([]);
+    lbl(g, cx + 3, top + 8, 'boresight', COL.dim, 'left', 8);
+    const tx = cx + off * bw / 2;
+    g.strokeStyle = COL.red; g.lineWidth = 1.6; g.beginPath(); g.moveTo(tx, top); g.lineTo(tx, patY); g.stroke();
+    g.fillStyle = COL.red; g.beginPath(); g.arc(tx, top + 4, 4, 0, 7); g.fill();
+    lbl(g, tx + 5, top + 8, 'target', COL.red, 'left', 8);
+    // Σ and Δ signals
+    const A = gauss(off, -0.35), B = gauss(off, 0.35);
+    const sum = A + B, diff = B - A;
+    const barY = 165, bh = 18;
+    lbl(g, x0, barY - 4, 'Σ (sum) = A + B  → is a target THERE?', COL.green, 'left', 9);
+    g.fillStyle = 'rgba(34,255,156,.5)'; g.fillRect(x0, barY, (sum / 2) * bw, bh);
+    lbl(g, x0, barY + 40 - 4, 'Δ (difference) = B − A  → WHICH SIDE, how far off', COL.amber, 'left', 9);
+    g.fillStyle = 'rgba(255,176,0,.5)'; const dc = x0 + bw / 2; g.fillRect(Math.min(dc, dc + (diff / 2) * bw), barY + 40, Math.abs(diff / 2) * bw, bh);
+    g.strokeStyle = COL.dim; g.beginPath(); g.moveTo(dc, barY + 40); g.lineTo(dc, barY + 40 + bh); g.stroke();
+    read.innerHTML = `<div class="wx-line">Δ/Σ = <b style="color:${COL.amber}">${(diff / sum).toFixed(2)}</b> → target is <b>${off > 0.02 ? 'RIGHT' : off < -0.02 ? 'LEFT' : 'on boresight'}</b> of the antenna axis.</div>` +
+      `<div class="wx-hint"><b>Monopulse</b> forms two (or four) squinted beams at once. The <b>sum</b> channel Σ says a target is present and how strong; the <b>difference</b> channel Δ (one lobe minus the other) is zero on boresight and grows with the error, its sign giving the side. The ratio <b>Δ/Σ</b> yields the exact off-axis angle from a <b>single pulse</b> — no scanning, no reliance on the target\'s amplitude. That\'s why monopulse is precise and <b>hard to angle-deceive</b>: amplitude tricks cancel in the ratio, so DRFM jammers must resort to cross-eye or terrain-bounce to fool it.</div>`;
+  }
+  _V.redraw = draw;
+  const onResize = () => { fit(); draw(); }; window.addEventListener('resize', onResize); draw();
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ── 6 · SEEKER GIMBAL TRACKING LOOP ──────────────────────────────────────────
+reg('seekerloop', (node) => {
+  const _V = makeCanvas(node, 250); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' }); node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let gimbalLim = 60, play = true;
+  const s1 = slider('Gimbal limit (°)', 20, 90, 5, gimbalLim, v => { gimbalLim = v; });
+  const btn = el('button', { class: 'wx-btn', onclick: () => { play = !play; btn.textContent = play ? '❚❚' : '▶'; } }, '❚❚');
+  controls.append(s1.row, btn);
+  let head = 0, t0 = performance.now(), lost = false;
+  const stop = frame((now) => {
+    const T = (now - t0) / 1000;
+    g.clearRect(0, 0, _V.w, _V.h);
+    const mx = 70, my = _V.h / 2;
+    // missile body pointing right
+    g.fillStyle = COL.dim; g.beginPath(); g.moveTo(mx - 30, my - 7); g.lineTo(mx + 10, my - 7); g.lineTo(mx + 22, my); g.lineTo(mx + 10, my + 7); g.lineTo(mx - 30, my + 7); g.closePath(); g.fill();
+    // target orbiting / crossing
+    const tAng = play ? T * 0.6 : head * Math.PI / 180 * 0 + 0.6;
+    const tx = mx + 180 + Math.cos(T * 0.9) * 40, ty = my + Math.sin(T * 0.7) * 90;
+    // LOS angle from missile nose (body axis = +x)
+    const losAng = Math.atan2(ty - my, tx - mx) * 180 / Math.PI;
+    // seeker head slews toward LOS (first-order), unless beyond gimbal limit
+    if (play) {
+      if (Math.abs(losAng) <= gimbalLim) { head += (losAng - head) * Math.min(1, 6 * 0.016); lost = false; }
+      else lost = true;
+    }
+    // gimbal cone
+    g.strokeStyle = 'rgba(255,176,0,.4)'; g.lineWidth = 1; g.setLineDash([4, 3]);
+    for (const s of [-1, 1]) { const a = s * gimbalLim * Math.PI / 180; g.beginPath(); g.moveTo(mx + 22, my); g.lineTo(mx + 22 + Math.cos(a) * 150, my + Math.sin(a) * 150); g.stroke(); }
+    g.setLineDash([]);
+    lbl(g, mx + 30, my - gimbalLim * 1.4 - 4, `gimbal ±${gimbalLim}°`, COL.amber, 'left', 8);
+    // seeker boresight (where the head points)
+    const ha = head * Math.PI / 180;
+    g.strokeStyle = lost ? COL.red : COL.green; g.lineWidth = 2; g.shadowColor = g.strokeStyle; g.shadowBlur = 6;
+    g.beginPath(); g.moveTo(mx + 22, my); g.lineTo(mx + 22 + Math.cos(ha) * 120, my + Math.sin(ha) * 120); g.stroke(); g.shadowBlur = 0;
+    // LOS to target
+    g.strokeStyle = 'rgba(147,172,203,.6)'; g.lineWidth = 1.2; g.setLineDash([5, 4]);
+    g.beginPath(); g.moveTo(mx + 22, my); g.lineTo(tx, ty); g.stroke(); g.setLineDash([]);
+    // target
+    g.fillStyle = lost ? COL.red : COL.tgt || COL.red; g.beginPath(); g.arc(tx, ty, 6, 0, 7); g.fill();
+    lbl(g, 10, 16, lost ? 'GIMBAL LIMIT EXCEEDED — TRACK LOST' : 'SEEKER TRACKING', lost ? COL.red : COL.green, 'left', 10, true);
+    const be = Math.abs(losAng - head);
+    read.innerHTML = `<div class="wx-line">boresight error <b style="color:${COL.amber}">${be.toFixed(1)}°</b> · head at <b>${head.toFixed(0)}°</b> · LOS at <b>${losAng.toFixed(0)}°</b></div>` +
+      `<div class="wx-hint">The seeker runs a <b>tracking loop</b>: (1) measure where the target is relative to the head — the <b>boresight error</b>; (2) drive the gimballed head to <b>null that error</b> so it stays pointed at the target; (3) the residual <b>line-of-sight rate</b> it measures is what feeds <a data-goto="guidance">proportional navigation</a>. The head can only slew so far off the missile\'s nose — the <b>gimbal limit</b> (amber cone). Force the target past it (a hard beam/notch that drives high LOS rate, or a crossing at short range) and the loop can\'t keep up: <b>track breaks</b>. This is the physical mechanism the notch and last-ditch break exploit.</div>`;
+  });
+  const onResize = () => fit(); window.addEventListener('resize', onResize);
+  return () => { stop(); window.removeEventListener('resize', onResize); };
+});
+
+// ── 7 · IR SEEKER SCAN GENERATIONS ───────────────────────────────────────────
+reg('irscan', (node) => {
+  const _V = makeCanvas(node, 240); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' }); node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  const GENS = [
+    { k: 'spin', nm: 'SPIN-SCAN reticle', rej: 1, desc: 'A spinning spoked reticle chops the incoming IR into a tone whose phase gives target angle. The <b>brightest</b> source wins — a flare easily out-shouts the jet. 1960s–70s.' },
+    { k: 'con', nm: 'CON-SCAN (nutating)', rej: 2, desc: 'The reticle image is nutated in a small circle so a centred target gives a steady signal. Better angle info and somewhat harder to flare, but still amplitude-driven.' },
+    { k: 'rosette', nm: 'ROSETTE (pseudo-imaging)', rej: 3, desc: 'A detector scans a rose-petal pattern across the whole field, sampling the scene — pseudo-imaging. It can separate a flare from the jet by position and rise-time. Good flare rejection.' },
+    { k: 'fpa', nm: 'IMAGING FOCAL-PLANE ARRAY', rej: 4, desc: 'A staring pixel grid (like a thermal camera) SEES the target\'s <b>shape</b>. Rejects flares by shape (a point fireball isn\'t a jet), spectrum (two-colour) and kinematics (flares fall & decelerate). AIM-9X / IRIS-T class.' },
+  ];
+  let gi = 3;
+  const btns = GENS.map((G, i) => el('button', { class: 'wx-btn', onclick: () => { gi = i; sync(); draw(); } }, G.nm.split(' ')[0]));
+  controls.append(...btns);
+  function sync() { btns.forEach((b, i) => b.style.borderColor = i === gi ? 'var(--amber)' : ''); }
+  let t0 = performance.now();
+  const stop = frame((now) => draw(now));
+  function draw(now) {
+    now = now || performance.now(); const T = (now - t0) / 1000;
+    g.clearRect(0, 0, _V.w, _V.h);
+    const cx = 110, cy = _V.h / 2 + 6, R = _V.h / 2 - 24;
+    g.strokeStyle = COL.grid; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.stroke();
+    lbl(g, cx - R, 16, 'SEEKER FIELD OF VIEW', COL.dim, 'left', 9);
+    const G = GENS[gi];
+    g.save(); g.beginPath(); g.arc(cx, cy, R, 0, 7); g.clip();
+    if (G.k === 'spin') { g.save(); g.translate(cx, cy); g.rotate(T * 4); g.strokeStyle = 'rgba(0,229,255,.5)'; for (let a = 0; a < 8; a++) { g.rotate(Math.PI / 4); g.beginPath(); g.moveTo(0, 0); g.lineTo(R, 0); g.stroke(); } g.restore(); }
+    else if (G.k === 'con') { const ox = Math.cos(T * 3) * R * 0.3, oy = Math.sin(T * 3) * R * 0.3; g.strokeStyle = 'rgba(0,229,255,.5)'; g.beginPath(); g.arc(cx + ox, cy + oy, R * 0.5, 0, 7); g.stroke(); }
+    else if (G.k === 'rosette') { g.strokeStyle = 'rgba(0,229,255,.5)'; g.beginPath(); for (let i = 0; i <= 200; i++) { const th = i / 200 * Math.PI * 12; const rr = R * 0.9 * Math.abs(Math.cos(2.5 * th)); const px = cx + Math.cos(th + T) * rr, py = cy + Math.sin(th + T) * rr; i ? g.lineTo(px, py) : g.moveTo(px, py); } g.stroke(); }
+    else { g.strokeStyle = 'rgba(0,229,255,.25)'; const n = 8, cell = R * 2 / n; for (let i = 0; i <= n; i++) { g.beginPath(); g.moveTo(cx - R + i * cell, cy - R); g.lineTo(cx - R + i * cell, cy + R); g.stroke(); g.beginPath(); g.moveTo(cx - R, cy - R + i * cell); g.lineTo(cx + R, cy - R + i * cell); g.stroke(); } }
+    // target (jet) + a flare
+    g.fillStyle = COL.green; g.save(); g.translate(cx - 8, cy - 6); g.beginPath(); g.moveTo(-8, 0); g.lineTo(6, -3); g.lineTo(6, 3); g.closePath(); g.fill(); g.restore();
+    const fx = cx + 20 + Math.sin(T) * 6, fy = cy + 18 + T % 3 * 6;
+    g.fillStyle = 'rgba(255,150,40,.9)'; g.shadowColor = '#ffb000'; g.shadowBlur = 10; g.beginPath(); g.arc(fx, fy % (cy + R), 5, 0, 7); g.fill(); g.shadowBlur = 0;
+    g.restore();
+    // rejection meter
+    const mx = cx + R + 30, mw = _V.w - mx - 16;
+    lbl(g, mx, cy - 30, 'FLARE REJECTION', COL.amber, 'left', 10, true);
+    for (let i = 0; i < 4; i++) { g.strokeStyle = COL.grid; g.strokeRect(mx + i * (mw / 4), cy - 14, mw / 4 - 3, 20); if (i < G.rej) { g.fillStyle = i < 2 ? COL.red : i < 3 ? COL.amber : COL.green; g.fillRect(mx + i * (mw / 4), cy - 14, mw / 4 - 3, 20); } }
+    lbl(g, mx, cy + 26, G.nm, COL.blue, 'left', 10, true);
+    read.innerHTML = `<div class="wx-hint">${G.desc}</div>`;
+  }
+  sync();
+  const onResize = () => fit(); window.addEventListener('resize', onResize);
+  return () => { stop(); window.removeEventListener('resize', onResize); };
+});
+
+// ── 8 · MOTOR CROSS-SECTIONS + THRUST CURVES ─────────────────────────────────
+reg('motorx', (node) => {
+  const _V = makeCanvas(node, 240); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' }); node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  const TYPES = [
+    { k: 'single', nm: 'SINGLE-GRAIN', desc: 'One propellant grain, one burn. Simple and cheap, but the whole impulse is spent early — after burnout it\'s a coasting glider. Short-range weapons.' },
+    { k: 'bs', nm: 'BOOST-SUSTAIN', desc: 'One grain cast in two geometries: a fast <b>boost</b> section for a hard kick, then a slow <b>sustain</b> section that trickles thrust to hold speed. Stretches the energy profile — the AMRAAM/most-SAM workhorse.' },
+    { k: 'dual', nm: 'DUAL-PULSE', desc: 'Two separate grains split by an insulating bulkhead, each with its own igniter. Pulse 1 boosts; the missile coasts; <b>pulse 2 relights near the endgame</b> to restore Mach exactly when the terminal fight starts — a huge no-escape zone. PL-15, AIM-260, Barak-8.' },
+    { k: 'ram', nm: 'RAMJET (ducted rocket)', desc: 'A solid <b>booster</b> gets it supersonic, then air scooped through <b>intakes</b> burns fuel in a ramjet <b>combustor</b> — the oxidiser is the atmosphere, so specific impulse is 3–4× a rocket. The <b>throttle</b> runs a fuel-efficient economy cruise in midcourse (idling when already fast) and throttles UP in the terminal phase — so it arrives at the merge still under power (Meteor). Flames out for good if it decelerates below its minimum Mach.' },
+  ];
+  let ti = 2;
+  const btns = TYPES.map((Tp, i) => el('button', { class: 'wx-btn', onclick: () => { ti = i; sync(); draw(); } }, Tp.nm.split(' ')[0].split('-')[0]));
+  controls.append(...btns);
+  function sync() { btns.forEach((b, i) => b.style.borderColor = i === ti ? 'var(--amber)' : ''); }
+  function tube(x, y, w, h) { g.strokeStyle = COL.dim; g.lineWidth = 1.5; g.strokeRect(x, y, w, h); }
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const x = 20, y = 30, w = _V.w - 120, h = 46;   // motor body
+    const nz = 14;   // nozzle
+    const T = TYPES[ti];
+    // body
+    tube(x, y, w, h);
+    // nozzle (right)
+    g.fillStyle = 'rgba(147,172,203,.3)'; g.beginPath(); g.moveTo(x + w, y + 6); g.lineTo(x + w + nz, y - 2); g.lineTo(x + w + nz, y + h + 2); g.lineTo(x + w, y + h - 6); g.closePath(); g.fill();
+    const grain = (gx, gw, col, bore) => { g.fillStyle = col; g.fillRect(gx, y + 4, gw, h - 8); g.fillStyle = '#0a1220'; const bh = bore * (h - 12); g.fillRect(gx, y + h / 2 - bh / 2, gw, bh); };
+    if (T.k === 'single') { grain(x + 4, w - 8, 'rgba(255,176,0,.5)', 0.35); lbl(g, x + 4, y - 6, 'propellant grain', COL.amber, 'left', 8); }
+    else if (T.k === 'bs') { grain(x + 4, (w - 8) * 0.4, 'rgba(255,90,42,.55)', 0.5); grain(x + 4 + (w - 8) * 0.4, (w - 8) * 0.6, 'rgba(255,176,0,.45)', 0.25); lbl(g, x + 6, y - 6, 'boost web', COL.red, 'left', 8); lbl(g, x + (w) * 0.5, y - 6, 'sustain', COL.amber, 'left', 8); }
+    else if (T.k === 'dual') { const gw = (w - 20) / 2; grain(x + 4, gw, 'rgba(255,176,0,.5)', 0.35); g.fillStyle = COL.blue; g.fillRect(x + 4 + gw + 4, y + 3, 4, h - 6); grain(x + 12 + gw, gw, 'rgba(34,255,156,.4)', 0.35); lbl(g, x + 6, y - 6, 'pulse 1', COL.amber, 'left', 8); lbl(g, x + 6 + gw + 8, y + h + 12, 'bulkhead + igniter', COL.blue, 'left', 8); lbl(g, x + 14 + gw, y - 6, 'pulse 2', COL.green, 'left', 8); }
+    else { grain(x + 4, (w - 8) * 0.28, 'rgba(255,90,42,.55)', 0.3); lbl(g, x + 6, y - 6, 'booster', COL.red, 'left', 8); g.fillStyle = 'rgba(0,229,255,.25)'; g.fillRect(x + 4 + (w - 8) * 0.28, y + 6, (w - 8) * 0.68, h - 12); lbl(g, x + (w) * 0.45, y - 6, 'ramjet combustor (fuel + air)', COL.blue, 'left', 8);
+      // intakes
+      g.fillStyle = COL.blue; g.beginPath(); g.moveTo(x + w * 0.35, y - 2); g.lineTo(x + w * 0.5, y - 14); g.lineTo(x + w * 0.55, y - 14); g.lineTo(x + w * 0.42, y - 2); g.closePath(); g.fill();
+      arrow(g, x + w * 0.52, y - 20, x + w * 0.46, y - 6, COL.blue, 4); lbl(g, x + w * 0.56, y - 16, 'air', COL.blue, 'left', 8); }
+    // thrust curve
+    const gx = x, gy = _V.h - 20, gw2 = w, gh = 70;
+    g.strokeStyle = COL.grid; g.beginPath(); g.moveTo(gx, gy); g.lineTo(gx + gw2, gy); g.moveTo(gx, gy); g.lineTo(gx, gy - gh); g.stroke();
+    lbl(g, gx - 2, gy - gh - 2, 'thrust', COL.dim, 'left', 8); lbl(g, gx + gw2 - 20, gy + 12, 'time →', COL.dim, 'left', 8);
+    const curve = { single: [[0, 0], [0.05, 1], [0.3, 0.9], [0.32, 0], [1, 0]], bs: [[0, 0], [0.04, 1], [0.15, 0.95], [0.17, 0.28], [0.6, 0.22], [0.62, 0], [1, 0]], dual: [[0, 0], [0.04, 1], [0.2, 0.9], [0.22, 0], [0.6, 0], [0.62, 0.85], [0.8, 0.8], [0.82, 0], [1, 0]], ram: [[0, 0], [0.04, 1], [0.12, 0.95], [0.14, 0.4], [0.9, 0.38], [0.95, 0]] }[T.k];
+    g.strokeStyle = COL.amber; g.lineWidth = 2; g.beginPath();
+    curve.forEach((p, i) => { const px = gx + p[0] * gw2, py = gy - p[1] * gh; i ? g.lineTo(px, py) : g.moveTo(px, py); }); g.stroke();
+    lbl(g, x + w + nz + 6, y + 20, T.nm, COL.amber, 'left', 10, true);
+    read.innerHTML = `<div class="wx-hint">${T.desc} <a data-goto="propulsion">(full propulsion section)</a></div>`;
+  }
+  sync();
+  const onResize = () => { fit(); draw(); }; window.addEventListener('resize', onResize); draw();
+  _V.redraw = draw;
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ── 9 · DATALINK TYPES ───────────────────────────────────────────────────────
+reg('datalinktypes', (node) => {
+  const _V = makeCanvas(node, 230); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' }); node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  const MODES = [
+    { k: 'oneway', nm: 'ONE-WAY COMMAND', desc: 'The shooter transmits guidance/illumination to the missile, which sends nothing back (command guidance, or SARH riding the shooter\'s reflection). Simple, but the shooter is <b>committed</b>: turn away and the missile is orphaned.' },
+    { k: 'twoway', nm: 'TWO-WAY WEAPON LINK', desc: 'The shooter and missile talk both ways: the shooter uplinks the predicted intercept point; the missile downlinks its seeker/position/lock state. Enables <b>cranking</b>, mid-flight retargeting, home-on-jam handoff and kill assessment. Modern ARH weapons.' },
+    { k: 'network', nm: 'TACTICAL NETWORK / 3rd-PARTY', desc: 'A meshed net (Link-16 class) shares one picture across AWACS, fighters and ships. Any node can <b>cue</b> any shooter, and a <i>different</i> platform can guide the missile — <b>engage-on-remote</b>, silent shooter, resilient web. The state of the art.' },
+  ];
+  let mi = 1;
+  const btns = MODES.map((M, i) => el('button', { class: 'wx-btn', onclick: () => { mi = i; sync(); draw(); } }, M.nm.split(' ')[0]));
+  controls.append(...btns);
+  function sync() { btns.forEach((b, i) => b.style.borderColor = i === mi ? 'var(--amber)' : ''); }
+  function jet(x, y, col, name) { g.fillStyle = col; g.save(); g.translate(x, y); g.beginPath(); g.moveTo(-10, 0); g.lineTo(8, -4); g.lineTo(8, 4); g.closePath(); g.fill(); g.restore(); lbl(g, x - 12, y + 16, name, col, 'left', 8); }
+  function msl(x, y) { g.fillStyle = COL.amber; g.beginPath(); g.moveTo(x - 6, y - 3); g.lineTo(x + 6, y); g.lineTo(x - 6, y + 3); g.closePath(); g.fill(); lbl(g, x - 10, y - 8, 'MSL', COL.amber, 'left', 8); }
+  function draw() {
+    g.clearRect(0, 0, _V.w, _V.h);
+    const M = MODES[mi]; const midY = _V.h / 2;
+    const sx = 60, mslx = _V.w / 2, tgtx = _V.w - 60;
+    if (M.k === 'oneway') {
+      jet(sx, midY, COL.blue, 'SHOOTER'); msl(mslx, midY); jet(tgtx, midY, COL.red, 'TARGET');
+      arrow(g, sx + 12, midY - 8, mslx - 8, midY - 8, COL.green, 6); lbl(g, (sx + mslx) / 2 - 20, midY - 14, 'command →', COL.green, 'left', 8);
+    } else if (M.k === 'twoway') {
+      jet(sx, midY, COL.blue, 'SHOOTER'); msl(mslx, midY); jet(tgtx, midY, COL.red, 'TARGET');
+      arrow(g, sx + 12, midY - 10, mslx - 8, midY - 10, COL.green, 6); lbl(g, (sx + mslx) / 2 - 18, midY - 16, 'PIP uplink', COL.green, 'left', 8);
+      arrow(g, mslx - 8, midY + 10, sx + 12, midY + 10, COL.amber, 6); lbl(g, (sx + mslx) / 2 - 24, midY + 22, 'seeker/status downlink', COL.amber, 'left', 8);
+    } else {
+      // network mesh
+      const nodes = [[sx, midY + 30, COL.blue, 'FIGHTER'], [sx + 30, 40, COL.green, 'AWACS'], [_V.w - 90, 44, COL.blue, 'F-35'], [_V.w - 60, midY + 40, COL.blue, 'SHIP']];
+      for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) { g.strokeStyle = 'rgba(34,255,156,.3)'; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(nodes[i][0], nodes[i][1]); g.lineTo(nodes[j][0], nodes[j][1]); g.stroke(); g.setLineDash([]); }
+      nodes.forEach(n => jet(n[0], n[1], n[2], n[3]));
+      msl(mslx, midY - 4); jet(tgtx, midY + 60, COL.red, 'TARGET');
+      arrow(g, nodes[2][0], nodes[2][1] + 6, mslx + 4, midY - 8, COL.amber, 6); lbl(g, mslx + 10, midY - 14, 'engage-on-remote', COL.amber, 'left', 8);
+    }
+    lbl(g, 10, 16, M.nm, COL.blue, 'left', 10, true);
+    read.innerHTML = `<div class="wx-hint">${M.desc} <a data-goto="datalinknet">(datalink networks section)</a></div>`;
+  }
+  sync();
+  const onResize = () => { fit(); draw(); }; window.addEventListener('resize', onResize); draw();
+  _V.redraw = draw;
+  return () => window.removeEventListener('resize', onResize);
+});
+
+// ── 10 · GUIDANCE-LAW PATH COMPARISON ────────────────────────────────────────
+reg('guidancecompare', (node) => {
+  const _V = makeCanvas(node, 250); const { cv, g, fit } = _V;
+  const controls = el('div', { class: 'wx-controls' }); node.appendChild(controls);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  const LAWS = { pursuit: { c: COL.red, nm: 'Pure Pursuit' }, lead: { c: COL.amber, nm: 'Lead / deviated' }, pn: { c: COL.green, nm: 'Proportional Nav' } };
+  let on = { pursuit: true, lead: true, pn: true };
+  Object.keys(LAWS).forEach(k => { const b = el('label', { class: 'wx-chk' }, [el('input', { type: 'checkbox', checked: on[k] ? '' : null, onchange: (e) => { on[k] = e.target.checked; } }), el('span', {}, LAWS[k].nm)]); b.querySelector('span').style.color = LAWS[k].c; controls.appendChild(b); });
+  const btn = el('button', { class: 'wx-btn', onclick: () => reset() }, '↻ Re-run'); controls.appendChild(btn);
+  let paths, tgtPath, t0, builtW = 0;
+  function reset() {
+    builtW = _V.w;   // remember the width these paths were baked for
+    // simulate each law kinematically to intercept a crossing target
+    const start = [40, _V.h - 30], tgt0 = [_V.w * 0.45, 30], tv = [42, 0], msp = 90;
+    paths = {}; tgtPath = [];
+    for (const law of Object.keys(LAWS)) {
+      const m = [...start]; let v = [0, -msp]; const pts = [[...m]]; let tp = [...tgt0]; let prevLos = null;
+      for (let step = 0; step < 400; step++) {
+        tp = [tgt0[0] + tv[0] * step * 0.02, tgt0[1]];
+        const d = [tp[0] - m[0], tp[1] - m[1]], rng = Math.hypot(...d) || 1;
+        const los = Math.atan2(d[1], d[0]);
+        let desired;
+        if (law === 'pursuit') desired = los;
+        else if (law === 'lead') desired = los + Math.atan2(tv[0] * 0.35, rng);
+        else { const losRate = prevLos == null ? 0 : Math.atan2(Math.sin(los - prevLos), Math.cos(los - prevLos)); const vh = Math.atan2(v[1], v[0]); desired = vh + 4 * losRate; }
+        prevLos = los;
+        const vh = Math.atan2(v[1], v[0]); let dv = Math.atan2(Math.sin(desired - vh), Math.cos(desired - vh));
+        dv = Math.max(-0.14, Math.min(0.14, dv)); const nh = vh + dv;
+        v = [Math.cos(nh) * msp, Math.sin(nh) * msp]; m[0] += v[0] * 0.02; m[1] += v[1] * 0.02;
+        pts.push([...m]); if (rng < 8 || m[1] < 0 || m[0] > _V.w) break;
+      }
+      paths[law] = pts;
+    }
+    // target straight path
+    for (let s = 0; s < 200; s++) { const x = tgt0[0] + tv[0] * s * 0.02; if (x > _V.w) break; tgtPath.push([x, tgt0[1]]); }
+    t0 = performance.now();
+  }
+  reset();
+  const stop = frame((now) => {
+    // rebuild the baked trajectories if the canvas got its real width after mount
+    if (Math.abs(_V.w - builtW) > 4) reset();
+    const T = (now - t0) / 1000; const prog = Math.min(1, T / 3);
+    g.clearRect(0, 0, _V.w, _V.h);
+    lbl(g, 10, 16, 'SAME SHOT, THREE GUIDANCE LAWS', COL.blue, 'left', 10, true);
+    // target path (dashed) + marker
+    g.strokeStyle = 'rgba(255,90,42,.5)'; g.lineWidth = 1.5; g.setLineDash([4, 4]); g.beginPath();
+    tgtPath.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke(); g.setLineDash([]);
+    const ti = Math.min(tgtPath.length - 1, Math.floor(prog * tgtPath.length));
+    if (tgtPath[ti]) { g.fillStyle = COL.red; g.beginPath(); g.arc(tgtPath[ti][0], tgtPath[ti][1], 5, 0, 7); g.fill(); lbl(g, tgtPath[ti][0] + 6, tgtPath[ti][1] - 6, 'TGT', COL.red, 'left', 8); }
+    for (const law of Object.keys(LAWS)) {
+      if (!on[law]) continue; const pts = paths[law];
+      // full path always visible (compare all three at a glance) + animated head
+      g.strokeStyle = LAWS[law].c; g.lineWidth = 2; g.beginPath();
+      for (let i = 0; i < pts.length; i++) i ? g.lineTo(pts[i][0], pts[i][1]) : g.moveTo(pts[i][0], pts[i][1]); g.stroke();
+      const hi = Math.min(pts.length - 1, Math.max(0, Math.floor(prog * pts.length)));
+      const h = pts[hi]; g.fillStyle = LAWS[law].c; g.shadowColor = LAWS[law].c; g.shadowBlur = 6;
+      g.beginPath(); g.arc(h[0], h[1], 4, 0, 7); g.fill(); g.shadowBlur = 0;
+    }
+    // missile launch point
+    g.fillStyle = COL.ink; g.beginPath(); g.arc(40, _V.h - 30, 3, 0, 7); g.fill();
+    lbl(g, 46, _V.h - 26, 'launch', COL.dim, 'left', 8);
+    read.innerHTML = `<div class="wx-hint"><b style="color:${COL.red}">Pure pursuit</b> always points the nose <i>at the target now</i> → a long curved tail-chase that arrives late and slow (what a naive heat-seeker does). <b style="color:${COL.amber}">Lead pursuit</b> aims a fixed angle ahead — better, but not adaptive. <b style="color:${COL.green}">Proportional Navigation</b> steers to null the <a data-goto="guidance">line-of-sight rotation</a>, flying the <b>collision triangle</b> to a near-straight, energy-efficient intercept — why every real homing missile uses PN or a variant (APN adds target-accel lead; OGL adds gravity/optimality). <b>CLOS/beam-riding</b> (not shown) instead keeps the missile on the launcher→target line for command-guided SAMs.</div>`;
+  });
+  const onResize = () => fit(); window.addEventListener('resize', onResize);
+  return () => { stop(); window.removeEventListener('resize', onResize); };
+});

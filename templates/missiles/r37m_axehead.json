@@ -1,0 +1,79 @@
+{
+  "id": "r37m_axehead",
+  "name": "R-37M (RVV-BD)",
+  "category": "air_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "aam_slender",
+    "color": "#d9dde3",
+    "accent": "#ff3d00"
+  },
+  "physical": {
+    "length_m": 4.06,
+    "diameter_m": 0.38,
+    "launch_mass_kg": 510,
+    "empty_mass_kg": 300,
+    "max_g": 30
+  },
+  "propulsion": {
+    "cg_wet_m": 2.274,
+    "cg_dry_m": 2.03,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 210,
+        "ignition_time_s": 0.0,
+        "isp_s": 258,
+        "exit_area_m2": 0.08002,
+        "boost_sustain": {
+          "boost_thrust_n": 85000,
+          "boost_time_s": 3.75,
+          "sustain_thrust_n": 18000,
+          "sustain_time_s": 11.81
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.26,
+      "cd0_transonic_peak": 0.68,
+      "cd0_supersonic": 0.42,
+      "cn_alpha0": 30,
+      "cm_alpha0": -0.28,
+      "cm_q": -240,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_active",
+    "params": {
+      "acquisition_range": 30000,
+      "gimbal_limit_deg": 55,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "X",
+      "angle_noise_mrad": 0.4,
+      "jam_susceptibility": 0.1
+    }
+  },
+  "loft": 1.5,
+  "battery_s": 340,
+  "max_mach": 6.0,
+  "ceiling_m": 28000,
+  "guidance": {
+    "law": "ogl",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 26,
+      "fin_rate_deg_s": 400,
+      "actuator_tau": 0.02,
+      "max_g": 30
+    }
+  },
+  "notes": "Very-long-range ARH; Mach 6 class, high loft; ~200–300 km."
+}

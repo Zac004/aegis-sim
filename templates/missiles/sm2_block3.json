@@ -1,0 +1,79 @@
+{
+  "id": "sm2_block3",
+  "name": "SM-2MR Block IIIA",
+  "category": "surface_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "sam_heavy",
+    "color": "#e6e9ee",
+    "accent": "#00e5ff"
+  },
+  "physical": {
+    "length_m": 4.72,
+    "diameter_m": 0.34,
+    "launch_mass_kg": 708,
+    "empty_mass_kg": 360,
+    "max_g": 30
+  },
+  "propulsion": {
+    "cg_wet_m": 2.643,
+    "cg_dry_m": 2.36,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 348,
+        "ignition_time_s": 0.0,
+        "isp_s": 250,
+        "exit_area_m2": 0.06406,
+        "boost_sustain": {
+          "boost_thrust_n": 150000,
+          "boost_time_s": 3.13,
+          "sustain_thrust_n": 33000,
+          "sustain_time_s": 11.63
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.26,
+      "cd0_transonic_peak": 0.68,
+      "cd0_supersonic": 0.42,
+      "cn_alpha0": 30,
+      "cm_alpha0": -0.28,
+      "cm_q": -240,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_semiactive",
+    "params": {
+      "acquisition_range": 40000,
+      "gimbal_limit_deg": 50,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "X",
+      "angle_noise_mrad": 0.4,
+      "jam_susceptibility": 0.14
+    }
+  },
+  "loft": 1.0,
+  "battery_s": 150,
+  "max_mach": 3.5,
+  "ceiling_m": 24000,
+  "guidance": {
+    "law": "ogl",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 26,
+      "fin_rate_deg_s": 400,
+      "actuator_tau": 0.02,
+      "max_g": 30
+    }
+  },
+  "notes": "US naval area-defence SAM; command midcourse + SARH terminal; ~90–170 km."
+}

@@ -1,0 +1,27 @@
+{
+  "id": "j20_dragon",
+  "name": "J-20 Mighty Dragon",
+  "type": "fighter",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "fighter_delta",
+    "color": "#5b6572",
+    "accent": "#ffb000"
+  },
+  "signatures": {
+    "rcs_m2": 0.05,
+    "ir_signature": 1.0
+  },
+  "performance": {
+    "max_g": 8,
+    "min_speed_mps": 130,
+    "max_speed_mps": 700,
+    "service_ceiling_m": 18000
+  },
+  "countermeasures": {
+    "flares": 60,
+    "chaff": 60,
+    "ecm": true
+  },
+  "notes": "LO stealth."
+}

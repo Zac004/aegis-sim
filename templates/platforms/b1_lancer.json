@@ -1,0 +1,27 @@
+{
+  "id": "b1_lancer",
+  "name": "B-1B Lancer",
+  "type": "bomber",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "bomber_heavy",
+    "color": "#6a7482",
+    "accent": "#ffb000"
+  },
+  "signatures": {
+    "rcs_m2": 10,
+    "ir_signature": 2.5
+  },
+  "performance": {
+    "max_g": 3,
+    "min_speed_mps": 160,
+    "max_speed_mps": 400,
+    "service_ceiling_m": 18000
+  },
+  "countermeasures": {
+    "flares": 120,
+    "chaff": 120,
+    "ecm": true
+  },
+  "notes": ""
+}

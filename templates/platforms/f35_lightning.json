@@ -1,0 +1,27 @@
+{
+  "id": "f35_lightning",
+  "name": "F-35A Lightning II",
+  "type": "fighter",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "fighter_delta",
+    "color": "#6a7482",
+    "accent": "#22ff9c"
+  },
+  "signatures": {
+    "rcs_m2": 0.005,
+    "ir_signature": 1.0
+  },
+  "performance": {
+    "max_g": 9,
+    "min_speed_mps": 120,
+    "max_speed_mps": 600,
+    "service_ceiling_m": 15000
+  },
+  "countermeasures": {
+    "flares": 60,
+    "chaff": 60,
+    "ecm": true
+  },
+  "notes": "LO stealth."
+}

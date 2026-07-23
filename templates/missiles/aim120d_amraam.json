@@ -1,0 +1,79 @@
+{
+  "id": "aim120d_amraam",
+  "name": "AIM-120D AMRAAM",
+  "category": "air_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "aam_slender",
+    "color": "#d9dde3",
+    "accent": "#ffb000"
+  },
+  "physical": {
+    "length_m": 3.66,
+    "diameter_m": 0.178,
+    "launch_mass_kg": 161,
+    "empty_mass_kg": 106,
+    "max_g": 40
+  },
+  "propulsion": {
+    "cg_wet_m": 2.05,
+    "cg_dry_m": 1.83,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 55,
+        "ignition_time_s": 0.0,
+        "isp_s": 255,
+        "exit_area_m2": 0.01796,
+        "boost_sustain": {
+          "boost_thrust_n": 22000,
+          "boost_time_s": 3.44,
+          "sustain_thrust_n": 5000,
+          "sustain_time_s": 12.38
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.28,
+      "cd0_transonic_peak": 0.74,
+      "cd0_supersonic": 0.44,
+      "cn_alpha0": 34,
+      "cm_alpha0": -0.3,
+      "cm_q": -200,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_active",
+    "params": {
+      "acquisition_range": 22000,
+      "gimbal_limit_deg": 60,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "X",
+      "angle_noise_mrad": 0.4,
+      "jam_susceptibility": 0.12
+    }
+  },
+  "loft": 1.4,
+  "battery_s": 160,
+  "max_mach": 4.0,
+  "ceiling_m": 23000,
+  "guidance": {
+    "law": "ogl",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 26,
+      "fin_rate_deg_s": 400,
+      "actuator_tau": 0.02,
+      "max_g": 40
+    }
+  },
+  "notes": "Extended-range AMRAAM; improved motor + lofted midcourse; ~130–160 km class."
+}

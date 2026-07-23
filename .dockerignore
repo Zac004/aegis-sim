@@ -1,0 +1,14 @@
+# keep the image small & clean
+.git
+.gitignore
+.venv
+.pytest_cache
+__pycache__
+**/__pycache__
+*.pyc
+.DS_Store
+**/.DS_Store
+data/saved_runs/*
+data/saved_scenarios/*
+tests
+.claude

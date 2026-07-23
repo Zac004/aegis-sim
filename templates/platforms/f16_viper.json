@@ -1,0 +1,27 @@
+{
+  "id": "f16_viper",
+  "name": "F-16C Viper",
+  "type": "fighter",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "fighter_delta",
+    "color": "#9fb2c8",
+    "accent": "#00e5ff"
+  },
+  "signatures": {
+    "rcs_m2": 1.2,
+    "ir_signature": 1.0
+  },
+  "performance": {
+    "max_g": 9,
+    "min_speed_mps": 120,
+    "max_speed_mps": 680,
+    "service_ceiling_m": 15000
+  },
+  "countermeasures": {
+    "flares": 60,
+    "chaff": 60,
+    "ecm": true
+  },
+  "notes": ""
+}

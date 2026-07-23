@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AEGIS-SIM · Missile Engagement 6-DOF Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="scanlines"></div>
+
+<!-- ── TOP BAR ─────────────────────────────────────────────── -->
+<header id="topbar">
+  <div class="brand">
+    <span class="logo">◤ AEGIS<span class="accent">-SIM</span></span>
+    <span class="subtitle">MISSILE ENGAGEMENT · 6-DOF ANALYSIS</span>
+  </div>
+  <div id="outcome-banner" class="outcome idle">
+    <span class="o-label">STANDBY</span>
+    <span class="o-detail">Configure an engagement and press ENGAGE</span>
+  </div>
+  <div class="top-actions">
+    <button id="btn-atmos" class="ghost" data-tip="View the US Standard Atmosphere 1976 profile (density, pressure, speed of sound vs altitude) driving drag and Mach in every run.">ATMOS</button>
+    <button id="btn-optimize" class="ghost amber" data-tip="Tactical-AI: run dozens of engagement variants (Monte-Carlo or genetic search) to find the optimal evasive strategy or intercept profile.">◈ TACTICAL-AI</button>
+    <button id="btn-simulate" class="primary" data-tip="Run the full 6-DOF simulation of the configured engagement and play back the solution.">▶ ENGAGE</button>
+  </div>
+</header>
+
+<div id="workspace">
+  <!-- ── LEFT: CONFIGURATOR ───────────────────────────────── -->
+  <aside id="left-panel" class="panel">
+    <div class="panel-head"><span>◤ MISSION PLANNER</span><button class="panel-x" data-panel="left" data-tip="Hide the mission planner (more room for the map)">‹ HIDE</button></div>
+    <div class="panel-scroll" id="config-root"><!-- built by config.js --></div>
+  </aside>
+  <button id="reveal-left" class="reveal" data-panel="left" data-tip="Show the mission planner">▸</button>
+
+  <!-- ── CENTER: 2D TACTICAL VIEWPORT ─────────────────────── -->
+  <main id="center">
+    <div id="viewport">
+      <canvas id="tac2d"></canvas>
+      <div class="vp-vignette"></div>
+      <div class="vp-frame"></div>
+      <div id="hud-overlay">
+        <div id="viewport-readout" class="glass">
+          <div class="vr-row"><span>T+</span><b id="vr-time">0.00</b><span>s</span></div>
+          <div class="vr-row"><span>MACH</span><b id="vr-mach">0.00</b></div>
+          <div class="vr-row"><span>RNG</span><b id="vr-range">—</b><span>km</span></div>
+        </div>
+        <div id="view-options" class="glass">
+          <button class="viewopt on" data-opt="rings" data-tip="Toggle range rings centred on the launcher (10 km spacing) — for judging engagement distances at a glance.">◎ RINGS</button>
+          <button class="viewopt" data-opt="grid" data-tip="Toggle a North/East kilometre grid across the map for precise orientation.">▦ GRID</button>
+          <button class="viewopt" data-opt="bullseye" data-tip="Toggle a configurable bullseye datum — custom range rings and bearing spoke lines. The standard way pilots call positions (bearing/range from the datum). Set rings, spacing and bearing spacing below.">✛ BULLSEYE</button>
+          <button id="btn-help" class="viewopt amber" data-tip="Open the Learn / Help guide — every option explained with the science behind it, plus open-source missile range datums.">? LEARN</button>
+        </div>
+        <div id="bullseye-cfg" class="glass hidden">
+          <div class="bc-title">◎ BULLSEYE</div>
+          <label data-tip="How many range rings to draw around the datum.">Rings
+            <input id="bc-rings" type="number" min="1" max="12" step="1" value="4"></label>
+          <label data-tip="Distance between rings, in km.">Spacing km
+            <input id="bc-spacing" type="number" min="1" max="100" step="1" value="20"></label>
+          <label data-tip="Angular spacing of the bearing spoke lines, in degrees (0 = none). 30° gives twelve spokes; 45° gives eight.">Bearing °
+            <input id="bc-bearing" type="number" min="0" max="90" step="5" value="30"></label>
+        </div>
+      </div>
+      <div id="viewport-loading" class="hidden"><div class="spinner"></div><span>COMPUTING 6-DOF SOLUTION…</span></div>
+      <div id="viewport-empty">
+        <div class="ve-ring">◎</div>
+        <div class="ve-title">ENGAGEMENT STANDBY</div>
+        <div class="ve-sub">Configure the interceptor, target and maneuvers on the left,<br>then press <b>ENGAGE</b> to compute and fly the 6-DOF solution.</div>
+      </div>
+    </div>
+
+    <!-- transport / scrubber -->
+    <div id="transport" class="glass">
+      <button id="btn-play" class="tp" data-tip="Play / pause the recorded engagement.">▶</button>
+      <button id="btn-restart" class="tp" data-tip="Rewind to T+0.">⟲</button>
+      <input id="scrub" type="range" min="0" max="100" value="0" step="1" data-tip="Time scrubber — drag to any instant of the flight; every panel updates to that moment." />
+      <span id="scrub-time" class="mono">0.00s</span>
+      <select id="speed" data-tip="Playback rate. 0.25× for the terminal endgame, 4× for long BVR midcourse.">
+        <option value="0.25">0.25×</option>
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+        <option value="4">4×</option>
+      </select>
+      <button id="btn-runs" class="tp wide" data-tip="Open saved 6-DOF runs to reload and analyse them.">⭳ RUNS</button>
+      <button id="btn-save-run" class="tp wide" data-tip="Archive this completed 6-DOF run (full telemetry) to reload and analyse later.">◈ SAVE RUN</button>
+    </div>
+  </main>
+
+  <!-- ── RIGHT: TELEMETRY ─────────────────────────────────── -->
+  <aside id="right-panel" class="panel">
+    <div class="panel-head"><button class="panel-x" data-panel="right" data-tip="Hide telemetry (more room for the map)">HIDE ›</button><span>◤ LIVE TELEMETRY</span></div>
+    <div class="panel-scroll">
+      <div id="readout-grid"><!-- big numbers, built by telemetry.js --></div>
+      <details id="run-analysis" class="analysis" open><summary>◱ RUN ANALYSIS<button id="btn-expand" data-tip="Open the expanded 6-DOF analysis — big charts you can add channels to and overlay other saved runs on for A/B comparison. (Double-clicking a chart or a saved run does the same.)">⛶ EXPAND / COMPARE</button></summary><div id="analysis-body"></div></details>
+      <div id="charts"><!-- charts built by telemetry.js --></div>
+      <div id="events-log"><div class="panel-subhead">ENGAGEMENT LOG</div><ul id="events-list"></ul></div>
+    </div>
+  </aside>
+  <button id="reveal-right" class="reveal" data-panel="right" data-tip="Show telemetry">◂</button>
+</div>
+
+<!-- ── OPTIMIZER MODAL ────────────────────────────────────── -->
+<div id="optimizer-modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head"><span>◈ TACTICAL-AI OPTIMIZATION ENGINE</span><button id="opt-close" class="x">✕</button></div>
+    <div class="modal-body" id="opt-body"><!-- built by app.js --></div>
+  </div>
+</div>
+
+<!-- ── ATMOSPHERE MODAL ───────────────────────────────────── -->
+<div id="atmos-modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head"><span>◤ US STANDARD ATMOSPHERE 1976</span><button id="atmos-close" class="x">✕</button></div>
+    <div class="modal-body" id="atmos-body"></div>
+  </div>
+</div>
+
+<!-- ── LEARN / HELP MODAL ─────────────────────────────────── -->
+<div id="help-modal" class="modal hidden">
+  <div class="modal-box help-box">
+    <div class="modal-head"><span>? LEARN — BVR / WVR MISSILE ENGAGEMENT GUIDE</span><button id="help-close" class="x">✕</button></div>
+    <div class="help-layout">
+      <nav id="help-nav"></nav>
+      <div class="modal-body help-body" id="help-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── RUN EXPAND / COMPARE MODAL ─────────────────────────── -->
+<div id="expand-modal" class="modal hidden">
+  <div class="modal-box expand-box">
+    <div class="modal-head"><span id="expand-title">◱ 6-DOF RUN ANALYSIS</span><button id="expand-close" class="x">✕</button></div>
+    <div class="modal-body" id="expand-body"></div>
+  </div>
+</div>
+
+<!-- ── SAVED RUNS MODAL ───────────────────────────────────── -->
+<div id="runs-modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head"><span>⭳ SAVED 6-DOF RUNS</span><button id="runs-close" class="x">✕</button></div>
+    <div class="modal-body" id="runs-body"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="tt"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

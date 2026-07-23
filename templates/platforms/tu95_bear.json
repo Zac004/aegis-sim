@@ -1,0 +1,27 @@
+{
+  "id": "tu95_bear",
+  "name": "Tu-95 Bear",
+  "type": "bomber",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "bomber_heavy",
+    "color": "#77828f",
+    "accent": "#ffb000"
+  },
+  "signatures": {
+    "rcs_m2": 100,
+    "ir_signature": 4.0
+  },
+  "performance": {
+    "max_g": 2,
+    "min_speed_mps": 150,
+    "max_speed_mps": 250,
+    "service_ceiling_m": 12000
+  },
+  "countermeasures": {
+    "flares": 200,
+    "chaff": 200,
+    "ecm": true
+  },
+  "notes": ""
+}

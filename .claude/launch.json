@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "aegis-sim-dev",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["run.py", "--no-browser", "--port", "8770"],
+      "autoPort": false,
+      "port": 8770
+    }
+  ]
+}

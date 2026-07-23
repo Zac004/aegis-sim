@@ -1,0 +1,79 @@
+{
+  "id": "aim9m_sidewinder",
+  "name": "AIM-9M Sidewinder",
+  "category": "air_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "cruise_dart",
+    "color": "#d9dde3",
+    "accent": "#ffb000"
+  },
+  "physical": {
+    "length_m": 2.85,
+    "diameter_m": 0.127,
+    "launch_mass_kg": 86,
+    "empty_mass_kg": 62,
+    "max_g": 40
+  },
+  "propulsion": {
+    "cg_wet_m": 1.596,
+    "cg_dry_m": 1.425,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 24,
+        "ignition_time_s": 0.0,
+        "isp_s": 235,
+        "exit_area_m2": 0.00894,
+        "boost_sustain": {
+          "boost_thrust_n": 12000,
+          "boost_time_s": 2.77,
+          "sustain_thrust_n": 2600,
+          "sustain_time_s": 8.51
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.36,
+      "cd0_transonic_peak": 0.98,
+      "cd0_supersonic": 0.62,
+      "cn_alpha0": 40,
+      "cm_alpha0": -0.34,
+      "cm_q": -220,
+      "induced_k": 0.005
+    }
+  },
+  "seeker": {
+    "type": "ir",
+    "params": {
+      "acquisition_range": 10000,
+      "gimbal_limit_deg": 75,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "MWIR",
+      "angle_noise_mrad": 0.25,
+      "jam_susceptibility": 0.22
+    }
+  },
+  "loft": 0.0,
+  "battery_s": 50,
+  "max_mach": 2.7,
+  "ceiling_m": 15000,
+  "guidance": {
+    "law": "pn",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 26,
+      "fin_rate_deg_s": 400,
+      "actuator_tau": 0.02,
+      "max_g": 40
+    }
+  },
+  "notes": "Legacy IR WVR; flare-vulnerable; ~18 km class."
+}

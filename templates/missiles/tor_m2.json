@@ -1,0 +1,79 @@
+{
+  "id": "tor_m2",
+  "name": "9M338 (Tor-M2)",
+  "category": "surface_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "sam_heavy",
+    "color": "#e6e9ee",
+    "accent": "#ff8a3a"
+  },
+  "physical": {
+    "length_m": 2.9,
+    "diameter_m": 0.24,
+    "launch_mass_kg": 167,
+    "empty_mass_kg": 97,
+    "max_g": 30
+  },
+  "propulsion": {
+    "cg_wet_m": 1.624,
+    "cg_dry_m": 1.45,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 70,
+        "ignition_time_s": 0.0,
+        "isp_s": 240,
+        "exit_area_m2": 0.03192,
+        "boost_sustain": {
+          "boost_thrust_n": 55000,
+          "boost_time_s": 3.0,
+          "sustain_thrust_n": 0,
+          "sustain_time_s": 0
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.28,
+      "cd0_transonic_peak": 0.74,
+      "cd0_supersonic": 0.44,
+      "cn_alpha0": 34,
+      "cm_alpha0": -0.3,
+      "cm_q": -200,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_semiactive",
+    "params": {
+      "acquisition_range": 20000,
+      "gimbal_limit_deg": 50,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "X",
+      "angle_noise_mrad": 0.4,
+      "jam_susceptibility": 0.14
+    }
+  },
+  "loft": 0.0,
+  "battery_s": 40,
+  "max_mach": 2.8,
+  "ceiling_m": 10000,
+  "guidance": {
+    "law": "clos",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 30,
+      "fin_rate_deg_s": 500,
+      "actuator_tau": 0.02,
+      "max_g": 30
+    }
+  },
+  "notes": "Point-defence SHORAD; command-to-LOS guidance (no loft); ~15 km class."
+}

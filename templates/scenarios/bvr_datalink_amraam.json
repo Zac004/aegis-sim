@@ -1,0 +1,41 @@
+{
+  "name": "BVR Datalink — AMRAAM from Fighter (28 km)",
+  "engagement_type": "air_to_air",
+  "atmosphere": "ussa1976",
+  "geometry": {
+    "range_km": 28,
+    "aspect_deg": 180,
+    "offboresight_deg": 15,
+    "altitude_m": 10000,
+    "target_altitude_m": 9500,
+    "shooter_speed": 330,
+    "target_speed": 280,
+    "shooter_heading_deg": 90
+  },
+  "missile": { "template": "aim120c_amraam" },
+  "shooter": {
+    "platform": "f16_viper",
+    "radar_gimbal_deg": 60,
+    "radar_range_m": 95000,
+    "datalink_range_m": 140000,
+    "support": "crank",
+    "crank_angle_deg": 50
+  },
+  "target": {
+    "platform": "su35_flanker",
+    "timeline": [
+      {
+        "trigger": { "type": "tti", "value": 6 },
+        "maneuver": "break_turn",
+        "params": { "g": 6.5, "direction": "right" },
+        "countermeasure": { "type": "chaff", "count": 4, "intensity": 1.0, "duration": 4.0 }
+      },
+      {
+        "trigger": { "type": "tti", "value": 3 },
+        "maneuver": "weave",
+        "params": { "g": 6.5, "period": 2.2 }
+      }
+    ]
+  },
+  "sim": { "dt": 0.004, "max_time": 80, "output_rate_hz": 60, "hit_radius_m": 15 }
+}

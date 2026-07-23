@@ -1,0 +1,27 @@
+{
+  "id": "supersonic_asm",
+  "name": "Supersonic Anti-Ship Missile",
+  "type": "cruise_missile",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "cruise_missile",
+    "color": "#9aa4b0",
+    "accent": "#ff3d00"
+  },
+  "signatures": {
+    "rcs_m2": 0.3,
+    "ir_signature": 1.5
+  },
+  "performance": {
+    "max_g": 8,
+    "min_speed_mps": 400,
+    "max_speed_mps": 900,
+    "service_ceiling_m": 15000
+  },
+  "countermeasures": {
+    "flares": 0,
+    "chaff": 0,
+    "ecm": false
+  },
+  "notes": "Mach 2–3 sea-skimmer."
+}

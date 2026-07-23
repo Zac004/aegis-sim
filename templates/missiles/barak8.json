@@ -1,0 +1,92 @@
+{
+  "id": "barak8",
+  "name": "Barak-8ER",
+  "category": "surface_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "sam_heavy",
+    "color": "#e6e9ee",
+    "accent": "#ffb000"
+  },
+  "physical": {
+    "length_m": 4.5,
+    "diameter_m": 0.225,
+    "launch_mass_kg": 275,
+    "empty_mass_kg": 150,
+    "max_g": 40
+  },
+  "propulsion": {
+    "cg_wet_m": 2.52,
+    "cg_dry_m": 2.25,
+    "stages": [
+      {
+        "name": "pulse 1 (boost)",
+        "propellant_mass_kg": 75.0,
+        "ignition_time_s": 0.0,
+        "isp_s": 245,
+        "exit_area_m2": 0.02806,
+        "boost_sustain": {
+          "boost_thrust_n": 60000,
+          "boost_time_s": 3.0,
+          "sustain_thrust_n": 0,
+          "sustain_time_s": 0
+        }
+      },
+      {
+        "name": "pulse 2 (endgame)",
+        "propellant_mass_kg": 50.0,
+        "ignition_time_s": 25.0,
+        "isp_s": 245,
+        "exit_area_m2": 0.02806,
+        "boost_sustain": {
+          "boost_thrust_n": 30000,
+          "boost_time_s": 4.0,
+          "sustain_thrust_n": 0,
+          "sustain_time_s": 0
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.28,
+      "cd0_transonic_peak": 0.74,
+      "cd0_supersonic": 0.44,
+      "cn_alpha0": 34,
+      "cm_alpha0": -0.3,
+      "cm_q": -200,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_active",
+    "params": {
+      "acquisition_range": 20000,
+      "gimbal_limit_deg": 65,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "Ku",
+      "angle_noise_mrad": 0.3,
+      "jam_susceptibility": 0.1
+    }
+  },
+  "loft": 0.6,
+  "battery_s": 250,
+  "max_mach": 3.0,
+  "ceiling_m": 16000,
+  "guidance": {
+    "law": "ogl",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 26,
+      "fin_rate_deg_s": 400,
+      "actuator_tau": 0.02,
+      "max_g": 40
+    }
+  },
+  "notes": "Indo-Israeli dual-pulse SAM — the second pulse powers the endgame; ~100–150 km."
+}

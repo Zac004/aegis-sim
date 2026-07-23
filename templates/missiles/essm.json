@@ -1,0 +1,79 @@
+{
+  "id": "essm",
+  "name": "ESSM (RIM-162)",
+  "category": "surface_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "sam_heavy",
+    "color": "#e6e9ee",
+    "accent": "#22ff9c"
+  },
+  "physical": {
+    "length_m": 3.66,
+    "diameter_m": 0.254,
+    "launch_mass_kg": 280,
+    "empty_mass_kg": 172,
+    "max_g": 50
+  },
+  "propulsion": {
+    "cg_wet_m": 2.05,
+    "cg_dry_m": 1.83,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 108,
+        "ignition_time_s": 0.0,
+        "isp_s": 245,
+        "exit_area_m2": 0.03575,
+        "boost_sustain": {
+          "boost_thrust_n": 90000,
+          "boost_time_s": 2.88,
+          "sustain_thrust_n": 0,
+          "sustain_time_s": 0
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.28,
+      "cd0_transonic_peak": 0.74,
+      "cd0_supersonic": 0.44,
+      "cn_alpha0": 34,
+      "cm_alpha0": -0.3,
+      "cm_q": -200,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_semiactive",
+    "params": {
+      "acquisition_range": 25000,
+      "gimbal_limit_deg": 50,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "X",
+      "angle_noise_mrad": 0.4,
+      "jam_susceptibility": 0.14
+    }
+  },
+  "loft": 0.3,
+  "battery_s": 60,
+  "max_mach": 4.0,
+  "ceiling_m": 15000,
+  "guidance": {
+    "law": "apn",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 30,
+      "fin_rate_deg_s": 500,
+      "actuator_tau": 0.02,
+      "max_g": 50
+    }
+  },
+  "notes": "Ship self-defence missile; all-boost, extremely agile; ~50 km class."
+}

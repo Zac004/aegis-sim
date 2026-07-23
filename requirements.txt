@@ -1,0 +1,13 @@
+# ── Aegis-Sim dependencies ────────────────────────────────────────────────
+# HARD REQUIREMENT — the physics core needs this:
+numpy>=1.24
+
+# OPTIONAL ACCELERATORS — the app runs without them (guarded try/except imports).
+#   scipy : smoother spline interpolation of thrust/aero tables + fast solvers
+#   numba : JIT-compiles the inner integration loop for a large speed-up
+scipy>=1.10 ; python_version >= "3.9"
+numba>=0.58 ; python_version >= "3.9"
+
+# NOTE: The GUI uses only the Python standard library (http.server) on the
+# backend and Three.js via CDN import-map on the frontend — no Node/npm, no
+# Flask/FastAPI required. This keeps `python run.py` a one-command launch.

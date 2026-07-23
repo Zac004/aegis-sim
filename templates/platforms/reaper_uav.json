@@ -1,0 +1,27 @@
+{
+  "id": "reaper_uav",
+  "name": "MQ-9 Reaper",
+  "type": "uav",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "uav_recon",
+    "color": "#c2b280",
+    "accent": "#ff3d00"
+  },
+  "signatures": {
+    "rcs_m2": 0.5,
+    "ir_signature": 0.4
+  },
+  "performance": {
+    "max_g": 3,
+    "min_speed_mps": 50,
+    "max_speed_mps": 130,
+    "service_ceiling_m": 15000
+  },
+  "countermeasures": {
+    "flares": 0,
+    "chaff": 0,
+    "ecm": false
+  },
+  "notes": ""
+}

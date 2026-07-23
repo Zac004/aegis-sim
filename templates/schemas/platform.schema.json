@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "aegis-sim/platform",
+  "title": "Aegis-Sim Platform Template",
+  "description": "A target or launch platform: fighter, bomber, ship, or SAM site.",
+  "type": "object",
+  "required": ["name", "type"],
+  "properties": {
+    "id": {"type": "string"},
+    "name": {"type": "string"},
+    "type": {"type": "string", "enum": ["fighter", "bomber", "ship", "sam_site", "uav", "cruise_missile", "custom"]},
+    "signatures": {
+      "type": "object",
+      "properties": {
+        "rcs_m2": {"type": "number", "description": "Radar cross-section (m²) — drives RF seeker SNR."},
+        "ir_signature": {"type": "number", "description": "Relative IR intensity (1.0 = reference fighter) — drives IR seeker SNR."}
+      }
+    },
+    "performance": {
+      "type": "object",
+      "properties": {
+        "max_g": {"type": "number", "description": "Structural / pilot g-limit."},
+        "min_speed_mps": {"type": "number"},
+        "max_speed_mps": {"type": "number"},
+        "service_ceiling_m": {"type": "number"}
+      }
+    },
+    "countermeasures": {
+      "type": "object",
+      "description": "Onboard defensive suite (referenced by the maneuver timeline).",
+      "properties": {
+        "flares": {"type": "integer"},
+        "chaff": {"type": "integer"},
+        "ecm": {"type": "boolean"}
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "BVR Head-On — AMRAAM vs Flanker",
+  "engagement_type": "air_to_air",
+  "atmosphere": "ussa1976",
+  "missile": {
+    "template": "aim120c_amraam",
+    "launch": {
+      "position": [0, 0, 8000],
+      "velocity": {"speed": 300, "heading_deg": 90, "climb_deg": 0}
+    }
+  },
+  "target": {
+    "platform": "su35_flanker",
+    "initial": {
+      "position": [0, 20000, 8500],
+      "velocity": {"speed": 260, "heading_deg": 270, "climb_deg": 0}
+    },
+    "timeline": [
+      {
+        "trigger": {"type": "range", "value": 8000},
+        "maneuver": "break_turn",
+        "params": {"g": 7.0, "direction": "right"},
+        "countermeasure": {"type": "chaff", "count": 4, "intensity": 1.0, "duration": 4.0}
+      },
+      {
+        "trigger": {"type": "tti", "value": 3.0},
+        "maneuver": "weave",
+        "params": {"g": 6.5, "period": 2.2}
+      }
+    ]
+  },
+  "sim": {"dt": 0.004, "max_time": 45, "output_rate_hz": 60, "hit_radius_m": 15}
+}

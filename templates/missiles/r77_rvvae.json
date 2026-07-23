@@ -1,0 +1,79 @@
+{
+  "id": "r77_rvvae",
+  "name": "R-77 (RVV-AE)",
+  "category": "air_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "aam_slender",
+    "color": "#d9dde3",
+    "accent": "#ff8a3a"
+  },
+  "physical": {
+    "length_m": 3.6,
+    "diameter_m": 0.2,
+    "launch_mass_kg": 175,
+    "empty_mass_kg": 110,
+    "max_g": 40
+  },
+  "propulsion": {
+    "cg_wet_m": 2.016,
+    "cg_dry_m": 1.8,
+    "stages": [
+      {
+        "name": "boost-sustain motor",
+        "propellant_mass_kg": 65,
+        "ignition_time_s": 0.0,
+        "isp_s": 250,
+        "exit_area_m2": 0.02217,
+        "boost_sustain": {
+          "boost_thrust_n": 24000,
+          "boost_time_s": 3.65,
+          "sustain_thrust_n": 6000,
+          "sustain_time_s": 11.95
+        }
+      }
+    ]
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.28,
+      "cd0_transonic_peak": 0.74,
+      "cd0_supersonic": 0.44,
+      "cn_alpha0": 34,
+      "cm_alpha0": -0.3,
+      "cm_q": -200,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_active",
+    "params": {
+      "acquisition_range": 16000,
+      "gimbal_limit_deg": 60,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "X",
+      "angle_noise_mrad": 0.4,
+      "jam_susceptibility": 0.12
+    }
+  },
+  "loft": 0.9,
+  "battery_s": 110,
+  "max_mach": 4.5,
+  "ceiling_m": 20000,
+  "guidance": {
+    "law": "apn",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 26,
+      "fin_rate_deg_s": 400,
+      "actuator_tau": 0.02,
+      "max_g": 40
+    }
+  },
+  "notes": "Russian ARH; grid fins; ~80–100 km class."
+}

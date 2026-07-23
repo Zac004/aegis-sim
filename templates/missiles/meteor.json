@@ -1,0 +1,89 @@
+{
+  "id": "meteor",
+  "name": "MBDA Meteor",
+  "category": "air_to_air",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "aam_slender",
+    "color": "#d9dde3",
+    "accent": "#00e5ff"
+  },
+  "physical": {
+    "length_m": 3.65,
+    "diameter_m": 0.178,
+    "launch_mass_kg": 190,
+    "empty_mass_kg": 100,
+    "max_g": 40
+  },
+  "propulsion": {
+    "cg_wet_m": 2.044,
+    "cg_dry_m": 1.825,
+    "stages": [
+      {
+        "name": "booster",
+        "propellant_mass_kg": 36,
+        "ignition_time_s": 0.0,
+        "isp_s": 235,
+        "exit_area_m2": 0.01756,
+        "boost_sustain": {
+          "boost_thrust_n": 21000,
+          "boost_time_s": 3.95,
+          "sustain_thrust_n": 0,
+          "sustain_time_s": 0
+        }
+      }
+    ],
+    "ramjet": {
+      "thrust_n": 9000,
+      "fuel_mass_kg": 54,
+      "isp_s": 800,
+      "ignition_time_s": 4.0,
+      "mach_min": 2.0,
+      "mach_cruise": 3.5,
+      "mach_economy": 2.8,
+      "min_throttle": 0.15
+    }
+  },
+  "aero": {
+    "model": "parametric",
+    "params": {
+      "cd0_subsonic": 0.32,
+      "cd0_transonic_peak": 0.84,
+      "cd0_supersonic": 0.5,
+      "cn_alpha0": 34,
+      "cm_alpha0": -0.3,
+      "cm_q": -200,
+      "induced_k": 0.004
+    }
+  },
+  "seeker": {
+    "type": "rf_active",
+    "params": {
+      "acquisition_range": 22000,
+      "gimbal_limit_deg": 65,
+      "fov_deg": 4.0,
+      "track_bandwidth_hz": 3.5,
+      "frequency_band": "Ku",
+      "angle_noise_mrad": 0.3,
+      "jam_susceptibility": 0.1
+    }
+  },
+  "loft": 0.8,
+  "battery_s": 155,
+  "max_mach": 4.0,
+  "ceiling_m": 22000,
+  "guidance": {
+    "law": "ogl",
+    "N": 4.0
+  },
+  "autopilot": {
+    "type": "three_loop",
+    "params": {
+      "max_fin_deg": 26,
+      "fin_rate_deg_s": 400,
+      "actuator_tau": 0.02,
+      "max_g": 40
+    }
+  },
+  "notes": "Throttleable ducted-rocket ramjet: economy cruise, throttles up for the endgame → huge no-escape zone; ~150–200 km."
+}
