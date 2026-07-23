@@ -1,13 +1,37 @@
 # Hosting Aegis-Sim online (free)
 
 The app is a self-contained Python server (NumPy only, no build step). The
-included `Dockerfile` runs it anywhere. Recommended free host: **Hugging Face
-Spaces (Docker)** — 2 free vCPUs so the parallel Tactical-AI engine works, a
-public HTTPS URL, and no credit card.
+included `Dockerfile` runs it anywhere.
 
 ---
 
-## Option A — Hugging Face Spaces (recommended, free, no card)
+## Quickest — share a live link off your Mac (free, no account, ~1 min)
+
+```bash
+./share.sh
+```
+
+It downloads Cloudflare's official tunnel tool the first time (into `./.tools`,
+nothing installed system-wide), starts the app, and prints a public
+`https://<random>.trycloudflare.com` link. Send that to friends. The link is
+live only while `share.sh` is running (Ctrl+C takes it offline) and the address
+changes each run. Full speed — it runs on your Mac's CPU. Best for demos.
+
+For an **always-on** link that works when your Mac is off, use a host below.
+
+---
+
+## Note on Hugging Face Spaces (Docker now needs PRO)
+
+Hugging Face made **Docker and Gradio Spaces a paid (PRO) feature** — only
+**Static** Spaces stay free, and static can't run this app's Python engine. The
+Docker front-matter is still in `README.md` (`sdk: docker`, `app_port: 7860`) so
+it works the moment you have PRO, but for a free always-on host prefer Cloud Run
+or a no-card PaaS below.
+
+---
+
+## Option A — Hugging Face Spaces (Docker, requires PRO)
 
 1. Make a free account at <https://huggingface.co>.
 2. **New → Space.** Name it, choose **SDK: Docker → Blank**, Hardware **CPU basic
