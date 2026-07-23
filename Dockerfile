@@ -16,6 +16,7 @@ USER app
 # keeps NumPy from over-subscribing threads inside each worker.
 ENV OMP_NUM_THREADS=1 \
     OPENBLAS_NUM_THREADS=1 \
+    AEGIS_MAX_WORKERS=2 \
     AEGIS_HOST=0.0.0.0 \
     PORT=7860
 

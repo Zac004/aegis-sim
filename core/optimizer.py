@@ -38,7 +38,14 @@ try:
     _CPU = _os.cpu_count() or 2
 except Exception:
     _CPU = 2
-_MAX_WORKERS = max(1, min(_CPU, 8))
+# Small free hosts (0.1 vCPU / 512 MB) report the *host's* many cores but can't
+# afford that many worker processes — each re-imports NumPy. AEGIS_MAX_WORKERS
+# lets the deployment cap the pool (e.g. "2"); unset → all local cores (max 8).
+try:
+    _env_workers = int(_os.environ.get("AEGIS_MAX_WORKERS", "0"))
+except (TypeError, ValueError):
+    _env_workers = 0
+_MAX_WORKERS = _env_workers if _env_workers > 0 else max(1, min(_CPU, 8))
 _PARALLEL_THRESHOLD = 6      # only spin up processes when a batch is worth it
 _POOL_OK = True              # flipped off if the pool can't start in this env
 
