@@ -551,3 +551,69 @@ button.tp.wide:hover{color:var(--amber);border-color:var(--amber)}
 .wx-card.correct{border-color:var(--green);background:rgba(34,255,156,.12);color:#fff}
 .wx-card.wrong{border-color:var(--red);background:rgba(255,61,0,.12)}
 .wx-card.dim{opacity:.4}
+
+/* ── Gamification v4: medals, mastery web, decision drill, weapon codex ── */
+.hr-grind{margin-top:5px;color:var(--amber);letter-spacing:.3px}
+
+/* medal wall */
+.wx-ach{margin-top:4px}
+.ach-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 14px;align-items:baseline;
+  font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);margin-bottom:10px}
+.ach-streak b{color:var(--amber);font-size:14px} .ach-streak i{color:var(--ink-faint);font-style:normal}
+.ach-flame{filter:drop-shadow(0 0 4px rgba(255,120,0,.7))}
+.ach-count b{font-size:13px}
+.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.ach-medal{border:1px solid var(--line2);border-radius:8px;padding:10px 9px;text-align:center;
+  background:#0b1524;transition:.18s;position:relative}
+.ach-medal.got{border-color:rgba(34,255,156,.5);background:linear-gradient(180deg,rgba(34,255,156,.10),#0b1524);
+  box-shadow:0 0 10px rgba(34,255,156,.12)}
+.ach-medal.locked{opacity:.5;filter:grayscale(.6)}
+.ach-medal.got:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(34,255,156,.2)}
+.ach-ic{font-size:26px;line-height:1.1}
+.ach-nm{font-family:var(--font-display);font-size:10px;letter-spacing:1px;color:var(--ink);margin-top:3px}
+.ach-medal.got .ach-nm{color:var(--green)}
+.ach-dc{font-family:var(--font-mono);font-size:8.5px;color:var(--ink-faint);margin-top:3px;line-height:1.4}
+
+/* medal-unlock toast */
+#ach-toast{position:fixed;top:120px;right:24px;z-index:10000;display:flex;align-items:center;gap:11px;
+  padding:11px 16px 11px 13px;border-radius:12px;background:linear-gradient(135deg,#0c2b1e,#0a1626);
+  border:1px solid rgba(34,255,156,.55);box-shadow:0 8px 30px rgba(0,0,0,.5),0 0 18px rgba(34,255,156,.25);
+  opacity:0;pointer-events:none;transform:translateX(30px)}
+#ach-toast.show{animation:achpop 3s cubic-bezier(.2,.8,.2,1)}
+#ach-toast .at-ic{font-size:28px;filter:drop-shadow(0 0 6px rgba(34,255,156,.6))}
+#ach-toast .at-tx{display:flex;flex-direction:column;font-family:var(--font-display);font-size:12px;
+  letter-spacing:1px;color:var(--green)}
+#ach-toast .at-tx b{font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--ink-dim);margin-bottom:2px}
+@keyframes achpop{0%{opacity:0;transform:translateX(30px)}8%{opacity:1;transform:translateX(0)}
+  85%{opacity:1;transform:translateX(0)}100%{opacity:0;transform:translateX(30px)}}
+
+/* decision drill */
+.wx-drill{font-size:13px}
+.drill-timer{height:6px;background:#0d1728;border:1px solid var(--line);border-radius:4px;overflow:hidden;margin:8px 0 12px}
+.drill-fill{display:block;height:100%;width:100%;background:var(--green);transition:width .08s linear,background .2s}
+.drill-score{font-family:var(--font-display);font-size:30px;letter-spacing:2px;color:var(--ink);margin:6px 0}
+.drill-score b{font-size:34px}
+
+/* weapon codex */
+.codex-head{font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);margin-bottom:10px}
+.codex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.codex-card{border:1px solid var(--line2);border-radius:9px;padding:11px 12px;background:#0b1524;
+  cursor:pointer;transition:.16s;user-select:none}
+.codex-card:hover{border-color:var(--blue);box-shadow:0 4px 16px rgba(0,229,255,.12);transform:translateY(-2px)}
+.codex-card.studied{border-color:rgba(34,255,156,.45);background:linear-gradient(180deg,rgba(34,255,156,.06),#0b1524)}
+.cx-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.cx-name{font-family:var(--font-display);font-size:13px;letter-spacing:1px;color:var(--blue)}
+.cx-side{font-family:var(--font-mono);font-size:8.5px;color:var(--ink-faint);letter-spacing:.5px;white-space:nowrap}
+.cx-spec{display:flex;flex-direction:column;gap:1px;margin:5px 0 8px;font-family:var(--font-mono);
+  font-size:9px;color:var(--ink-dim)}
+.cx-bars{display:flex;flex-direction:column;gap:4px}
+.cx-bar{display:grid;grid-template-columns:52px 1fr 42px;align-items:center;gap:7px;font-family:var(--font-mono);font-size:8.5px}
+.cx-bl{color:var(--ink-faint);letter-spacing:.5px}
+.cx-bt{height:7px;background:#0d1728;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.cx-bt i{display:block;height:100%;border-radius:3px}
+.cx-bv{color:var(--ink);text-align:right}
+.cx-note{margin-top:9px;padding-top:8px;border-top:1px solid var(--line);font-size:11px;
+  color:var(--ink-dim);line-height:1.5}
+.cx-foot{margin-top:9px;font-family:var(--font-mono);font-size:9px;letter-spacing:1px;text-align:center;
+  color:var(--amber)}
+.codex-card.studied .cx-foot{color:var(--green)}

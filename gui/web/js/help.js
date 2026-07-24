@@ -17,14 +17,14 @@ const CAT_OF = {
   start: 0, syllabus: 0,
   radar101: 1, radartypes: 1, radarroles: 1, ir101: 1, aero: 1, atmos: 1, weather: 1, humanfactors: 1,
   guidance: 2, guidancelaws: 2, loft: 2, propulsion: 2, motors: 2, battery: 2,
-  seeker: 2, seekertrack: 2, fuzing: 2, cccm: 2,
+  seeker: 2, seekertrack: 2, fuzing: 2, cccm: 2, codex: 2,
   timeline: 3, midcourse: 3, brevity: 3, mar: 3, defence: 3, wvr: 3,
   emtheory: 3, formations: 3, rwr: 3,
   ew: 4, cm: 4,
   sam: 5, horizon: 5, iadsnet: 5,
   modern: 6, datalinknet: 6, datalinks: 6, history: 6,
   hitmiss: 7, params: 7, ranges: 7,
-  challenge_sec: 8, threatid: 8, checkride: 8, glossary: 8,
+  challenge_sec: 8, threatid: 8, checkride: 8, career: 8, glossary: 8,
 };
 
 export const HELP_SECTIONS = [
@@ -1360,6 +1360,42 @@ export const HELP_SECTIONS = [
       instinct.</p>`,
   },
   {
+    id: 'career', title: '🏆 Trophy Room',
+    html: `
+      <p>Your whole training record in one place — <b>medals, sortie streak, a mastery web</b> and a
+      timed <b>Decision Drill</b>. Everything you do in the guide feeds it, and it all saves in your
+      browser, so your rank and collection are still here next time you fly.</p>
+      <h3>Medals</h3>
+      <p>Sixteen to collect — for reading, acing check-rides, solving <a data-goto="challenge_sec">tactical
+      challenges</a>, the <a data-goto="threatid">match game</a>, the drill below, the
+      <a data-goto="codex">Weapon Codex</a>, and simply showing up day after day (your 🔥 sortie streak).</p>
+      <div class="wx" data-widget="achievements"></div>
+      <h3>Mastery web</h3>
+      <p>Each spoke is a topic category; the green shape fills as you read it. A lopsided web shows exactly
+      where your knowledge is thin — go round it out and your rank climbs with it.</p>
+      <div class="wx" data-widget="masteryweb"></div>
+      <h3>Decision Drill</h3>
+      <p>Eight tactical calls against the clock. In a real BVR timeline the right call a second late is the
+      wrong call — this trains speed <i>and</i> correctness, and rewards both. 80+ earns the ⏱ Quick Draw
+      medal.</p>
+      <div class="wx" data-widget="decisiondrill"></div>`,
+  },
+  {
+    id: 'codex', title: '🃏 Weapon Codex',
+    html: `
+      <p>Ten signature air-to-air and surface-to-air missiles as <b>collectible cards</b> — each with its
+      motor, seeker and a four-bar fingerprint: <b>range, top speed, no-escape-zone size and agility</b>.
+      Learn to read the fingerprint and you can predict a threat's envelope before the merge — the same
+      instinct the <a data-goto="threatid">match game</a> drills.</p>
+      <p>Tap a card to <b>study</b> it: you'll reveal its doctrine note and bank +12 XP. Collect all ten for
+      the 🏆 Codex Complete medal. Watch the trade every design makes — the ramjet <b>Meteor</b> gives up a
+      little agility for an enormous NEZ; <b>AIM-9X</b> and <b>PAC-3</b> live at the ultra-agile end; the big
+      interceptors (<b>R-37M</b>, <b>S-400</b>) buy range and speed at the cost of turn.</p>
+      <div class="wx" data-widget="codex"></div>
+      <p class="tip">These are the real weapons behind the sim's templates — see <a data-goto="propulsion">propulsion</a>,
+      <a data-goto="seeker">seekers</a> and <a data-goto="ranges">range classes</a> for the physics that sets each bar.</p>`,
+  },
+  {
     id: 'glossary', title: 'Glossary',
     html: `
       <dl class="gloss">
@@ -1406,6 +1442,11 @@ export function openHelp(sectionId) {
   if (_activeTeardown) { _activeTeardown(); _activeTeardown = null; }
   nav.innerHTML = '';
 
+  // gamification: tell the engine the syllabus size, then log today's sortie
+  // (advances the daily streak and may unlock streak medals right away).
+  progress.total = HELP_SECTIONS.length;
+  progress.visit();
+
   // ── rank & progress header (the gamification spine) ──
   const rankBox = document.createElement('div');
   rankBox.className = 'help-rank';
@@ -1424,21 +1465,34 @@ export function openHelp(sectionId) {
     if (st.read >= HELP_SECTIONS.length) out.push('★ COMPLETE');
     return out;
   };
+  // publish per-category mastery for the Mastery-Web radar widget
+  const publishCatMastery = () => {
+    window._aegisCatMastery = CATEGORIES.map((name, ci) => {
+      const items = HELP_SECTIONS.filter(s => (CAT_OF[s.id] ?? 7) === ci);
+      const read = items.filter(s => progress.isRead(s.id)).length;
+      const short = name.replace(/^[^A-Za-z]+/, '').trim();  // drop the icon glyph
+      return { name, short, total: items.length, read, frac: items.length ? read / items.length : 0 };
+    }).filter(c => c.total > 0 && c.name.indexOf('START') === -1);
+  };
   const refreshRank = () => {
     const r = progress.rank(HELP_SECTIONS.length);
     const st = progress.stats();
     const badges = earnedBadges();
     const w = progress.wing();
     const wingPct = w.next ? Math.round(100 * (w.xp / w.next)) : 100;
+    const sortie = progress.sortie();
+    const med = progress.achievementCount();
+    publishCatMastery();
     rankBox.innerHTML =
       `<div class="hr-rank"><span class="hr-icon">${r.icon}</span>${r.name}</div>` +
       `<div class="hr-bar"><i style="width:${r.pct}%"></i></div>` +
       `<div class="hr-meta">${r.pct}% mastery · ${st.read}/${HELP_SECTIONS.length} topics · best check-ride ${st.quizBest}${st.quizTotal ? '/' + st.quizTotal : ''} · best streak ${st.streakBest}</div>` +
       `<div class="hr-xp"><span>✈ ${w.name}</span><b>${w.xp} XP${w.next ? ` / ${w.next}` : ''}</b></div>` +
       `<div class="hr-bar hr-xpbar"><i style="width:${wingPct}%"></i></div>` +
+      `<div class="hr-meta hr-grind">🔥 ${sortie.days}-day streak${sortie.best > sortie.days ? ` (best ${sortie.best})` : ''} · 🏅 ${med.got}/${med.total} medals</div>` +
       (badges.length ? `<div class="hr-badges">${badges.map(b => `<span class="hr-badge">${b}</span>`).join('')}</div>`
                      : `<div class="hr-badges hr-badge-hint">Read a full category or ace the check-ride to earn badges →</div>`);
-    rankBox.title = 'Rank grows with topics read (60%) and your best check-ride score (40%). Earn XP by reading topics, acing quizzes, solving tactical challenges and the match game — XP promotes your WINGS (Bronze → Legend). Finish a whole category to earn badges.';
+    rankBox.title = 'Rank grows with topics read (60%) and your best check-ride score (40%). Earn XP by reading topics, acing quizzes, solving challenges, the match game, the Decision Drill and the Weapon Codex — XP promotes your WINGS (Bronze → Legend). Show up daily for a sortie streak. Finish a whole category to earn badges, and collect all 16 medals in the Trophy Room.';
   };
   // floating +XP toast on any XP award, and live-refresh the rank/XP header
   window._aegisXPtoast = (n) => {
@@ -1447,6 +1501,17 @@ export function openHelp(sectionId) {
     t.textContent = `+${n} XP`;
     t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
     refreshRank();
+    if (window._aegisAchRefresh) window._aegisAchRefresh();
+    if (window._aegisMasteryRefresh) window._aegisMasteryRefresh();
+  };
+  // big celebratory toast when a medal unlocks
+  window._aegisAchToast = (a) => {
+    let t = document.getElementById('ach-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'ach-toast'; document.body.appendChild(t); }
+    t.innerHTML = `<span class="at-ic">${a.icon}</span><span class="at-tx"><b>MEDAL UNLOCKED</b>${a.name}</span>`;
+    t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
+    refreshRank();
+    if (window._aegisAchRefresh) window._aegisAchRefresh();
   };
   refreshRank();
   nav.appendChild(rankBox);

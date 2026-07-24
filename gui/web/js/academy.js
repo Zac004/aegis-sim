@@ -27,13 +27,21 @@ const R = (n, d = 0) => (Math.round(n * 10 ** d) / 10 ** d);
 const REGISTRY = {};
 const reg = (name, fn) => { REGISTRY[name] = fn; };
 
+// the hands-on lab widgets — mounting one counts toward the "Tinkerer" medal
+const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'horizon',
+  'radareq', 'flarefight', 'doghouse', 'guidancecompare', 'motorrace', 'seekerloop',
+  'irscan', 'prf', 'decisiondrill', 'codex']);
+
 export function mountWidgets(root) {
   const teardowns = [];
   root.querySelectorAll('[data-widget]').forEach(node => {
     const fn = REGISTRY[node.dataset.widget];
     if (!fn) return;
     node.innerHTML = '';
-    try { const t = fn(node); if (t) teardowns.push(t); }
+    try {
+      const t = fn(node); if (t) teardowns.push(t);
+      if (LAB_WIDGETS.has(node.dataset.widget)) progress.touch(node.dataset.widget);
+    }
     catch (e) { node.innerHTML = `<div class="wx-err">widget error: ${e.message}</div>`; }
   });
   return () => teardowns.forEach(t => { try { t(); } catch (_) {} });
@@ -485,6 +493,7 @@ export const progress = {
     if (key) { p.done = p.done || {}; p.done[key] = 1; }   // one-time credit per challenge
     this._set(p);
     if (typeof window !== 'undefined' && window._aegisXPtoast) window._aegisXPtoast(n);
+    this._sync();
     return p.xp;
   },
   hasDone(key) { return !!(this._get().done || {})[key]; },
@@ -511,6 +520,58 @@ export const progress = {
     let r = ladder[0];
     for (const l of ladder) if (pct >= l[0]) r = l;
     return { pct, name: r[1], icon: r[2] };
+  },
+
+  // ── total section count (set by help.js so achievements know the goal) ──
+  total: 0,
+
+  // ── sortie streak: consecutive calendar days you show up to train ──
+  visit() {
+    const p = this._get();
+    const today = new Date().toISOString().slice(0, 10);
+    if (p.lastVisit !== today) {
+      const yday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+      p.streakDays = (p.lastVisit === yday) ? (p.streakDays || 0) + 1 : 1;
+      p.lastVisit = today;
+      p.streakDaysBest = Math.max(p.streakDaysBest || 0, p.streakDays);
+      this._set(p);
+    }
+    this._sync();
+    return this.sortie();
+  },
+  sortie() { const p = this._get(); return { days: p.streakDays || 0, best: p.streakDaysBest || 0 }; },
+
+  // ── "used this tool" tracking → the Tinkerer medal ──
+  touch(name) { const p = this._get(); p.touched = p.touched || {}; if (!p.touched[name]) { p.touched[name] = 1; this._set(p); this._sync(); } },
+  touchedCount() { return Object.keys(this._get().touched || {}).length; },
+
+  // ── decision-drill high score ──
+  drillResult(score) { const p = this._get(); p.drillBest = Math.max(p.drillBest || 0, score); p.drillRuns = (p.drillRuns || 0) + 1; this._set(p); this._sync(); return p.drillBest; },
+  drillBest() { return this._get().drillBest || 0; },
+
+  // ── weapon-ID match: remember which weapons you've correctly identified ──
+  matchWin(name) { const p = this._get(); p.match = p.match || {}; if (!p.match[name]) { p.match[name] = 1; this._set(p); this._sync(); } },
+  matchCount() { return Object.keys(this._get().match || {}).length; },
+
+  // ── weapon codex: cards you've studied (one-time +XP each) ──
+  studyCard(id) { const p = this._get(); p.codex = p.codex || {}; if (!p.codex[id]) { p.codex[id] = 1; this._set(p); this.addXP(12, 'codex_' + id); } this._sync(); },
+  studied(id) { return !!(this._get().codex || {})[id]; },
+  codexCount() { return Object.keys(this._get().codex || {}).length; },
+
+  challengesSolved() { const d = this._get().done || {}; return Object.keys(d).filter(k => k.startsWith('ch_')).length; },
+
+  // ── achievements: earned set + toast the newly unlocked ──
+  achievements() { return ACHIEVEMENTS.map(a => ({ id: a.id, icon: a.icon, name: a.name, desc: a.desc, got: !!a.test(this) })); },
+  achievementCount() { return { got: ACHIEVEMENTS.filter(a => a.test(this)).length, total: ACHIEVEMENTS.length }; },
+  _sync() {
+    const p = this._get();
+    p.ach = p.ach || {};
+    const fresh = [];
+    for (const a of ACHIEVEMENTS) if (a.test(this) && !p.ach[a.id]) { p.ach[a.id] = 1; fresh.push(a); }
+    if (fresh.length) {
+      this._set(p);
+      if (typeof window !== 'undefined' && window._aegisAchToast) fresh.forEach(a => window._aegisAchToast(a));
+    }
   },
 };
 
@@ -1266,7 +1327,7 @@ reg('matchgame', (node) => {
       if (answered) return; answered = true; tries++;
       const ok = c.name === round.name;
       [...row.children].forEach(b => { b.classList.add(b.textContent === round.name ? 'correct' : (b.textContent === c.name ? 'wrong' : 'dim')); b.disabled = true; });
-      if (ok) { solved++; progress.addXP(8); }
+      if (ok) { solved++; progress.addXP(8); progress.matchWin(round.name); }
       read.innerHTML = `<div class="wx-line" style="color:${ok ? COL.green : COL.red}">${ok ? '✓ Correct — ' + round.name + '. +8 XP' : '✗ It was ' + round.name + '.'}</div>` +
         `<div class="wx-hint">Solved ${solved} of ${tries}. Every weapon has a fingerprint — motor type, seeker, range class, datalink. Learn to read the fingerprint and you can predict a threat\'s envelope before the merge.</div>` +
         `<button class="wx-btn" style="margin-top:8px">↻ Next weapon</button>`;
@@ -1782,4 +1843,305 @@ reg('guidancecompare', (node) => {
   });
   const onResize = () => fit(); window.addEventListener('resize', onResize);
   return () => { stop(); window.removeEventListener('resize', onResize); };
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  GAMIFICATION v4 — medals, mastery web, the Decision Drill, the Weapon Codex
+//  More ways to earn, track and see your progress. All persisted in localStorage.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── the medal roster. Each test(p) reads the persisted progress singleton. ──
+const ACHIEVEMENTS = [
+  { id: 'first_read',    icon: '📖', name: 'First Contact',   desc: 'Read your first topic.',                 test: p => p.readCount() >= 1 },
+  { id: 'ground_school', icon: '📚', name: 'Ground School',   desc: 'Read 10 topics.',                        test: p => p.readCount() >= 10 },
+  { id: 'full_syllabus', icon: '🎓', name: 'Full Syllabus',   desc: 'Read every topic in the guide.',         test: p => p.total > 0 && p.readCount() >= p.total },
+  { id: 'check_ride',    icon: '✍',  name: 'Check-Ride',      desc: 'Complete a check-ride quiz.',            test: p => p.stats().runs >= 1 },
+  { id: 'sharpshooter',  icon: '🎯', name: 'Sharpshooter',    desc: 'Hit a 5-answer quiz streak.',            test: p => p.stats().streakBest >= 5 },
+  { id: 'top_gun',       icon: '⚔',  name: 'TOP GUN',         desc: 'Ace a check-ride — 8 of 8.',             test: p => p.stats().quizBest >= 8 },
+  { id: 'first_blood',   icon: '♟',  name: 'First Blood',     desc: 'Solve a tactical challenge.',            test: p => p.challengesSolved() >= 1 },
+  { id: 'tactician',     icon: '◈',  name: 'Tactician',       desc: 'Solve every tactical challenge.',        test: p => p.challengesSolved() >= CHALLENGES.length },
+  { id: 'loadmaster',    icon: '🔗', name: 'Loadmaster',      desc: 'Identify every weapon in the match game.', test: p => p.matchCount() >= CARDS.length },
+  { id: 'quick_draw',    icon: '⏱',  name: 'Quick Draw',      desc: 'Score 80+ in the Decision Drill.',       test: p => p.drillBest() >= 80 },
+  { id: 'regular',       icon: '🔥', name: 'Regular',         desc: '3-day sortie streak.',                   test: p => p.sortie().best >= 3 },
+  { id: 'committed',     icon: '🔥', name: 'Committed',       desc: '7-day sortie streak.',                   test: p => p.sortie().best >= 7 },
+  { id: 'collector',     icon: '🃏', name: 'Collector',       desc: 'Study your first codex card.',           test: p => p.codexCount() >= 1 },
+  { id: 'codex_done',    icon: '🏆', name: 'Codex Complete',  desc: 'Study every weapon in the codex.',       test: p => p.codexCount() >= CODEX.length },
+  { id: 'four_figure',   icon: '✈',  name: 'Four-Figure Hours', desc: 'Reach 1000 XP.',                       test: p => p.xp() >= 1000 },
+  { id: 'tinkerer',      icon: '🧭', name: 'Tinkerer',        desc: 'Play with 5 different lab widgets.',     test: p => p.touchedCount() >= 5 },
+];
+
+// ── the collectible weapon codex — real, teaching-accurate signature cards ──
+// bars are relative 0-1 teaching indices (range, top speed, NEZ size, agility)
+const CODEX = [
+  { id: 'aim9x', name: 'AIM-9X', side: 'US · WVR', motor: 'Solid, thrust-vectoring', seeker: 'Imaging IR (IIR)',
+    rng: 30, mach: 2.5, nez: 30, agl: 98,
+    note: 'The knife-fighter. Helmet-cued high-off-boresight IR shots far off the nose; TVC gives blistering first-second agility. No datalink — pure fire-and-forget inside the visual arena.' },
+  { id: 'aim120d', name: 'AIM-120D', side: 'US · BVR', motor: 'Boost-sustain solid', seeker: 'Active radar (ARH)',
+    rng: 160, mach: 4, nez: 55, agl: 65,
+    note: 'The Western workhorse. Two-way datalink, lofts midcourse, goes "pitbull" active in the endgame. The D grew range and no-escape zone markedly over the C-series.' },
+  { id: 'meteor', name: 'MBDA Meteor', side: 'EU · BVR', motor: 'Throttleable ramjet', seeker: 'Active radar (ARH)',
+    rng: 200, mach: 4, nez: 96, agl: 62,
+    note: 'The energy king. A throttleable ducted-rocket ramjet keeps thrust to the merge, giving the largest no-escape zone of any air-to-air missile — you can\'t simply out-run it.' },
+  { id: 'pl15', name: 'PL-15', side: 'CN · BVR', motor: 'Dual-pulse solid', seeker: 'AESA active radar',
+    rng: 250, mach: 5, nez: 82, agl: 55,
+    note: 'The long arm. A second motor pulse re-lights in the endgame to restore terminal energy; an AESA seeker resists jamming. Drove Western interest in very-long-range AAMs.' },
+  { id: 'r37m', name: 'R-37M', side: 'RU · VLR', motor: 'Boost + long coast', seeker: 'Active/SARH',
+    rng: 300, mach: 6, nez: 68, agl: 40,
+    note: 'The sniper. A huge Mach-6 interceptor round flung from a MiG-31 or Su-35 to swat tankers, AWACS and bombers at extreme range. Fast and far, but not a dogfighter.' },
+  { id: 'r77', name: 'R-77 (RVV-AE)', side: 'RU · BVR', motor: 'Solid', seeker: 'Active radar (ARH)',
+    rng: 110, mach: 4, nez: 45, agl: 70,
+    note: 'The AMRAAM analogue, famous for its gridfin tails. Agile and fire-and-forget; later RVV-SD/-BD variants stretch the range considerably.' },
+  { id: 'mica', name: 'MBDA MICA', side: 'EU · Med', motor: 'Solid, TVC', seeker: 'IR or RF (two versions)',
+    rng: 80, mach: 4, nez: 40, agl: 82,
+    note: 'One airframe, two seekers (imaging-IR or active-radar) sharing a launcher — flexibility from WVR out to medium BVR, with thrust-vectoring agility.' },
+  { id: 'aim7', name: 'AIM-7 Sparrow', side: 'US · Legacy', motor: 'Boost-sustain solid', seeker: 'Semi-active radar (SARH)',
+    rng: 50, mach: 4, nez: 25, agl: 55,
+    note: 'The classic umbilical shot: the launching fighter must illuminate the target all the way to impact — no crank, no cold. Superseded by AMRAAM\'s fire-and-forget.' },
+  { id: 's400', name: 'S-400 40N6', side: 'RU · SAM', motor: 'Boost + huge loft', seeker: 'Active radar (ARH)',
+    rng: 380, mach: 6.5, nez: 76, agl: 45,
+    note: 'The area-denial giant. Very-long-range surface-to-air round with an active seeker for over-the-horizon engagements when cued by an elevated sensor. Forces strikers low.' },
+  { id: 'pac3', name: 'MIM-104 PAC-3', side: 'US · SAM', motor: 'Solid + attitude thrusters', seeker: 'Ka-band active',
+    rng: 35, mach: 5, nez: 62, agl: 96,
+    note: 'Hit-to-kill: no warhead, it destroys the target by direct impact using tiny attitude-control thrusters for pinpoint terminal agility. Optimised against ballistic missiles.' },
+];
+
+// ── Decision Drill question bank — snappy tactical calls under a timer ──
+const DRILL = [
+  { q: 'RWR: nails 12 o\'clock, 35 km, closing. Your MAR here is 30 km. CALL IT.',
+    a: ['Press for your own shot', 'Abort cold — you\'re outside MAR', 'Hold heading, pop chaff', 'Climb for energy'],
+    correct: 1, why: 'Outside MAR a timely cold abort defeats the shot kinematically — the missile runs out of energy.' },
+  { q: 'You fired FOX-3 at 40 km; your missile is midcourse on the datalink.',
+    a: ['Fly straight, keep guiding him in', 'Crank to the gimbal limit', 'Turn cold immediately', 'Descend to the deck'],
+    correct: 1, why: 'Cranking keeps the datalink alive while opening range and growing your F-pole/A-pole.' },
+  { q: 'Bandit swings to ~90° aspect, slows, and blooms chaff.',
+    a: ['He\'s committing hot', 'He\'s notching your pulse-Doppler', 'He\'s bingo fuel', 'He\'s zooming'],
+    correct: 1, why: 'Beam + chaff = trying to fall into your zero-Doppler clutter notch and vanish.' },
+  { q: 'Merge in 5 s vs a 5th-gen with helmet sight + high-off-boresight IR.',
+    a: ['Take the merge, out-turn him', 'Avoid the merge — it\'s near mutual death', 'Go pure vertical', 'Guns-only pass'],
+    correct: 1, why: 'HOBS + HMS means both jets can shoot in the first second. Don\'t donate the merge — win it BVR.' },
+  { q: 'Your SARH Sparrow is 8 s from impact when a new threat appears.',
+    a: ['Crank away, it self-guides', 'You can\'t leave — SARH needs your illumination to impact', 'Go cold, notch the new guy', 'Descend'],
+    correct: 1, why: 'A semi-active shot is umbilical to your radar — break lock and your own missile goes ballistic.' },
+  { q: 'Low strike inside a 400 km SAM ring, 45 km out, still un-engaged. Why?',
+    a: ['Missile too slow to turn', 'He\'s below the radar horizon', 'Warhead won\'t arm that close', 'Too much chaff'],
+    correct: 1, why: 'Radar is line-of-sight; a low flyer hides under the curved-earth horizon until close.' },
+  { q: 'Your ramjet missile decelerates through Mach 1.6 chasing a dragging target.',
+    a: ['Command a relight', 'It\'s flamed out for good — air-breathers don\'t relight', 'Add throttle', 'Loft to recover'],
+    correct: 1, why: 'Below minimum intake Mach the ducted rocket cannot run or relight — a real defeat mechanism.' },
+  { q: 'An enemy noise jammer is screaming on your nose at 20 km.',
+    a: ['Break lock — it\'s hopeless', 'Home-on-jam: guide on the strobe itself', 'Shut down your radar', 'Just add chaff'],
+    correct: 1, why: 'A loud jammer is a bright beacon — HOJ turns its own emission into the aimpoint.' },
+  { q: 'You\'re 15 km behind a co-speed bandit, tail-on (his 6 o\'clock).',
+    a: ['Max closure, he sees you', 'Cold aspect — minimum closure, best seat in the house', 'Beam geometry', 'Hot, shot incoming'],
+    correct: 1, why: 'Stern/cold: you\'re behind him with minimum closure and he can\'t easily shoot back.' },
+  { q: 'Two-ship BVR: lead shoots and calls "SKATE."',
+    a: ['Press on to the merge', 'Launch-and-leave — be cold by MAR', 'Illuminate to impact', 'Fly the beam in'],
+    correct: 1, why: 'SKATE = shoot, then abort out before the threat\'s MAR/NEZ. Take the shot, don\'t take the merge.' },
+  { q: 'PN shot: the target\'s bearing off your nose is NOT changing; range shrinking.',
+    a: ['You\'ll miss behind him', 'Collision course — constant bearing, decreasing range', 'He\'s turning cold', 'Time to notch'],
+    correct: 1, why: 'Constant bearing + closing range = collision. Nulling that LOS rotation is the whole basis of PN.' },
+  { q: 'Stealth target at RCS 0.001 m² vs a 1 m² fighter, same radar.',
+    a: ['Seen at the same range', 'Seen at roughly 1/5 the range (fourth-root law)', 'Never seen at all', 'Seen farther away'],
+    correct: 1, why: 'R_detect ∝ σ^(1/4): a 1000× smaller RCS shrinks detection range to ~0.18× — the timeline collapses.' },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  MEDAL WALL — sortie streak + the full achievement roster (locked/unlocked)
+// ─────────────────────────────────────────────────────────────────────────────
+reg('achievements', (node) => {
+  const wrap = el('div', { class: 'wx-ach' });
+  node.appendChild(wrap);
+  function render() {
+    const list = progress.achievements();
+    const got = list.filter(a => a.got).length;
+    const s = progress.sortie();
+    const w = progress.wing();
+    wrap.innerHTML = '';
+    const head = el('div', { class: 'ach-head' });
+    head.innerHTML =
+      `<div class="ach-streak"><span class="ach-flame">🔥</span> <b>${s.days}</b>-day sortie streak <i>(best ${s.best})</i></div>` +
+      `<div class="ach-count"><b style="color:${got === list.length ? COL.green : COL.amber}">${got}/${list.length}</b> medals · ✈ ${w.name} · ${w.xp} XP</div>`;
+    wrap.appendChild(head);
+    const grid = el('div', { class: 'ach-grid' });
+    list.forEach(a => {
+      const cell = el('div', { class: 'ach-medal ' + (a.got ? 'got' : 'locked') });
+      cell.innerHTML = `<div class="ach-ic">${a.got ? a.icon : '🔒'}</div>` +
+                       `<div class="ach-nm">${a.name}</div><div class="ach-dc">${a.desc}</div>`;
+      grid.appendChild(cell);
+    });
+    wrap.appendChild(grid);
+  }
+  render();
+  window._aegisAchRefresh = render;   // toasts re-render the wall live
+  return () => { if (window._aegisAchRefresh === render) window._aegisAchRefresh = null; };
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  MASTERY WEB — a radar/spider chart of how much of each category you've read
+// ─────────────────────────────────────────────────────────────────────────────
+reg('masteryweb', (node) => {
+  const _V = makeCanvas(node, 340); const { g } = _V;
+  const cap = el('div', { class: 'wx-hint' }); node.appendChild(cap);
+  const data = () => (window._aegisCatMastery || []).filter(c => c.total > 0);
+  function draw() {
+    const D = data();
+    g.clearRect(0, 0, _V.w, _V.h);
+    if (!D.length) {
+      g.fillStyle = COL.dim; g.font = '12px "Share Tech Mono"';
+      g.fillText('Open some topics to chart your mastery…', 20, _V.h / 2);
+      cap.innerHTML = ''; return;
+    }
+    const cx = _V.w / 2, cy = _V.h / 2, R0 = Math.min(_V.w, _V.h) / 2 - 52, N = D.length;
+    const pt = (i, r) => { const a = -Math.PI / 2 + i / N * 2 * Math.PI; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
+    for (let ring = 1; ring <= 4; ring++) {
+      g.strokeStyle = 'rgba(78,128,178,0.16)'; g.lineWidth = 1; g.beginPath();
+      for (let i = 0; i <= N; i++) { const [x, y] = pt(i % N, R0 * ring / 4); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke();
+    }
+    D.forEach((c, i) => {
+      const [ex, ey] = pt(i, R0);
+      g.strokeStyle = 'rgba(78,128,178,0.22)'; g.beginPath(); g.moveTo(cx, cy); g.lineTo(ex, ey); g.stroke();
+      const [lx, ly] = pt(i, R0 + 18);
+      const a = -Math.PI / 2 + i / N * 2 * Math.PI;
+      g.fillStyle = c.frac >= 1 ? COL.green : COL.dim; g.font = '9px "Share Tech Mono"';
+      g.textAlign = Math.abs(Math.cos(a)) < 0.35 ? 'center' : (Math.cos(a) > 0 ? 'left' : 'right');
+      g.textBaseline = 'middle'; g.fillText(c.short, lx, ly);
+    });
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    g.beginPath();
+    D.forEach((c, i) => { const [x, y] = pt(i, R0 * Math.max(0.02, c.frac)); i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.closePath(); g.fillStyle = 'rgba(34,255,156,0.15)'; g.fill();
+    g.strokeStyle = COL.green; g.lineWidth = 2; g.stroke();
+    D.forEach((c, i) => { const [x, y] = pt(i, R0 * Math.max(0.02, c.frac)); g.fillStyle = c.frac >= 1 ? COL.green : COL.amber; g.beginPath(); g.arc(x, y, 2.6, 0, 7); g.fill(); });
+    const done = D.filter(c => c.frac >= 1).length;
+    cap.innerHTML = `Your <b>mastery web</b>: each spoke is a topic category, filled to how much of it you\'ve read. ` +
+      `<b style="color:${COL.green}">${done}/${D.length}</b> categories fully mastered — round out the shape to climb the ranks.`;
+  }
+  _V.redraw = draw; draw();
+  window._aegisMasteryRefresh = draw;
+  return () => { if (window._aegisMasteryRefresh === draw) window._aegisMasteryRefresh = null; };
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  DECISION DRILL — timed tactical calls; speed + accuracy = score. Replayable.
+// ─────────────────────────────────────────────────────────────────────────────
+reg('decisiondrill', (node) => {
+  const ROUNDS = 8, TIME = 8.0;
+  let deck = [], order = [], idx = 0, score = 0, running = false, tLeft = 0, tPrev = 0, raf = 0, answered = false;
+  const wrap = el('div', { class: 'wx-drill' });
+  node.appendChild(wrap);
+
+  function stopTimer() { if (raf) cancelAnimationFrame(raf); raf = 0; }
+  function begin() { deck = [...DRILL].sort(() => Math.random() - 0.5).slice(0, ROUNDS); idx = 0; score = 0; running = true; nextRound(); }
+  function nextRound() {
+    if (idx >= deck.length) { finish(); return; }
+    // shuffle the answer positions each round so the right call isn't always in the same slot
+    order = deck[idx].a.map((_, i) => i).sort(() => Math.random() - 0.5);
+    answered = false; tLeft = TIME; tPrev = performance.now(); render(); runTimer();
+  }
+  function runTimer() {
+    stopTimer();
+    const step = (t) => {
+      if (!running || answered) return;
+      tLeft -= (t - tPrev) / 1000; tPrev = t;
+      if (tLeft <= 0) { tLeft = 0; paintBar(); resolve(-1); return; }
+      paintBar(); raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+  }
+  function paintBar() {
+    const bar = wrap.querySelector('.drill-fill');
+    if (!bar) return;
+    const f = Math.max(0, tLeft / TIME);
+    bar.style.width = (f * 100) + '%';
+    bar.style.background = f > 0.5 ? COL.green : f > 0.25 ? COL.amber : COL.red;
+  }
+  function render() {
+    const c = deck[idx];
+    wrap.innerHTML = '';
+    wrap.appendChild(el('div', { class: 'wx-qmeta' }, `DRILL ${idx + 1}/${ROUNDS} · score ${score} · best ${progress.drillBest()}`));
+    wrap.appendChild(el('div', { class: 'drill-timer' }, el('i', { class: 'drill-fill' })));
+    wrap.appendChild(el('div', { class: 'wx-q' }, c.q));
+    const opts = el('div', { class: 'wx-opts' });
+    order.forEach(orig => opts.appendChild(el('button', { class: 'wx-opt', onclick: () => resolve(orig) }, c.a[orig])));
+    wrap.appendChild(opts);
+    wrap.appendChild(el('div', { class: 'wx-why', id: 'drill-why' }));
+    paintBar();
+  }
+  function resolve(pick) {
+    if (answered) return; answered = true; stopTimer();
+    const c = deck[idx];
+    const ok = pick === c.correct;
+    const bonus = ok ? Math.round(tLeft) : 0;      // faster = more points
+    if (ok) score += 10 + bonus;
+    const opts = wrap.querySelector('.wx-opts');
+    [...opts.children].forEach((b, d) => { const orig = order[d]; b.classList.add(orig === c.correct ? 'correct' : (orig === pick ? 'wrong' : 'dim')); b.disabled = true; });
+    const why = wrap.querySelector('#drill-why');
+    const head = pick === -1 ? `<b style="color:${COL.red}">⏱ Too slow.</b>` : (ok ? `<b style="color:${COL.green}">✓ +${10 + bonus} (speed +${bonus})</b>` : `<b style="color:${COL.red}">✗ Reconsider.</b>`);
+    why.innerHTML = `${head} ${c.why}`;
+    const nxt = el('button', { class: 'wx-btn', style: 'margin-top:10px', onclick: () => { idx++; nextRound(); } }, idx === deck.length - 1 ? 'See result →' : 'Next call →');
+    why.appendChild(el('div', {}, nxt));
+  }
+  function finish() {
+    running = false; stopTimer();
+    const best = progress.drillResult(score);
+    const max = ROUNDS * 18;
+    const grade = score >= 120 ? ['ACE — lightning calls.', COL.green] : score >= 80 ? ['SOLID — you\'d survive the fight.', COL.green] : score >= 40 ? ['GETTING THERE — read the doctrine sections.', COL.amber] : ['REVIEW — hit the BVR doctrine topics and retry.', COL.red];
+    wrap.innerHTML = '';
+    wrap.appendChild(el('div', { class: 'wx-qmeta' }, `DRILL COMPLETE`));
+    wrap.appendChild(el('div', { class: 'drill-score' }, [el('b', { style: `color:${grade[1]}` }, String(score)), ` / ${max}   ·   best ${best}`]));
+    wrap.appendChild(el('div', { class: 'wx-line', style: `color:${grade[1]}` }, grade[0]));
+    wrap.appendChild(el('div', { class: 'wx-hint' }, 'The drill rewards fast, correct doctrine calls — exactly what a BVR timeline demands. 80+ earns the Quick Draw medal.'));
+    wrap.appendChild(el('button', { class: 'wx-btn', style: 'margin-top:10px', onclick: begin }, '↻ Run it again'));
+  }
+  // intro card
+  wrap.appendChild(el('div', { class: 'wx-q' }, '8 tactical calls. A timer on each — the faster you make the right call, the more points. Ready?'));
+  wrap.appendChild(el('button', { class: 'wx-btn', onclick: begin }, '▶ START DRILL'));
+  return () => { running = false; stopTimer(); };
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  WEAPON CODEX — collectible signature-weapon cards with live stat bars
+// ─────────────────────────────────────────────────────────────────────────────
+reg('codex', (node) => {
+  const wrap = el('div', { class: 'wx-codex' });
+  const head = el('div', { class: 'codex-head' });
+  const grid = el('div', { class: 'codex-grid' });
+  node.appendChild(head); node.appendChild(wrap); wrap.appendChild(grid);
+  const bars = (c) => {
+    const rows = [['RANGE', c.rng / 400, COL.blue, c.rng + ' km'],
+                  ['SPEED', c.mach / 7, COL.amber, 'M' + c.mach],
+                  ['NEZ', c.nez / 100, COL.green, c.nez + '%'],
+                  ['AGILITY', c.agl / 100, COL.red, c.agl + '%']];
+    return rows.map(([lab, f, col, val]) =>
+      `<div class="cx-bar"><span class="cx-bl">${lab}</span>` +
+      `<span class="cx-bt"><i style="width:${Math.min(100, f * 100)}%;background:${col}"></i></span>` +
+      `<span class="cx-bv">${val}</span></div>`).join('');
+  };
+  function refreshHead() {
+    const n = progress.codexCount();
+    head.innerHTML = `<b style="color:${n >= CODEX.length ? COL.green : COL.amber}">${n}/${CODEX.length}</b> weapons studied — tap a card to study it (+12 XP each). Complete the codex for the 🏆 medal.`;
+  }
+  function card(c) {
+    const done = progress.studied(c.id);
+    const cell = el('div', { class: 'codex-card' + (done ? ' studied' : '') });
+    cell.innerHTML =
+      `<div class="cx-top"><span class="cx-name">${c.name}</span><span class="cx-side">${c.side}</span></div>` +
+      `<div class="cx-spec"><span>◗ ${c.motor}</span><span>◎ ${c.seeker}</span></div>` +
+      `<div class="cx-bars">${bars(c)}</div>` +
+      `<div class="cx-note" ${done ? '' : 'hidden'}>${c.note}</div>` +
+      `<div class="cx-foot">${done ? '✓ STUDIED' : '＋ STUDY  (+12 XP)'}</div>`;
+    cell.addEventListener('click', () => {
+      const wasNew = !progress.studied(c.id);
+      progress.studyCard(c.id);
+      cell.classList.add('studied');
+      const note = cell.querySelector('.cx-note'); if (note) note.hidden = false;
+      cell.querySelector('.cx-foot').textContent = '✓ STUDIED';
+      if (wasNew) refreshHead();
+    });
+    return cell;
+  }
+  refreshHead();
+  CODEX.forEach(c => grid.appendChild(card(c)));
+  return () => {};
 });
