@@ -13,6 +13,12 @@
 set -e
 cd "$(dirname "$0")"
 
+# Keep the Mac awake while the link is live — idle sleep kills both the server
+# and the tunnel (and the public URL changes on restart). Ties to this script's
+# lifetime, so it stops the moment you Ctrl+C. (Closing the laptop lid can still
+# sleep it; keep the lid open while sharing.)
+command -v caffeinate >/dev/null 2>&1 && caffeinate -i -w $$ &
+
 PORT="${AEGIS_PORT:-8765}"
 TOOLS=".tools"
 CF="$TOOLS/cloudflared"
