@@ -20,7 +20,8 @@ const CAT_OF = {
   seeker: 2, seekertrack: 2, fuzing: 2, cccm: 2, codex: 2,
   timeline: 3, midcourse: 3, brevity: 3, mar: 3, defence: 3, wvr: 3,
   emtheory: 3, formations: 3, rwr: 3, polegame: 3, energy: 3, section2ship: 3,
-  ew: 4, cm: 4,
+  wez: 3, sternconv: 3,
+  ew: 4, cm: 4, notchgame: 4,
   sam: 5, horizon: 5, iadsnet: 5,
   modern: 6, datalinknet: 6, datalinks: 6, history: 6,
   hitmiss: 7, params: 7, ranges: 7,
@@ -1453,6 +1454,70 @@ export const HELP_SECTIONS = [
       <a data-goto="polegame">F-pole</a>, <a data-goto="mar">NEZ</a>, cold-time — is an input to these section
       tactics. The 2-ship simply lets two fighters spend those numbers as a team: one buys F-pole by cranking
       while the other converts, so the section keeps a shot on the bandit without anyone flying into his NEZ.</p>`,
+  },
+  {
+    id: 'wez', title: '◎ The Weapons Engagement Zone',
+    html: `
+      <p>A missile doesn't have "a range" — it has a <b>zone</b> that breathes with geometry. The single most
+      useful mental model in BVR is the <b>WEZ</b>: a set of nested range bands that tell you, right now, whether
+      a shot kills, whether he can defeat it, and whether you're too close. Drag the target's aspect and your
+      altitude and watch the whole envelope expand and collapse.</p>
+      <div class="wx" data-widget="wez"></div>
+      <p>The bands, from far to near:</p>
+      <ul>
+        <li><b style="color:#FFB000">Rmax</b> — the farthest the missile can reach a <i>cooperative</i> (non-reacting)
+        target. Big, but soft: it assumes he does nothing.</li>
+        <li><b style="color:#22ff9c">NEZ (no-escape zone)</b> — fire inside this and no reaction saves him; even
+        turning and running (going cold) can't open enough range before the missile arrives. This is the number
+        that actually matters. Between the NEZ edge and Rmax, a shot only connects if he <i>keeps coming</i> — a
+        timely <a data-goto="mar">abort</a> at his MAR defeats it.</li>
+        <li><b style="color:#FF3D00">Rmin</b> — too close: the motor/fuze can't arm and settle, or the required
+        lead exceeds the seeker's gimbal. Point-blank is a dead zone.</li>
+      </ul>
+      <p><b>Aspect is everything.</b> Drag him from <b>hot</b> (nose-on) to <b>cold</b> (running) and the envelope
+      shrinks to a fraction — closure was doing half the missile's work, and a tail-chase spends the motor just
+      catching up. That collapse is <i>why</i> the whole <a data-goto="polegame">pole game</a> and the abort
+      exist. <b>Altitude</b> pushes the other way: thin high air cuts drag, so lofted shots from the tropopause
+      stretch every band. The sim renders your specific weapon's version of this as the <b>doghouse</b> and
+      <b>NEZ%</b> in ◈ TACTICAL-AI.</p>`,
+  },
+  {
+    id: 'sternconv', title: '↻ Stern Conversion — Winning the Control Zone',
+    html: `
+      <p>If the fight goes to the merge and you want a guns or rear-aspect IR kill, you're trying to arrive at his
+      <b>stern</b> — the rear-quarter <b>control zone</b> where you match his turn, sit inside his circle, and he
+      can't bring his nose (or a HOBS missile) back to bear. Getting there is <b>pursuit-curve</b> geometry.</p>
+      <div class="wx" data-widget="sternconv"></div>
+      <p><b>The three pursuit choices</b> — where you point your nose relative to the bandit:</p>
+      <ul>
+        <li><b>Lead</b> — nose <i>ahead</i> of him. Closes range fastest and sets up a high-aspect shot, but pull
+        lead too early in a turning fight and you cut across his circle and <b>overshoot</b> out front — handing
+        him the reversal.</li>
+        <li><b>Pure</b> — nose right <i>at</i> him. Feels natural, but in a turn it quietly bleeds you toward an
+        overshoot.</li>
+        <li><b>Lag</b> — nose <i>behind</i> him. You cut to the <b>inside</b> of his turn circle and slide into the
+        control zone without flying out front. This is how you <b>convert</b> to the stern.</li>
+      </ul>
+      <p>The animation pulls <b>lag</b> into the rear-quarter cone: nose behind the bandit, matching his turn,
+      settling where he can't point back. It's the same line-of-sight logic as <a data-goto="guidance">proportional
+      navigation</a> — except here <i>you're</i> the seeker, managing closure and angle so you stop in control
+      rather than blowing through. Lose the energy fight (see <a data-goto="energy">corner speed</a>) and you can't
+      hold lag; that's why WVR is an energy game first and a pointing game second.</p>`,
+  },
+  {
+    id: 'notchgame', title: '🎯 The Notch — Reflex Trainer',
+    html: `
+      <p>The <b>notch</b> (beaming) is the defender's sharpest trick against a pulse-Doppler radar or an active
+      missile: turn <b>perpendicular</b> to it so your closing velocity falls to near zero, and the radar's own
+      <a data-goto="cm">clutter filter</a> throws you out with the ground return. But the window is narrow and the
+      timing is everything — too hot and you're still seen, too cold and you pop back out. Train the reflex:</p>
+      <div class="wx" data-widget="notchgame"></div>
+      <p>Beam the instant closure crosses <b>zero</b>. Each clean break scores; the needle speeds up as you go, and
+      40+ points banks XP. In the real fight it's harder still: you must hold the beam through the missile's flight
+      while bleeding energy and staying out of its <a data-goto="mar">terminal basket</a>, and a
+      <a data-goto="cccm">home-on-jam or memory-track</a> missile may coast through the notch and re-acquire on the
+      far side. That's why the notch is a <i>last-ditch</i> tool, not a plan — see <a data-goto="defence">defending
+      the shot</a>. The sim scores your notch window automatically in ◈ TACTICAL-AI.</p>`,
   },
   {
     id: 'career', title: '🏆 Trophy Room',

@@ -30,7 +30,8 @@ const reg = (name, fn) => { REGISTRY[name] = fn; };
 // the hands-on lab widgets — mounting one counts toward the "Tinkerer" medal
 const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'horizon',
   'radareq', 'flarefight', 'doghouse', 'guidancecompare', 'motorrace', 'seekerloop',
-  'irscan', 'prf', 'decisiondrill', 'codex', 'fpole', 'emdiagram', 'grinder']);
+  'irscan', 'prf', 'decisiondrill', 'codex', 'fpole', 'emdiagram', 'grinder',
+  'wez', 'notchgame', 'sternconv']);
 
 export function mountWidgets(root) {
   const teardowns = [];
@@ -2321,4 +2322,132 @@ reg('grinder', (node) => {
     g.fillText(p < 0.4 ? 'SECTION BRACKETS — split the azimuth' : p < 0.72 ? 'BANDIT COMMITS — engaged fighter drags him' : 'FREE FIGHTER CONVERTS — stern shot', 12, 16);
   });
   return stop;
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  MORE DEEP BVR WIDGETS — the WEZ, the notch reflex game, stern conversion
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── WEAPONS ENGAGEMENT ZONE — how the shot envelope breathes with aspect/alt ──
+reg('wez', (node) => {
+  const _V = makeCanvas(node, 200); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let aspect = 180, altk = 9;
+  const sA = slider('Target aspect (180 hot · 90 beam · 0 cold)', 0, 180, 5, aspect, v => { aspect = v; draw(); });
+  const sH = slider('Altitude (km)', 0, 15, 1, altk, v => { altk = v; draw(); });
+  ctr.appendChild(sA.row); ctr.appendChild(sH.row);
+  const SCALE = 130;                         // km, full scale of the range bar
+  function model() {
+    const aFrac = aspect / 180;              // 1 hot … 0 cold
+    const Rmax = 92 * (0.22 + 0.78 * aFrac) * (0.55 + 0.05 * altk);  // hot+high = far
+    const Rne = Rmax * (0.42 + 0.22 * aFrac);       // NEZ: bigger when he's hot
+    const Rmin = 1.4 + 1.1 * aFrac;                 // more closure → slightly bigger min
+    return { Rmax, Rne, Rmin };
+  }
+  function draw() {
+    const m = model(), w = _V.w, h = _V.h, padL = 12, padR = 14, y0 = 74, barH = 34;
+    g.clearRect(0, 0, w, h);
+    const X = km => padL + (km / SCALE) * (w - padL - padR);
+    const seg = (a, b, col) => { g.fillStyle = col; g.fillRect(X(a), y0, X(b) - X(a), barH); };
+    seg(0, m.Rmin, 'rgba(255,61,0,.38)');            // min range
+    seg(m.Rmin, m.Rne, 'rgba(34,255,156,.38)');      // NEZ
+    seg(m.Rne, m.Rmax, 'rgba(255,176,0,.32)');       // Rne..Rmax (defeatable by running)
+    seg(m.Rmax, SCALE, 'rgba(120,140,170,.13)');     // out of range
+    g.strokeStyle = 'rgba(147,172,203,.3)'; g.strokeRect(X(0), y0, X(SCALE) - X(0), barH);
+    // scale ticks
+    g.fillStyle = COL.faint; g.font = '9px "Share Tech Mono"';
+    for (let k = 0; k <= SCALE; k += 25) { g.fillRect(X(k), y0 + barH, 1, 4); g.fillText(k + '', X(k) - 5, y0 + barH + 15); }
+    lbl(g, w - padR, y0 + barH + 15, 'range to target (km) →', COL.dim, 'right', 9);
+    // boundary markers
+    const mark = (km, col, name) => { g.strokeStyle = col; g.setLineDash([2, 2]); g.beginPath(); g.moveTo(X(km), y0 - 6); g.lineTo(X(km), y0 + barH); g.stroke(); g.setLineDash([]);
+      lbl(g, X(km), y0 - 9, name, col, 'center', 8); };
+    mark(m.Rmin, COL.red, 'Rmin'); mark(m.Rne, COL.green, 'NEZ'); mark(m.Rmax, COL.amber, 'Rmax');
+    read.innerHTML =
+      `<div class="wx-line"><b style="color:${COL.red}">Rmin ${R(m.Rmin, 1)}</b> · <b style="color:${COL.green}">NEZ edge ${R(m.Rne)}</b> · <b style="color:${COL.amber}">Rmax ${R(m.Rmax)} km</b></div>` +
+      `<div class="wx-hint">The <b style="color:${COL.green}">green NEZ</b> is the no-escape zone — fire here and he can't out-run it even turning cold. Between <b style="color:${COL.green}">NEZ</b> and <b style="color:${COL.amber}">Rmax</b> (amber) the shot only connects if he keeps coming; a timely <a data-goto="mar">abort</a> beats it — that's his MAR. Inside <b style="color:${COL.red}">Rmin</b> (red) the missile can't arm/settle. Now drag him from <b>hot to cold</b>: the whole envelope <b>collapses</b> — a running target is dramatically harder to kill, the core reason defenders <a data-goto="defence">go cold</a>. Climb (altitude slider) and it all expands as thin air stretches the missile's legs. Compare the sim's <b>doghouse</b> in ◈ TACTICAL-AI.</div>`;
+  }
+  _V.redraw = draw; draw();
+  return () => {};
+});
+
+// ── THE NOTCH — a reflex game: beam the radar at zero closure to break lock ───
+reg('notchgame', (node) => {
+  const _V = makeCanvas(node, 130); const { g } = _V;
+  const info = el('div', { class: 'wx-readout' }); node.appendChild(info);
+  const row = el('div', { class: 'wx-controls' }); node.appendChild(row);
+  const ROUNDS = 8, WIN = 0.16;              // notch half-width (closure units)
+  let live = false, x = -1, dir = 1, speed = 0.9, round = 0, score = 0, locks = 0, phase = 'idle', msg = '', raf = 0, best = 0;
+  const beamBtn = el('button', { class: 'wx-btn', onclick: () => strike() }, 'BEAM! (break lock)');
+  const startBtn = el('button', { class: 'wx-btn', onclick: () => begin() }, '▶ START');
+  row.appendChild(startBtn); row.appendChild(beamBtn);
+  function begin() { live = true; round = 0; score = 0; locks = 0; speed = 0.9; phase = 'sweep'; nextRound(); }
+  function nextRound() { if (round >= ROUNDS) { finish(); return; } round++; x = -1; dir = 1; phase = 'sweep'; msg = ''; }
+  function strike() {
+    if (!live || phase !== 'sweep') return;
+    const inNotch = Math.abs(x) <= WIN;
+    if (inNotch) { score += 10; locks++; msg = '✓ LOCK BROKEN — you fell into the notch'; }
+    else { msg = Math.abs(x) < 0.4 ? '✗ close — still weak return, not notched' : '✗ high closure — radar holds you'; }
+    phase = 'result';
+    setTimeout(() => { if (!live) return; speed = Math.min(speed + 0.18, 2.2); nextRound(); }, 850);
+  }
+  function finish() { live = false; phase = 'done'; best = Math.max(best, score); if (score >= 40) progress.addXP(Math.min(score, 60)); }
+  function draw() {
+    const w = _V.w, h = _V.h, cy = 62, padX = 16;
+    g.clearRect(0, 0, w, h);
+    const X = v => padX + (v + 1) / 2 * (w - 2 * padX);   // v in [-1,1]
+    // closure scale
+    g.strokeStyle = COL.grid; g.beginPath(); g.moveTo(padX, cy); g.lineTo(w - padX, cy); g.stroke();
+    // notch window (green)
+    g.fillStyle = 'rgba(34,255,156,.18)'; g.fillRect(X(-WIN), cy - 22, X(WIN) - X(-WIN), 44);
+    g.strokeStyle = COL.green; g.setLineDash([3, 2]); g.strokeRect(X(-WIN), cy - 22, X(WIN) - X(-WIN), 44); g.setLineDash([]);
+    lbl(g, X(0), cy - 28, 'NOTCH (0 closure)', COL.green, 'center', 8);
+    lbl(g, padX, cy + 30, 'HOT +closure', COL.red, 'left', 8);
+    lbl(g, w - padX, cy + 30, 'COLD −closure', COL.blue, 'right', 8);
+    // needle
+    if (live && phase === 'sweep') { x += dir * speed * 0.03; if (x > 1) { x = 1; dir = -1; } if (x < -1) { x = -1; dir = 1; } }
+    g.strokeStyle = Math.abs(x) <= WIN ? COL.green : COL.amber; g.lineWidth = 2.5;
+    g.beginPath(); g.moveTo(X(x), cy - 20); g.lineTo(X(x), cy + 20); g.stroke();
+    g.fillStyle = COL.ink; g.font = '10px "Share Tech Mono"';
+    g.fillText(live ? `ROUND ${round}/${ROUNDS} · score ${score} · locks ${locks}` : (phase === 'done' ? `DONE — ${score} pts (${locks}/${ROUNDS} breaks) · best ${best}` : 'Break the missile\'s lock: BEAM when the needle hits the green notch.'), padX, 18);
+    if (msg) { g.fillStyle = msg[0] === '✓' ? COL.green : COL.red; g.fillText(msg, padX, h - 8); }
+  }
+  const stop = frame(draw);
+  info.innerHTML = `<div class="wx-hint">A pulse-Doppler radar rejects near-zero closing velocity to kill ground clutter — fly <b>perpendicular</b> (beam it) and your closure falls into that <b>notch</b>, so you vanish with the dirt. Time your <b>BEAM</b> for the instant closure crosses zero. Too hot and the radar still sees you; hold the beam too long and you drift cold and reappear. 40+ pts earns XP. This is the reflex behind the <a data-goto="defence">last-ditch defence</a> and the sim's notch-window study.</div>`;
+  return stop;
+});
+
+// ── STERN CONVERSION — pull lag to roll into his control zone (animated) ──────
+reg('sternconv', (node) => {
+  const _V = makeCanvas(node, 300); const { g } = _V;
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  read.innerHTML = `<div class="wx-hint">To kill from guns or an IR missile you want his <b>stern</b> — the rear-quarter <b>control zone</b> where you match his turn and he can't point back at you. Aim your nose <i>behind</i> him (<b>lag pursuit</b>) and you cut to the inside of his circle and settle in control; aim <i>ahead</i> (<b>lead</b>) too early and you overshoot out front — a classic reversal. Watch the interceptor pull lag into the cone.</div>`;
+  const stop = frame((t) => {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const p = (t / 4200) % 1;
+    const cx = w * 0.60, cy = h * 0.44, Rt = Math.min(w, h) * 0.28;    // bandit's turn circle
+    // bandit orbits its circle
+    const ba = -Math.PI / 2 + p * Math.PI * 1.15;
+    const bx = cx + Rt * Math.cos(ba), by = cy + Rt * Math.sin(ba);
+    const bh = ba + Math.PI / 2;                                       // bandit heading (tangent)
+    // his control zone: rear 60° cone
+    g.fillStyle = 'rgba(34,255,156,.10)'; g.beginPath(); g.moveTo(bx, by);
+    for (let d = -60; d <= 60; d += 10) { const a = bh + Math.PI + d * Math.PI / 180; g.lineTo(bx + 46 * Math.cos(a), by + 46 * Math.sin(a)); }
+    g.closePath(); g.fill();
+    // interceptor: starts low-left, pulls a lag-pursuit arc toward the cone
+    const s0 = [w * 0.12, h * 0.9];
+    const ix = s0[0] + (bx - 34 * Math.cos(bh) - s0[0]) * ease(p);
+    const iy = s0[1] + (by - 34 * Math.sin(bh) - s0[1]) * ease(p);
+    // aim line = lag (points behind the bandit)
+    g.strokeStyle = 'rgba(0,229,255,.35)'; g.setLineDash([3, 3]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(ix, iy); g.lineTo(bx - 30 * Math.cos(bh), by - 30 * Math.sin(bh)); g.stroke(); g.setLineDash([]);
+    const ih = Math.atan2((by - 30 * Math.sin(bh)) - iy, (bx - 30 * Math.cos(bh)) - ix);
+    drawJet(g, bx, by, bh * 180 / Math.PI, COL.red, 'BANDIT');
+    drawJet(g, ix, iy, ih * 180 / Math.PI, COL.blue, 'YOU');
+    lbl(g, bx + Math.cos(bh + Math.PI) * 54, by + Math.sin(bh + Math.PI) * 54, 'CONTROL ZONE', COL.green, 'center', 8);
+    g.fillStyle = COL.faint; g.font = '9px "Share Tech Mono"';
+    g.fillText(p < 0.5 ? 'PULL LAG — nose behind him, cut inside his circle' : p < 0.9 ? 'CONVERTING — sliding into the rear quarter' : 'IN CONTROL — matched turn, stern shot', 12, 16);
+  });
+  return stop;
+  function ease(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
 });
