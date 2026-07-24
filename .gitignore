@@ -22,6 +22,3 @@ data/saved_scenarios/*.json
 .pytest_cache/
 .coverage
 htmlcov/
-
-# local tunnel tool + logs (share.sh)
-.tools/
