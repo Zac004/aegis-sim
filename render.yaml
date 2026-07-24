@@ -1,0 +1,15 @@
+# Render.com Blueprint — always-on hosting for Aegis-Sim (free, no card).
+# Render reads this file when you create a "Blueprint" from the repo, or it
+# auto-detects the Dockerfile for a plain Web Service. It injects $PORT, which
+# run.py reads; the container binds 0.0.0.0. The free plan sleeps after ~15 min
+# idle and cold-starts (~1 min) on the next visit — fine for sharing with friends.
+services:
+  - type: web
+    name: aegis-sim
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: AEGIS_MAX_WORKERS   # cap worker processes to fit the free 512 MB box
+        value: "2"

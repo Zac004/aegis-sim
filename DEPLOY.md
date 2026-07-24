@@ -5,7 +5,36 @@ included `Dockerfile` runs it anywhere.
 
 ---
 
-## Quickest — share a live link off your Mac (free, no account, ~1 min)
+## Always-on link, free, no credit card (recommended) — Render
+
+A stable `https://<name>.onrender.com` URL that works 24/7, even with your Mac
+off. Free plan, no card. (It sleeps after ~15 min idle and cold-starts ~1 min on
+the next visit — normal for free tiers.) Three steps:
+
+1. **Put the code on GitHub.** Make an empty repo at <https://github.com/new>
+   (no README/.gitignore), then from this folder run:
+   ```bash
+   ./deploy_to_github.sh <your-github-username> aegis-sim
+   ```
+   When git asks for a password, paste a token from
+   <https://github.com/settings/tokens> (classic, "repo" scope).
+2. **Deploy on Render.** Sign up at <https://render.com> with your GitHub
+   account (free, no card). **New → Blueprint**, pick the repo — Render reads
+   `render.yaml` and configures everything — then **Apply**. (Or **New → Web
+   Service → Docker → Free plan** if you prefer to click through manually.)
+3. Wait ~3–5 min for the first build. Your permanent link is live.
+
+If Render ever asks for a card, use **Koyeb** instead (<https://koyeb.com>, also
+free/no-card): New → Web Service → GitHub → this repo → it detects the
+Dockerfile → Free instance → Deploy.
+
+For **faster** always-on (real CPU, no cold starts) the upgrade is Google Cloud
+Run or Fly.io — same repo — but those need a card on file (the free tier still
+costs \$0). See Option B below.
+
+---
+
+## Quickest one-off — a live link off your Mac (free, no account, ~1 min)
 
 ```bash
 ./share.sh
@@ -15,9 +44,8 @@ It downloads Cloudflare's official tunnel tool the first time (into `./.tools`,
 nothing installed system-wide), starts the app, and prints a public
 `https://<random>.trycloudflare.com` link. Send that to friends. The link is
 live only while `share.sh` is running (Ctrl+C takes it offline) and the address
-changes each run. Full speed — it runs on your Mac's CPU. Best for demos.
-
-For an **always-on** link that works when your Mac is off, use a host below.
+changes each run. Full speed — it runs on your Mac's CPU. Best for a quick demo,
+not for a permanent link.
 
 ---
 
