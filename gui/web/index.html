@@ -131,7 +131,13 @@
 <!-- ── LEARN / HELP MODAL ─────────────────────────────────── -->
 <div id="help-modal" class="modal hidden">
   <div class="modal-box help-box">
-    <div class="modal-head"><span>? LEARN — BVR / WVR MISSILE ENGAGEMENT GUIDE</span><button id="help-close" class="x">✕</button></div>
+    <div class="modal-head"><span>? LEARN — BVR / WVR MISSILE ENGAGEMENT GUIDE</span>
+      <div class="mh-btns">
+        <button id="help-newtab" class="mh-btn" title="Open the guide full-page in a new tab">⧉ NEW TAB</button>
+        <button id="help-expand" class="mh-btn" title="Fill the window (Esc to exit)">⛶ FULLSCREEN</button>
+        <button id="help-close" class="x" title="Close">✕</button>
+      </div>
+    </div>
     <div class="help-layout">
       <nav id="help-nav"></nav>
       <div class="modal-body help-body" id="help-body"></div>

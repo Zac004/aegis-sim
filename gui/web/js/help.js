@@ -19,7 +19,7 @@ const CAT_OF = {
   guidance: 2, guidancelaws: 2, loft: 2, propulsion: 2, motors: 2, battery: 2,
   seeker: 2, seekertrack: 2, fuzing: 2, cccm: 2, codex: 2,
   timeline: 3, midcourse: 3, brevity: 3, mar: 3, defence: 3, wvr: 3,
-  emtheory: 3, formations: 3, rwr: 3,
+  emtheory: 3, formations: 3, rwr: 3, polegame: 3, energy: 3, section2ship: 3,
   ew: 4, cm: 4,
   sam: 5, horizon: 5, iadsnet: 5,
   modern: 6, datalinknet: 6, datalinks: 6, history: 6,
@@ -1358,6 +1358,101 @@ export const HELP_SECTIONS = [
       mastery loop, though, is in the sim: open ◈ TACTICAL-AI, read the kneeboard, predict the
       outcome of a shot, then fly it and check. Do that a dozen times and the numbers become
       instinct.</p>`,
+  },
+  {
+    id: 'polegame', title: '♟ The Pole Game — A-pole, F-pole & Cranking',
+    html: `
+      <p>BVR is a <b>separation</b> problem as much as a shooting problem. You want your missile to
+      reach him while <i>you</i> stay as far from his weapons as possible. The currency of that trade is
+      the <b>pole</b> — your range from the target at key moments of your own shot.</p>
+      <ul>
+        <li><b>A-pole</b> — your range from the target the instant your missile goes <a data-goto="midcourse">active
+        ("pitbull")</a> and no longer needs you. From here you're free to turn away without orphaning the shot.</li>
+        <li><b>F-pole</b> — your range from the target at <b>impact</b>. This is the number that keeps you
+        alive: the bigger it is, the farther you were from his merge and his return shot when your missile hit.</li>
+      </ul>
+      <p>Drag the crank angle and watch both poles grow. This is the single most important habit in BVR.</p>
+      <div class="wx" data-widget="fpole"></div>
+      <p><b>Why cranking works.</b> Flying <b>hot</b> (straight at him) gets your missile there soonest, but
+      you close the whole time — smallest F-pole, maximum exposure. <b>Cranking</b> turns you toward your
+      radar's <b>gimbal limit</b> (~50–60° off the nose): the antenna can still see him, so the datalink keeps
+      feeding the missile mid-course, but your velocity vector now points mostly <i>across</i> the fight instead
+      of into it. Same kill, far more of your own separation. Turn much past the gimbal limit and you <b>drag</b>
+      (go cold): F-pole is huge, but you've dropped him and your missile loses mid-course updates.</p>
+      <p><b>The moves, in brevity:</b></p>
+      <ul>
+        <li><b>Crank</b> — turn to the gimbal limit after the shot; keep guiding while opening range. The default.</li>
+        <li><b>Pump / drag</b> — turn cold to defeat a return shot (see <a data-goto="mar">MAR</a>), then re-commit
+        when his missile is dead. A "SKATE" game plan is launch-and-leave built around this.</li>
+        <li><b>Single-side offset</b> — a whole section cranks the <i>same</i> direction so nobody flies through
+        the threat's <a data-goto="mar">NEZ</a>, keeping every shooter's F-pole large.</li>
+        <li><b>Bracket / grinder</b> — split a section across the bandit's nose so one fighter's crank is the
+        other's flanking shot (see <a data-goto="section2ship">fighting as a section</a>).</li>
+      </ul>
+      <p class="tip">The sim models this directly. Set a datalink shot, choose shooter support <b>straight vs
+      crank</b>, and read the <b>pole study</b> in ◈ TACTICAL-AI — it plots A-pole and F-pole against your crank
+      angle so you can see the exact trade for a given weapon and range.</p>`,
+  },
+  {
+    id: 'energy', title: '⚡ Energy & the Merge — Corner Speed, Rate vs Radius',
+    html: `
+      <p>If BVR fails and you arrive at the <a data-goto="wvr">merge</a>, the fight becomes about
+      <b>energy</b>: how much total energy (height + speed) you carry, and how efficiently you spend it turning.
+      A turn always costs energy — the question is how much turn you buy per unit spent.</p>
+      <p>The master chart is the <b>turn performance envelope</b>. Turn rate (how fast your nose sweeps, °/s)
+      trades against speed. Drag the sliders:</p>
+      <div class="wx" data-widget="emdiagram"></div>
+      <p><b>Corner speed</b> is the star of the show — the slowest speed at which you can still pull your
+      structural G limit, and therefore where <b>turn rate peaks</b>. Below it you're <b>lift-limited</b>: the
+      wing can't generate enough lift for max G, so your rate falls off even though the <i>radius</i> is tight.
+      Above it you're <b>G-limited</b>: lift to spare, but the airframe (and the pilot) cap G, so a faster jet
+      just carves a <b>bigger circle</b>. Fly near corner and you own the angles.</p>
+      <p><b>Rate fight vs radius fight.</b> Two ways to win a turning fight:</p>
+      <ul>
+        <li><b>Rate (two-circle)</b> — both fighters turn the same way into a big shared circle; whoever has the
+        higher <b>turn rate</b> (nose authority) comes around to a shot first. Lives near corner speed.</li>
+        <li><b>Radius (one-circle)</b> — the fighters turn opposite ways; whoever has the smaller <b>radius</b>
+        gets nose-on first. Often a slow, low-speed knife-fight — dangerous against a <a data-goto="wvr">HOBS
+        + helmet-sight</a> jet, where first-nose = mutual kill.</li>
+      </ul>
+      <p><b>Vertical = your energy bank.</b> Trading speed for height (a climb) stores energy you can dump back
+      into the turn later; pulling into the vertical also tightens the radius as gravity helps bring the nose
+      down. This is why energy fighters go up and angles fighters stay level. <b>Specific energy</b>
+      E<sub>s</sub> = h + V²/2g captures it in one number — good BVR pilots arrive at the merge with more of it.</p>
+      <p>Climb with the altitude slider and watch corner speed rise and peak rate fall: thin air means less lift,
+      so turning <b>bleeds you down</b> in both speed and altitude — the fight naturally sinks. That's the same
+      density physics behind missile <a data-goto="loft">lofting</a> and <a data-goto="mar">MAR growing with
+      altitude</a>.</p>`,
+  },
+  {
+    id: 'section2ship', title: '⋈ Fighting as a Section — Bracket, Grinder & Sort',
+    html: `
+      <p>Real air combat is not 1-v-1; it's <b>sections</b> (2-ship) and <b>divisions</b> (4-ship) fighting as a
+      system. One fighter gives a bandit a single problem he can solve. Two fighters, split correctly, give him
+      two problems he <i>can't</i> — and that asymmetry is the whole point.</p>
+      <div class="wx" data-widget="grinder"></div>
+      <p><b>The bracket.</b> The section splits <b>azimuth</b> — spreads apart laterally so the bandit sits
+      between them. He cannot point at both. The instant he commits to one jet (the <b>engaged</b> fighter, who
+      drags him and defends), the other (the <b>free</b> fighter) is looking at his flank or stern and takes the
+      shot. Keep trading who's engaged and who's free and you "grind" him down — hence <b>grinder</b>.</p>
+      <p><b>Roles and comm.</b> The fight runs on tight brevity so both pilots share one picture:</p>
+      <ul>
+        <li><b>Sort</b> — who shoots whom. A section <b>sorts</b> a group by range ("lead/trail") or azimuth
+        ("side-to-side") so two missiles don't chase one bandit while another flies through untouched.</li>
+        <li><b>Targeting / "TARGETED"</b> — the formal call locking in each shooter's contact.</li>
+        <li><b>Engaged / Free / Press / Cover</b> — who's fighting, who's supporting, who presses in, who watches
+        for the second threat.</li>
+        <li><b>Bogey dope</b> — the bullseye picture (range/bearing/altitude) that keeps everyone's mental radar
+        aligned — see the <a data-goto="rwr">SA & RWR</a> and bullseye notes.</li>
+      </ul>
+      <p><b>Formations set up the sort.</b> A <b>wall</b> (line abreast) maximizes the bracket and the number of
+      radars looking; a <b>box</b> or <b>champagne</b> adds depth so a trailing element can shoot bandits that
+      commit on the leaders; an <b>offset/ladder</b> stacks shooters in range. Each is a different answer to the
+      same question: how do we present the most shooters while giving the enemy the fewest solvable problems?</p>
+      <p><b>Why it matters here.</b> This sim flies 1-v-1, but every number it gives you — <a data-goto="mar">MAR</a>,
+      <a data-goto="polegame">F-pole</a>, <a data-goto="mar">NEZ</a>, cold-time — is an input to these section
+      tactics. The 2-ship simply lets two fighters spend those numbers as a team: one buys F-pole by cranking
+      while the other converts, so the section keeps a shot on the bandit without anyone flying into his NEZ.</p>`,
   },
   {
     id: 'career', title: '🏆 Trophy Room',

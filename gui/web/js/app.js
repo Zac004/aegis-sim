@@ -123,7 +123,21 @@ function wireControls() {
   $('#btn-atmos').addEventListener('click', openAtmos);
   $('#atmos-close').addEventListener('click', () => $('#atmos-modal').classList.add('hidden'));
   $('#btn-help').addEventListener('click', () => openHelp());
-  $('#help-close').addEventListener('click', () => $('#help-modal').classList.add('hidden'));
+  $('#help-close').addEventListener('click', () => { $('#help-modal').classList.add('hidden'); $('#help-modal').classList.remove('expanded'); });
+  // Fullscreen toggle — fill the browser window for easier reading
+  $('#help-expand')?.addEventListener('click', () => {
+    const m = $('#help-modal'), on = m.classList.toggle('expanded');
+    const b = $('#help-expand'); if (b) b.textContent = on ? '⤡ RESTORE' : '⛶ FULLSCREEN';
+  });
+  // Open the guide full-page in its own browser tab
+  $('#help-newtab')?.addEventListener('click', () => window.open('learn.html', '_blank', 'noopener'));
+  // Esc leaves fullscreen first, then closes
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const m = $('#help-modal'); if (m.classList.contains('hidden')) return;
+    if (m.classList.contains('expanded')) { m.classList.remove('expanded'); const b = $('#help-expand'); if (b) b.textContent = '⛶ FULLSCREEN'; }
+    else m.classList.add('hidden');
+  });
   $('#expand-close').addEventListener('click', () => $('#expand-modal').classList.add('hidden'));
   // expand the current run into the big analysis / compare view
   const doExpand = (e) => {

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AEGIS-SIM · Learn — BVR / WVR Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="learn-standalone">
+<!-- Full-page Learn academy — same guide as the in-app modal, its own tab. -->
+<div id="help-modal" class="modal">
+  <div class="modal-box help-box">
+    <div class="modal-head">
+      <span>◤ AEGIS-SIM · LEARN — BVR / WVR MISSILE ENGAGEMENT ACADEMY</span>
+      <div class="mh-btns"><a class="mh-btn" href="index.html" title="Back to the simulator">↩ SIMULATOR</a></div>
+    </div>
+    <div class="help-layout">
+      <nav id="help-nav"></nav>
+      <div class="modal-body help-body" id="help-body"></div>
+    </div>
+  </div>
+</div>
+<script type="module">
+  import { openHelp } from './js/help.js';
+  // deep-link support: learn.html#mar opens straight to that topic
+  const start = (location.hash || '').replace(/^#/, '') || undefined;
+  openHelp(start);
+  window.addEventListener('hashchange', () => {
+    const id = (location.hash || '').replace(/^#/, '');
+    if (id && window._aegisHelpGoto) window._aegisHelpGoto(id);
+  });
+</script>
+</body>
+</html>

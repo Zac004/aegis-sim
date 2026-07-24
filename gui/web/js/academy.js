@@ -30,7 +30,7 @@ const reg = (name, fn) => { REGISTRY[name] = fn; };
 // the hands-on lab widgets — mounting one counts toward the "Tinkerer" medal
 const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'horizon',
   'radareq', 'flarefight', 'doghouse', 'guidancecompare', 'motorrace', 'seekerloop',
-  'irscan', 'prf', 'decisiondrill', 'codex']);
+  'irscan', 'prf', 'decisiondrill', 'codex', 'fpole', 'emdiagram', 'grinder']);
 
 export function mountWidgets(root) {
   const teardowns = [];
@@ -2144,4 +2144,181 @@ reg('codex', (node) => {
   refreshHead();
   CODEX.forEach(c => grid.appendChild(card(c)));
   return () => {};
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  DEEP BVR WIDGETS — the pole game, energy-maneuverability, the 2-ship bracket
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── THE POLE GAME — crank to grow your A-pole and F-pole ──────────────────────
+reg('fpole', (node) => {
+  const _V = makeCanvas(node, 360); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let R0 = 37, crank = 45;                    // shot range (km), crank angle (° off nose)
+  const sR = slider('Shot range (km)', 15, 55, 1, R0, v => { R0 = v; draw(); });
+  const sC = slider('Your crank (° off the nose)', 0, 120, 5, crank, v => { crank = v; draw(); });
+  ctr.appendChild(sR.row); ctr.appendChild(sC.row);
+
+  // top-down kinematics (km, s). You + missile launch from origin; the bandit
+  // starts R0 "north", committed hot (drives at your launch point).
+  function sim() {
+    const Vown = 0.30, Vb = 0.27, Vm = 1.05;  // km/s teaching speeds (~M0.9 / M3.2)
+    const th = crank * Math.PI / 180, dt = 0.08, Ra = 13; // Ra = pitbull range
+    let Y = [0, 0], B = [0, R0], M = [0, 0];
+    const yv = [Math.sin(th) * Vown, Math.cos(th) * Vown];
+    const tk = { y: [[0, 0]], m: [[0, 0]], b: [[0, R0]] };
+    let apole = null, apAt = null, fpole = null, impact = null;
+    for (let i = 0; i < 2000; i++) {
+      const bl = Math.hypot(B[0], B[1]) || 1e-6;              // bandit → origin
+      B = [B[0] - B[0] / bl * Vb * dt, B[1] - B[1] / bl * Vb * dt];
+      const md = [B[0] - M[0], B[1] - M[1]], ml = Math.hypot(md[0], md[1]) || 1e-6;
+      M = [M[0] + md[0] / ml * Vm * dt, M[1] + md[1] / ml * Vm * dt]; // missile pursues
+      Y = [Y[0] + yv[0] * dt, Y[1] + yv[1] * dt];             // you crank
+      if (i % 2 === 0) { tk.y.push([...Y]); tk.m.push([...M]); tk.b.push([...B]); }
+      const mb = Math.hypot(B[0] - M[0], B[1] - M[1]);
+      if (apole == null && mb <= Ra) { apole = Math.hypot(B[0] - Y[0], B[1] - Y[1]); apAt = [[...Y], [...B]]; }
+      if (mb <= 0.25) { fpole = Math.hypot(B[0] - Y[0], B[1] - Y[1]); impact = [[...Y], [...B]]; break; }
+      if (Math.hypot(B[0], B[1]) < 0.3) break;
+    }
+    return { tk, apole, fpole, apAt, impact };
+  }
+  function draw() {
+    const s = sim();
+    g.clearRect(0, 0, _V.w, _V.h);
+    const all = [...s.tk.y, ...s.tk.m, ...s.tk.b];
+    let minX = 0, maxX = 0, maxY = R0;
+    all.forEach(p => { minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1]); });
+    const padX = 26, padY = 24, w = _V.w, h = _V.h;
+    const spanX = Math.max(maxX - minX, 8), spanY = Math.max(maxY, 8);
+    const sc = Math.min((w - 2 * padX) / spanX, (h - 2 * padY) / spanY);
+    const X = kmx => padX + (kmx - minX) * sc;
+    const Yc = kmy => h - padY - kmy * sc;                    // north = up
+    const line = (pts, col, wdt, dash) => {
+      g.strokeStyle = col; g.lineWidth = wdt; g.setLineDash(dash || []);
+      g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(X(p[0]), Yc(p[1])) : g.moveTo(X(p[0]), Yc(p[1]))); g.stroke(); g.setLineDash([]);
+    };
+    // LOS at launch
+    line([[0, 0], [0, R0]], 'rgba(147,172,203,.28)', 1, [4, 4]);
+    line(s.tk.b, COL.red, 2);       // bandit
+    line(s.tk.m, COL.green, 2);     // your missile
+    line(s.tk.y, COL.blue, 2.4);    // you (cranking)
+    // launch marker
+    g.fillStyle = COL.ink; g.beginPath(); g.arc(X(0), Yc(0), 3, 0, 7); g.fill();
+    lbl(g, X(0) + 6, Yc(0) + 2, 'FOX-3', COL.dim, 'left', 8);
+    // A-pole (dashed cyan) + F-pole (dashed amber) chords
+    if (s.apAt) { line([s.apAt[0], s.apAt[1]], 'rgba(0,229,255,.5)', 1.4, [3, 3]);
+      g.fillStyle = COL.blue; g.beginPath(); g.arc(X(s.apAt[1][0]), Yc(s.apAt[1][1]), 3, 0, 7); g.fill();
+      lbl(g, X(s.apAt[1][0]) + 5, Yc(s.apAt[1][1]), 'pitbull', COL.blue, 'left', 8); }
+    if (s.impact) { line([s.impact[0], s.impact[1]], COL.amber, 1.6, [5, 3]);
+      g.fillStyle = COL.amber; g.beginPath(); g.arc(X(s.impact[1][0]), Yc(s.impact[1][1]), 4, 0, 7); g.fill();
+      lbl(g, X(s.impact[1][0]) + 6, Yc(s.impact[1][1]), '✹ impact', COL.amber, 'left', 8);
+      drawJet(g, X(s.impact[0][0]), Yc(s.impact[0][1]), crank, COL.blue, 'YOU'); }
+    const A = s.apole == null ? '—' : R(s.apole, 1), F = s.fpole == null ? '—' : R(s.fpole, 1);
+    read.innerHTML =
+      `<div class="wx-line"><b style="color:${COL.blue}">A-pole ${A} km</b> (your range from him when the missile goes active — you're free to turn) · ` +
+      `<b style="color:${COL.amber}">F-pole ${F} km</b> (your range from him at impact).</div>` +
+      `<div class="wx-hint">Flying <b>hot</b> (crank 0°) gets your missile there fastest but leaves you closest to him — small poles, max exposure to his return shot. <b>Cranking</b> toward your radar's gimbal limit (~50–60°) keeps the datalink alive while you open range — bigger A-pole and F-pole for the same kill. Past ~70–90° you'd <b>drag</b> and risk losing the lock (gimbal). The whole BVR game is buying separation without dropping him: <a data-goto="mar">time your abort at MAR</a>, and read the sim's <b>pole study</b> in ◈ TACTICAL-AI.</div>`;
+  }
+  _V.redraw = draw; draw();
+  return () => {};
+});
+
+// ── ENERGY–MANEUVERABILITY — corner speed, turn rate & radius ─────────────────
+reg('emdiagram', (node) => {
+  const _V = makeCanvas(node, 340); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let altk = 5, gmax = 9;
+  const sA = slider('Altitude (km)', 0, 12, 0.5, altk, v => { altk = v; draw(); });
+  const sG = slider('Structural G limit', 5, 12, 0.5, gmax, v => { gmax = v; draw(); });
+  ctr.appendChild(sA.row); ctr.appendChild(sG.row);
+  const G = 9.81, WS = 3400, CLmax = 1.5;      // wing loading N/m², max lift coeff
+  const rho = h => 1.225 * Math.exp(-h / 8500);
+  const a_sound = h => 340 - 3.9 * (h / 1000);  // rough speed of sound vs alt (m/s)
+  function nAt(V, r) { return Math.min(0.5 * r * V * V * CLmax / WS, gmax); }
+  function rateAt(V, r) { const n = nAt(V, r); return n <= 1 ? 0 : G * Math.sqrt(n * n - 1) / V; } // rad/s
+  function draw() {
+    const r = rho(altk * 1000), a = a_sound(altk * 1000);
+    const Vlo = 90, Vhi = 620, w = _V.w, h = _V.h, padL = 40, padR = 14, padT = 16, padB = 30;
+    // corner speed: where lift-limited n meets the structural cap
+    const Vc = Math.sqrt(gmax * WS / (0.5 * r * CLmax));
+    let peak = 0; for (let V = Vlo; V <= Vhi; V += 2) peak = Math.max(peak, rateAt(V, r));
+    const maxRate = Math.max(peak * 1.1, 0.05);
+    const X = V => padL + (V - Vlo) / (Vhi - Vlo) * (w - padL - padR);
+    const Yc = rate => h - padB - (rate / maxRate) * (h - padT - padB);
+    g.clearRect(0, 0, w, h);
+    // axes
+    g.strokeStyle = COL.grid; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, h - padB); g.lineTo(w - padR, h - padB); g.stroke();
+    g.fillStyle = COL.faint; g.font = '9px "Share Tech Mono"';
+    for (let V = 100; V <= 600; V += 100) { g.fillText(V + '', X(V) - 8, h - padB + 12); }
+    lbl(g, w / 2, h - 4, 'true airspeed  (m/s)', COL.dim, 'center', 9);
+    g.save(); g.translate(11, h / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center';
+    g.fillStyle = COL.dim; g.fillText('turn rate  (°/s)', 0, 0); g.restore();
+    for (let dr = 5; dr <= maxRate * 57.3; dr += 5) { const y = Yc(dr / 57.3);
+      g.strokeStyle = 'rgba(78,128,178,0.12)'; g.beginPath(); g.moveTo(padL, y); g.lineTo(w - padR, y); g.stroke();
+      g.fillStyle = COL.faint; g.fillText(dr + '', 20, y + 3); }
+    // shade lift-limited (left of corner) vs G-limited (right)
+    g.fillStyle = 'rgba(0,229,255,.05)'; g.fillRect(padL, padT, X(Vc) - padL, h - padT - padB);
+    g.fillStyle = 'rgba(255,61,0,.05)'; g.fillRect(X(Vc), padT, w - padR - X(Vc), h - padT - padB);
+    // the turn-rate envelope
+    g.strokeStyle = COL.green; g.lineWidth = 2.2; g.beginPath();
+    let first = true; for (let V = Vlo; V <= Vhi; V += 2) { const y = Yc(rateAt(V, r)); first ? (g.moveTo(X(V), y), first = false) : g.lineTo(X(V), y); }
+    g.stroke();
+    // corner marker
+    const cy = Yc(rateAt(Vc, r));
+    g.strokeStyle = COL.amber; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(X(Vc), h - padB); g.lineTo(X(Vc), cy); g.stroke(); g.setLineDash([]);
+    g.fillStyle = COL.amber; g.beginPath(); g.arc(X(Vc), cy, 4, 0, 7); g.fill();
+    lbl(g, X(Vc), cy - 8, 'CORNER', COL.amber, 'center', 9);
+    const rate = rateAt(Vc, r) * 57.3, radius = Vc * Vc / (G * Math.sqrt(gmax * gmax - 1));
+    read.innerHTML =
+      `<div class="wx-line">Corner speed <b style="color:${COL.amber}">${R(Vc)} m/s</b> (~M${R(Vc / a, 1)}) · peak turn <b style="color:${COL.green}">${R(rate, 1)}°/s</b> · tightest radius <b>${R(radius)} m</b>.</div>` +
+      `<div class="wx-hint"><b style="color:${COL.blue}">Left of corner</b> you're <b>lift-limited</b> — too slow to pull max G, so you turn tightest but the rate suffers. <b style="color:${COL.red}">Right of corner</b> you're <b>G-limited</b> — plenty of lift but the structural cap holds you, and radius balloons with speed. The peak sits at <b>corner speed</b>: the best sustained turn lives right there. Climb (thinner air, slide the altitude slider) and corner speed rises while your turn decays — why the fight often <b>bleeds down</b> in altitude. This is the WVR side of <a data-goto="wvr">the merge</a>.</div>`;
+  }
+  _V.redraw = draw; draw();
+  return () => {};
+});
+
+// ── THE 2-SHIP BRACKET — a section pincers a bandit (animated) ────────────────
+reg('grinder', (node) => {
+  const _V = makeCanvas(node, 340); const { g } = _V;
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  read.innerHTML = `<div class="wx-hint">A single fighter gives a bandit one problem. A <b>2-ship</b> gives him two he can't both solve. In a <b>bracket</b>, the section splits azimuth so the bandit can't point at both — the moment he commits to one (the <b>engaged</b> fighter drags him), the <b>free</b> fighter swings to his stern for the kill. That's the "grinder": trade who's engaged and who's free until someone gets the shot. Numbers and geometry, not heroics.</div>`;
+  const stop = frame((t) => {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const cx = w / 2;
+    const p = (t / 3200) % 1;                    // 0..1 loop
+    // bandit comes down the middle, then commits left
+    const commit = Math.max(0, (p - 0.4) / 0.6);
+    const bX = cx + (-0.5 + Math.min(commit, 1)) * -70 * 0 - commit * 90;  // drifts left as he commits
+    const bY = 40 + p * (h - 120);
+    // blue split: left (engaged) holds nose-on; right (free) flanks to stern
+    const spread = 60 + Math.min(p, 0.5) * 240;
+    const b1X = cx - spread * 0.5, b1Y = h - 40 - p * 40;             // engaged (left)
+    const freeSwing = Math.max(0, (p - 0.35)) * 1.3;
+    const b2X = cx + spread * 0.5 - freeSwing * 150;                 // free (right) cuts in
+    const b2Y = h - 40 - p * (h - 150) - freeSwing * 30;
+    // bracket guide lines
+    g.strokeStyle = 'rgba(78,128,178,.25)'; g.setLineDash([4, 4]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(b1X, b1Y); g.lineTo(bX, bY); g.moveTo(b2X, b2Y); g.lineTo(bX, bY); g.stroke(); g.setLineDash([]);
+    // headings
+    const ang = (ax, ay, bx, by) => Math.atan2(bx - ax, -(by - ay)) * 180 / Math.PI;
+    drawJet(g, bX, bY, ang(bX, bY, b1X, b1Y) + (commit > 0 ? 0 : 0), COL.red, 'BANDIT');
+    drawJet(g, b1X, b1Y, ang(b1X, b1Y, bX, bY), COL.blue, 'ENGAGED');
+    drawJet(g, b2X, b2Y, ang(b2X, b2Y, bX, bY), COL.green, 'FREE');
+    // free-side shot in the endgame
+    if (p > 0.72) {
+      const s = (p - 0.72) / 0.28;
+      const mx = b2X + (bX - b2X) * s, my = b2Y + (bY - b2Y) * s;
+      g.strokeStyle = COL.amber; g.setLineDash([2, 3]); g.lineWidth = 1.3;
+      g.beginPath(); g.moveTo(b2X, b2Y); g.lineTo(mx, my); g.stroke(); g.setLineDash([]);
+      g.fillStyle = COL.amber; g.beginPath(); g.arc(mx, my, 3, 0, 7); g.fill();
+      if (p > 0.94) { g.fillStyle = COL.red; g.font = '10px "Share Tech Mono"'; g.fillText('✹ STERN KILL', bX + 8, bY); }
+    }
+    // phase caption
+    g.fillStyle = COL.faint; g.font = '9px "Share Tech Mono"';
+    g.fillText(p < 0.4 ? 'SECTION BRACKETS — split the azimuth' : p < 0.72 ? 'BANDIT COMMITS — engaged fighter drags him' : 'FREE FIGHTER CONVERTS — stern shot', 12, 16);
+  });
+  return stop;
 });
