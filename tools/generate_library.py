@@ -387,6 +387,8 @@ PLATFORMS = [
     aircraft("mig29_fulcrum", "MiG-29 Fulcrum", "fighter", "fighter_swept", "#828d9a", "#ff3d00", 4.0, 1.2, 9, 140, 690, 18000, 60, 60, True),
     aircraft("mig31_foxhound", "MiG-31 Foxhound", "fighter", "fighter_swept", "#6f7787", "#ff3d00", 8, 1.6, 5, 200, 830, 20600, 96, 96, True, "High-speed interceptor; R-37M carrier."),
     aircraft("rafale", "Dassault Rafale", "fighter", "fighter_delta", "#8a97a8", "#00e5ff", 1.0, 1.0, 9, 120, 690, 15200, 100, 100, True),
+    aircraft("mirage2000", "Dassault Mirage 2000-5", "fighter", "fighter_delta", "#94a1b2", "#00e5ff", 2.0, 1.0, 9, 130, 700, 17000, 100, 100, True,
+             "French single-engine tailless delta interceptor; Mach 2.2, ~17 km ceiling, RDY radar + MICA. Deltas bleed energy hard in sustained turns."),
     aircraft("typhoon", "Eurofighter Typhoon", "fighter", "fighter_delta", "#8a97a8", "#00e5ff", 0.5, 1.0, 9, 120, 720, 16800, 100, 100, True),
     aircraft("j20_dragon", "J-20 Mighty Dragon", "fighter", "fighter_delta", "#5b6572", "#ffb000", 0.05, 1.0, 8, 130, 700, 18000, 60, 60, True, "LO stealth."),
     aircraft("gripen", "JAS 39 Gripen E", "fighter", "fighter_delta", "#9fb2c8", "#00e5ff", 0.5, 0.9, 9, 120, 680, 15200, 60, 60, True),

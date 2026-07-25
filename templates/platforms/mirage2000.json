@@ -1,0 +1,27 @@
+{
+  "id": "mirage2000",
+  "name": "Dassault Mirage 2000-5",
+  "type": "fighter",
+  "source": "open-source estimate",
+  "visual": {
+    "sprite": "fighter_delta",
+    "color": "#94a1b2",
+    "accent": "#00e5ff"
+  },
+  "signatures": {
+    "rcs_m2": 2.0,
+    "ir_signature": 1.0
+  },
+  "performance": {
+    "max_g": 9,
+    "min_speed_mps": 130,
+    "max_speed_mps": 700,
+    "service_ceiling_m": 17000
+  },
+  "countermeasures": {
+    "flares": 100,
+    "chaff": 100,
+    "ecm": true
+  },
+  "notes": "French single-engine tailless delta interceptor; Mach 2.2, ~17 km ceiling, RDY radar + MICA. Deltas bleed energy hard in sustained turns."
+}
