@@ -11,9 +11,9 @@
   --glow-amber:0 0 12px rgba(255,176,0,.55);
   --glow-blue:0 0 12px rgba(0,229,255,.55);
   --glow-red:0 0 14px rgba(255,61,0,.6);
-  --font-display:'Orbitron',sans-serif;
-  --font-ui:'Rajdhani',sans-serif;
-  --font-mono:'Share Tech Mono',monospace;
+  --font-display:'Inter',system-ui,sans-serif;
+  --font-ui:'Inter',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
@@ -631,3 +631,9 @@ body.learn-standalone{background:var(--bg)}
 body.learn-standalone .modal{position:static;background:none;padding:0}
 body.learn-standalone .help-box{width:100vw;max-width:100vw;height:100vh;max-height:100vh;border-radius:0;border:none}
 body.learn-standalone #help-nav{width:290px}
+
+/* formation-library tab buttons */
+.wx-tab{font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--ink-dim);
+  background:#0d1728;border:1px solid var(--line2);border-radius:5px;padding:6px 11px;cursor:pointer;transition:.14s}
+.wx-tab:hover{color:var(--blue);border-color:var(--blue)}
+.wx-tab.on{color:#06121f;background:var(--blue);border-color:var(--blue);font-weight:600}

@@ -562,7 +562,7 @@ function drawAtmos(cv, rows) {
   };
   ctx.strokeStyle = '#26375a'; ctx.strokeRect(pad, pad, W - 2 * pad, H - 2 * pad);
   series('rho', '#00E5FF', false); series('a', '#FFB000', false); series('P', '#FF3D00', true);
-  ctx.fillStyle = '#6d84a6'; ctx.font = '10px "Share Tech Mono"';
+  ctx.fillStyle = '#6d84a6'; ctx.font = '10px "JetBrains Mono"';
   ctx.fillText('0 km', pad, H - 12); ctx.fillText((maxAlt / 1000) + ' km', W - pad - 30, H - 12);
 }
 

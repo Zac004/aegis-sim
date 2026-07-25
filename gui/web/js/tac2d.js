@@ -215,7 +215,7 @@ export class Tac2D {
     g.strokeStyle = 'rgba(78,128,178,0.25)'; g.lineWidth = 1;
     g.beginPath(); g.moveTo(0, this.mapH); g.lineTo(this.vw, this.mapH); g.stroke();
     // altitude gridlines + labels
-    g.font = '9px "Share Tech Mono", monospace'; g.textBaseline = 'middle';
+    g.font = '9px "JetBrains Mono", monospace'; g.textBaseline = 'middle';
     const step = altMax <= 12000 ? 3000 : altMax <= 24000 ? 6000 : 10000;
     for (let a = 0; a <= altMax; a += step) {
       const yy = Y(a);
@@ -257,7 +257,7 @@ export class Tac2D {
       const px = X(dr(ch.mx[this.iPitbull], ch.my[this.iPitbull])), py = Y(ch.malt[this.iPitbull]);
       g.strokeStyle = C.terminal; g.lineWidth = 1.4; g.beginPath(); g.moveTo(px, py - 6); g.lineTo(px, py + 6); g.stroke();
     }
-    g.fillStyle = C.msl; g.font = '9px "Share Tech Mono", monospace';
+    g.fillStyle = C.msl; g.font = '9px "JetBrains Mono", monospace';
     g.fillText('◤ ELEVATION PROFILE', x1 - 130, top + 10);
   }
 
@@ -269,7 +269,7 @@ export class Tac2D {
     // km grid (North/East) across the whole map
     if (this.opts.grid) {
       g.save(); g.strokeStyle = C.grid; g.lineWidth = 0.5; g.globalAlpha = 0.5;
-      g.font = '9px "Share Tech Mono", monospace'; g.fillStyle = C.dim;
+      g.font = '9px "JetBrains Mono", monospace'; g.fillStyle = C.dim;
       const stepM = this._niceStep();
       const c0 = this.W2S(this.cy, this.cx);
       for (let s = -20; s <= 20; s++) {
@@ -289,7 +289,7 @@ export class Tac2D {
         g.beginPath(); g.arc(O[0], O[1], r, 0, 7);
         g.strokeStyle = C.ring; g.lineWidth = km % 50 === 0 ? 1.1 : 0.6; g.stroke();
         if (km % 20 === 0) {
-          g.fillStyle = C.dim; g.font = '10px "Share Tech Mono", monospace';
+          g.fillStyle = C.dim; g.font = '10px "JetBrains Mono", monospace';
           g.fillText(km + ' km', O[0] + r * 0.7071 + 3, O[1] - r * 0.7071 - 3);
         }
       }
@@ -304,7 +304,7 @@ export class Tac2D {
     const g = this.ctx;
     const b = this.bull || (this.bull = { rings: 4, spacing_km: 20, bearing_step: 30 });
     const amber = 'rgba(255,176,0,'; g.save();
-    g.font = '9px "Share Tech Mono", monospace';
+    g.font = '9px "JetBrains Mono", monospace';
     // range rings at the chosen spacing, with km labels
     for (let i = 1; i <= b.rings; i++) {
       const km = i * b.spacing_km, r = km * 1000 * this.scale;
@@ -383,12 +383,12 @@ export class Tac2D {
     g.closePath(); g.fill();
     g.restore();
     // label
-    g.fillStyle = color; g.font = '10px "Share Tech Mono", monospace';
+    g.fillStyle = color; g.font = '10px "JetBrains Mono", monospace';
     g.globalAlpha = 0.9; g.fillText(label, p[0] + size + 3, p[1] - size - 1); g.globalAlpha = 1;
   }
 
   _tag(x, y, text, color) {
-    const g = this.ctx; g.fillStyle = color; g.font = '9px "Share Tech Mono", monospace';
+    const g = this.ctx; g.fillStyle = color; g.font = '9px "JetBrains Mono", monospace';
     g.globalAlpha = 0.85; g.fillText(text, x - text.length * 2.6, y); g.globalAlpha = 1;
   }
 
@@ -403,20 +403,20 @@ export class Tac2D {
     g.strokeStyle = C.ink; g.lineWidth = 1.5; g.globalAlpha = 0.8;
     g.beginPath(); g.moveTo(x0, y); g.lineTo(x0 + px, y); g.moveTo(x0, y - 4); g.lineTo(x0, y + 4);
     g.moveTo(x0 + px, y - 4); g.lineTo(x0 + px, y + 4); g.stroke();
-    g.fillStyle = C.ink; g.font = '11px "Share Tech Mono", monospace';
+    g.fillStyle = C.ink; g.font = '11px "JetBrains Mono", monospace';
     g.fillText(nice + ' km', x0 + px + 8, y + 4); g.globalAlpha = 1;
     // north arrow (top-left)
     g.strokeStyle = C.dim; g.fillStyle = C.dim; g.lineWidth = 1.5;
     const nx = 30, ny = 40;
     g.beginPath(); g.moveTo(nx, ny + 14); g.lineTo(nx, ny - 14); g.stroke();
     g.beginPath(); g.moveTo(nx, ny - 16); g.lineTo(nx - 4, ny - 8); g.lineTo(nx + 4, ny - 8); g.closePath(); g.fill();
-    g.font = '11px "Share Tech Mono", monospace'; g.fillText('N', nx - 3, ny - 20);
+    g.font = '11px "JetBrains Mono", monospace'; g.fillText('N', nx - 3, ny - 20);
     // phase badge (top-center)
     const col = (phase === 'MIDCOURSE' || phase === 'INS') ? C.midcourse : phase === 'INERTIAL' ? C.inertial : C.terminal;
     const txt = phase === 'MIDCOURSE' ? '◈ MIDCOURSE — DATALINK'
       : phase === 'INS' ? '◈ MIDCOURSE — INERTIAL NAV (no datalink)'
       : phase === 'INERTIAL' ? '◈ INERTIAL — NO GUIDANCE' : '● TERMINAL — SEEKER ACTIVE';
-    g.font = 'bold 12px "Share Tech Mono", monospace';
+    g.font = 'bold 12px "JetBrains Mono", monospace';
     const tw = g.measureText(txt).width, bx = this.vw / 2 - tw / 2 - 12;
     const by = this.vh - 44;
     g.fillStyle = 'rgba(8,14,24,0.8)'; g.strokeStyle = col; g.lineWidth = 1;

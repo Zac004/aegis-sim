@@ -103,7 +103,7 @@ function plot(cv, spec, tMax) {
   const X = (t) => padL + (t / tMax) * (W - padL - padR);
   const Y = (v) => H - padB - ((v - lo) / (hi - lo)) * (H - padT - padB);
   // grid + axes
-  g.strokeStyle = 'rgba(38,55,90,0.5)'; g.lineWidth = 1; g.font = '9px "Share Tech Mono", monospace'; g.fillStyle = '#6d84a6';
+  g.strokeStyle = 'rgba(38,55,90,0.5)'; g.lineWidth = 1; g.font = '9px "JetBrains Mono", monospace'; g.fillStyle = '#6d84a6';
   for (let k = 0; k <= 4; k++) {
     const v = lo + (hi - lo) * k / 4, yy = Y(v);
     g.beginPath(); g.moveTo(padL, yy); g.lineTo(W - padR, yy); g.stroke();

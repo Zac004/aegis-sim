@@ -1160,7 +1160,9 @@ export const HELP_SECTIONS = [
     id: 'rwr', title: 'RWR & Threat Awareness — What the Defender Sees',
     html: `
       <p>Half of surviving BVR is <i>knowing you're being shot at</i>. The <b>Radar Warning Receiver
-      (RWR)</b> is the defender's ears — and its limits shape every tactic.</p>
+      (RWR)</b> is the defender's ears — and its limits shape every tactic. Watch the top contact
+      escalate search → lock → launch, and learn the symbology:</p>
+      <div class="wx" data-widget="rwrscope"></div>
       <ul>
         <li><b>What the RWR hears.</b> It detects and classifies emitters by their signals: a search
         radar sweeping past (a soft, periodic hit), a <b>lock / STT</b> (a steady, insistent tone —
@@ -1185,7 +1187,9 @@ export const HELP_SECTIONS = [
     id: 'formations', title: 'Formations & Roles — Fighting as a Team',
     html: `
       <p>Fighters fight in pairs and fours, not alone. The <b>formation</b> is a machine for building
-      SA, covering blind spots, and stacking shots — 1+1 in air combat is far more than 2.</p>
+      SA, covering blind spots, and stacking shots — 1+1 in air combat is far more than 2. Flip through
+      the common pictures and why each is flown:</p>
+      <div class="wx" data-widget="formations"></div>
       <ul>
         <li><b>The element (2-ship)</b> — the atomic unit: a <b>lead</b> who fights and a <b>wingman</b>
         who supports (radar coverage, mutual defence, the second shot). "Lose sight, lose the fight"
@@ -1446,6 +1450,9 @@ export const HELP_SECTIONS = [
         <li><b>Bogey dope</b> — the bullseye picture (range/bearing/altitude) that keeps everyone's mental radar
         aligned — see the <a data-goto="rwr">SA & RWR</a> and bullseye notes.</li>
       </ul>
+      <p><b>Drill the sort.</b> The lead calls the rule; you assign each shooter their contact. Get it wrong and
+      you build a leaker:</p>
+      <div class="wx" data-widget="sortgame"></div>
       <p><b>Formations set up the sort.</b> A <b>wall</b> (line abreast) maximizes the bracket and the number of
       radars looking; a <b>box</b> or <b>champagne</b> adds depth so a trailing element can shoot bandits that
       commit on the leaders; an <b>offset/ladder</b> stacks shooters in range. Each is a different answer to the

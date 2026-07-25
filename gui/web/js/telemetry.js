@@ -198,7 +198,7 @@ export class Telemetry {
     ctx.strokeStyle = '#eaf6ff'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(-S, 0); ctx.lineTo(S, 0); ctx.stroke();
     // pitch ladder every 10°, with tick labels
-    ctx.lineWidth = 1; ctx.font = '7px "Share Tech Mono"'; ctx.textAlign = 'center';
+    ctx.lineWidth = 1; ctx.font = '7px "JetBrains Mono"'; ctx.textAlign = 'center';
     for (let d = -60; d <= 60; d += 10) {
       if (d === 0) continue;
       const yy = -d * PPD, halfw = d % 20 === 0 ? 16 : 9;
@@ -237,10 +237,10 @@ export class Telemetry {
 
     // ── bezel + numeric readouts ──
     ctx.strokeStyle = '#26375a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
-    ctx.textAlign = 'left'; ctx.font = '8px "Share Tech Mono"'; ctx.fillStyle = '#6d84a6';
+    ctx.textAlign = 'left'; ctx.font = '8px "JetBrains Mono"'; ctx.fillStyle = '#6d84a6';
     ctx.fillText('ADI', 8, 13);
     const hdg = ((yaw % 360) + 360) % 360;
-    ctx.textAlign = 'center'; ctx.font = '9px "Share Tech Mono"'; ctx.fillStyle = '#00E5FF';
+    ctx.textAlign = 'center'; ctx.font = '9px "JetBrains Mono"'; ctx.fillStyle = '#00E5FF';
     ctx.fillText(`P ${pitch.toFixed(0)}°  R ${roll.toFixed(0)}°`, cx, H - 14);
     ctx.fillStyle = '#FFB000';
     ctx.fillText(`HDG ${hdg.toFixed(0).padStart(3, '0')}°`, cx, H - 4);
