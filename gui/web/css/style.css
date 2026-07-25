@@ -651,3 +651,18 @@ body.learn-standalone #help-nav{width:290px}
 .ach-reset{display:block;margin:14px auto 2px;font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;
   color:var(--ink-faint);background:none;border:1px solid var(--line2);border-radius:5px;padding:6px 12px;cursor:pointer;transition:.14s}
 .ach-reset:hover{color:var(--red);border-color:var(--red)}
+
+/* ── Learn enrichment: history/lore box + worked-example box ── */
+.lore{position:relative;margin:14px 0;padding:12px 14px 11px;border-radius:8px;
+  background:linear-gradient(135deg,rgba(255,176,0,.055),rgba(10,16,26,.3));
+  border:1px solid rgba(255,176,0,.28);font-size:12.5px;line-height:1.6}
+.lore::before{content:'📜 HISTORY & LORE';display:block;font-family:var(--font-mono);font-size:9px;
+  letter-spacing:2px;color:var(--amber);margin-bottom:6px}
+.lore b{color:#ffd070}
+.workex{position:relative;margin:14px 0;padding:12px 14px 11px;border-radius:8px;
+  background:linear-gradient(135deg,rgba(0,229,255,.05),rgba(10,16,26,.3));
+  border:1px solid rgba(0,229,255,.25);font-size:12.5px;line-height:1.65}
+.workex::before{content:'∑ WORKED EXAMPLE';display:block;font-family:var(--font-mono);font-size:9px;
+  letter-spacing:2px;color:var(--blue);margin-bottom:6px}
+.workex .m{font-family:var(--font-mono);color:var(--ink);background:rgba(0,229,255,.07);
+  padding:1px 5px;border-radius:3px;white-space:nowrap}

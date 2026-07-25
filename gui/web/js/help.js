@@ -122,6 +122,20 @@ export const HELP_SECTIONS = [
       <p>Every term under a fourth root. Sweep power and RCS below and watch how little raw power
       buys — and how catastrophically RCS reduction collapses detection range:</p>
       <div class="wx" data-widget="radareq"></div>
+      <div class="workex">A search radar sees a clean 5 m² fighter at 85 km. Hang low-observable
+      shaping on the threat and its RCS drops 1000× to 0.005 m². New detection range:
+      <span class="m">85 × (0.001)<sup>¼</sup> ≈ 85 × 0.178 ≈ 15 km</span>. A <b>thousand-fold</b>
+      engineering effort bought a <b>5.6×</b> range cut — that's the tyranny of the fourth root, and
+      it cuts both ways: doubling transmitter power buys only <span class="m">2<sup>¼</sup> ≈ 19%</span>
+      more range. Stealth attacks the σ term because it's the only one your <i>adversary</i> controls.</div>
+      <div class="lore">Radar's paternity is disputed by half of physics. <b>Christian Hülsmeyer</b>
+      patented his "Telemobiloskop" ship-collision detector in <b>1904</b> — it worked, and nobody
+      bought one. The word itself is a US Navy acronym from <b>1940</b>: <i>RAdio Detection And
+      Ranging</i>. The system that proved the concept in blood was Britain's <b>Chain Home</b> (1938):
+      crude HF towers, but wired into the <b>Dowding System</b> — the world's first integrated air
+      defence network — they let ~700 RAF fighters be at the right place at the right time against
+      the Luftwaffe in 1940. The lesson that still runs today's IADS doctrine: <b>the network beat
+      the better radar</b>. Germany's Würzburg sets were technically finer; they weren't a system.</div>
       <p class="tip">RCS is not one number — it varies wildly with aspect (nose-on is what gets
       quoted; beam aspect can be 100× bigger) and with band (VLO shaping is optimised against
       fighter X-band; long-wave surveillance radars see stealth jets far better, which is why
@@ -154,7 +168,15 @@ export const HELP_SECTIONS = [
       <div class="wx" data-widget="prf"></div>
       <p>This is why <b>look-down/shoot-down</b> needed pulse-Doppler (high/medium PRF filters fast movers
       out of ground clutter), and why the <a data-goto="ew">Doppler notch</a> exists at all — beam the
-      radar and your near-zero velocity drops you into the clutter it must reject.</p>`,
+      radar and your near-zero velocity drops you into the clutter it must reject.</p>
+      <div class="lore">The AESA era arrived quietly: <b>Japan's F-2</b> fielded the first production
+      fighter AESA (the J/APG-1) around <b>2000</b>, beating everyone to service; the same year US
+      F-15Cs at Elmendorf got the APG-63(V)2, and the F-22's <b>APG-77</b> then set the standard —
+      an array so agile it hops frequencies pulse-to-pulse and whispers in <b>LPI</b> patterns an RWR
+      struggles to even classify as a radar. Crews describe fighting a modern AESA jet as being
+      "clubbed by the invisible man": the first hard warning may be the missile going
+      <a data-goto="midcourse">pitbull</a>. Meanwhile the humble spinning dish isn't dead — it's just
+      been demoted to weather radar and museum pieces.</div>`,
   },
   {
     id: 'radarroles', title: 'The Radar Family — EW, Acquisition, FCR & Ground vs Air',
@@ -184,12 +206,28 @@ export const HELP_SECTIONS = [
       <div class="wx" data-widget="monopulse"></div>
       <p>Modern tracking radars use <b>monopulse</b> — comparing simultaneous squinted beams to get the
       target's exact off-axis angle from a <i>single pulse</i>. It's precise and hard to angle-deceive,
-      which is why deception jammers must resort to cross-eye or terrain-bounce (see <a data-goto="ew">EW</a>).</p>`,
+      which is why deception jammers must resort to cross-eye or terrain-bounce (see <a data-goto="ew">EW</a>).</p>
+      <div class="lore">The radar family earned its reputations one shot at a time. On <b>1 May 1960</b>
+      an SA-2's <b>Fan Song</b> fire-control radar guided the missile that brought down Gary Powers'
+      U-2 over Sverdlovsk — ending the era of "fly high, fly safe" overnight. Five years later
+      (<b>24 July 1965</b>) an SA-2 took the first USAF jet of the Vietnam air war, and within months
+      the US invented a whole new mission — <a data-goto="iadsnet">Wild Weasel</a> — just to duel the
+      radar family itself. At the other end of the chain, the E-3 Sentry's 9-metre rotodome is an
+      entire <b>acquisition radar flying at 9 km altitude</b>: its whole reason to exist is the
+      <a data-goto="horizon">horizon geometry</a> in the widget above.</div>`,
   },
   {
     id: 'ir101', title: 'Infrared Fundamentals — Heat, Bands & IRST',
     html: `
-      <p>Everything above absolute zero glows in the infrared. IR sensors weaponise that — silently.</p>
+      <p>Everything above absolute zero glows in the infrared. IR sensors weaponise that — silently.
+      The whole discipline hangs on one picture — what a jet radiates vs what the atmosphere lets
+      through:</p>
+      <div class="wx" data-widget="irbands"></div>
+      <div class="workex">Where does a body glow brightest? <b>Wien's law:</b>
+      <span class="m">λ<sub>peak</sub> = 2898 / T µm</span>. Engine hot parts and plume at ~900 K →
+      <span class="m">2898/900 ≈ 3.2 µm</span> — squarely in <b>MWIR</b>, the classic seeker band.
+      Skin friction-heated to ~320 K at high subsonic speed → <span class="m">2898/320 ≈ 9.1 µm</span> —
+      squarely in <b>LWIR</b>, the IRST band. One formula explains the entire sensor market.</div>
       <ul>
         <li><b>What glows on a jet:</b> the engine hot parts and plume (fiercest, but mostly visible
         from behind), the exhaust-washed tailpipe, and — at speed — <b>aerodynamic skin heating</b>
@@ -212,6 +250,16 @@ export const HELP_SECTIONS = [
         flares by geometry, spectrum and kinematics. That ladder is exactly the ir → iir jump in this
         sim's seeker models.</li>
       </ul>
+      <div class="lore">The heat-seeker was born a garage project. At China Lake in the early 1950s,
+      physicist <b>William McLean</b> built the Sidewinder largely off-budget, against official
+      indifference — naming it for the <b>sidewinder rattlesnake</b>, which really does hunt by
+      infrared, sensing prey heat through pit organs between eye and nostril. On <b>24 September
+      1958</b>, Taiwanese F-86s fired AIM-9Bs at MiG-17s over the Taiwan Strait — the first guided
+      air-to-air missile kills in history. One Sidewinder lodged in a MiG <i>without exploding</i>,
+      was shipped to Moscow, and was reverse-engineered bolt-for-bolt into the Soviet <b>K-13 /
+      AA-2 "Atoll"</b> — one of the most consequential unintended technology transfers of the Cold
+      War. Sixty years of upgrades later, the airframe McLean sketched is still on wingtips
+      worldwide.</div>
       <p class="tip">Tactically: IR shots give <b>no RWR warning</b> — nothing radiates. A MICA-IR or
       IIR WVR missile arriving silently is why "no spike" never means "no threat". Check the sim: fire
       a MICA-IR with datalink midcourse and note the target's only cue is the missile itself.</p>`,
@@ -966,7 +1014,19 @@ export const HELP_SECTIONS = [
         smooth achieved trace you see. Both behaviours are physical.</li>
         <li><b>Max-Q & Mach cap</b> — dynamic-pressure and skin-heating structural limits. The Mach
         cap is altitude-dependent by construction (same Mach = different TAS in different air).</li>
-      </ul>`,
+      </ul>
+      <div class="workex">Feel what altitude does. Same 300 m/s TAS at sea level
+      (<span class="m">ρ = 1.225 kg/m³</span>) vs 12 km (<span class="m">ρ ≈ 0.31 kg/m³</span>):
+      <span class="m">q = ½ρV² = 55 kPa</span> vs <span class="m">14 kPa</span> — a <b>4× collapse</b>
+      in the force budget for both drag <i>and</i> lift. That one number is why missiles fired high
+      fly far (drag ∝ q) yet turn feebly up there (lift ∝ q), why <a data-goto="loft">loft</a> works,
+      and why the last-ditch break is best done <b>low, in thick air</b>.</div>
+      <div class="lore">The transonic drag spike in the Cd₀ curve above once had a name:
+      "the sound barrier". In 1952 NACA's <b>Richard Whitcomb</b> realised drag near Mach 1 follows
+      the aircraft's <i>total cross-sectional area distribution</i> — pinch the fuselage where the
+      wing sits (the "wasp waist") and the spike shrinks. His <b>area rule</b> turned the Convair
+      F-102 from a failure that couldn't pass Mach 1 into a supersonic interceptor within a year, and
+      that coke-bottle waist is hiding in every supersonic airframe (and missile) since.</div>`,
   },
   {
     id: 'atmos', title: 'The Atmosphere',
@@ -983,7 +1043,16 @@ export const HELP_SECTIONS = [
       </ul>
       <p>Press <b>ATMOS</b> to see the profiles. Then fire the same shot on a hot vs cold day and
       watch Rmax move — the atmosphere is a tunable experiment variable here, exactly as in
-      professional engagement-modelling tools.</p>`,
+      professional engagement-modelling tools.</p>
+      <div class="lore">The "standard day" — 15 °C, 1013.25 hPa, −6.5 °C per km up to an 11 km
+      tropopause — is aviation's shared fiction: no real day matches it, but every performance chart,
+      altimeter and this simulator agree to pretend. The <b>US Standard Atmosphere 1976</b> and ICAO's
+      ISA are identical up to 32 km, so a Mirage tested over France and an F-16 tested over Nevada
+      can be compared on paper. Where the fiction bites is <b>hot-and-high</b>: at La Paz (4,060 m
+      elevation) on a warm afternoon, the <i>density altitude</i> can exceed 5,500 m before you've
+      left the runway — aircraft that scream at sea level waddle there, and the same missile flies
+      measurably farther on less turn. Fighter pilots don't fly the atmosphere they see; they fly
+      the density the atmosphere hides.</div>`,
   },
   {
     id: 'hitmiss', title: 'Hit or Miss — How Outcomes Are Decided',
@@ -1126,6 +1195,20 @@ export const HELP_SECTIONS = [
         <li><b>Fatigue, spatial disorientation, hypoxia</b> — the quiet killers. More aircrew have
         been lost to disorientation and physiology than to enemy missiles in peacetime.</li>
       </ul>
+      <div class="workex">Why ~5 G greys you out: your brain sits ≈30 cm above your heart, and that
+      blood column costs ≈22 mmHg of pressure at 1 G. At <span class="m">+5 G<sub>z</sub></span> the
+      same column costs <span class="m">5 × 22 ≈ 110 mmHg</span> — roughly your entire systolic
+      pressure — so arterial pressure <i>at eye level</i> approaches zero. Vision goes first (grey-out
+      → tunnel → blackout) because the eye adds its own internal pressure; consciousness follows
+      ~4–6 s later when the brain's oxygen reserve runs out. A G-suit squeezes the legs (+~1 G) and
+      the <b>AGSM</b> strain (+~3 G) raises the pressure at the pump — that's the whole trick.</div>
+      <div class="lore">The reference point for everything G is Col. <b>John Stapp</b>, the USAF
+      flight surgeon who rode rocket sleds to test his own limits: on <b>10 December 1954</b> he took
+      <b>46.2 G</b> of deceleration at Holloman AFB — eyes hemorrhaging, temporarily blinded, and
+      back at work analysing the data. His runs rewrote what "human limits" meant and put shoulder
+      harnesses in your car. The modern fight is subtler: G-LOC still kills trained pilots in
+      9-G-capable jets, because the aircraft stopped being the limiting component decades before the
+      circulatory system did.</div>
       <p class="tip">Design takeaway echoed across this app: automation (datalink midcourse, the
       <a data-goto="mar">Tactical-AI kneeboard</a>, HOBS cueing) mostly buys back <b>human bandwidth</b>
       so the crew can spend attention where it decides the fight.</p>`,
@@ -1153,6 +1236,13 @@ export const HELP_SECTIONS = [
         <li><b>Wind & the deck.</b> Down low, terrain and wind shape both the radar-horizon fight and
         the energy fight; a tailwind on egress is free range home.</li>
       </ul>
+      <div class="lore">Weather has veto power over technology. In the 1991 Gulf War, planners met
+      the worst January weather over Iraq in years — repeated low cloud forced thousands of sortie
+      changes and spoiled laser-guided attacks that needed a clear line of sight to the target.
+      The all-weather sensors got the glory; the <i>schedule</i> belonged to the clouds. It's a
+      permanent pattern: radar shots work in the rain, IR shots and laser designation want the
+      "clean" day — so a smart air force checks the forecast before it picks its weapons, and a
+      smart defender prays for haze.</div>
       <p class="tip">In the sim, the <b>Atmosphere</b> selector (Standard / Hot / Cold / Tropical) is
       your weather knob — the cleanest one-variable experiment in the whole tool.</p>`,
   },

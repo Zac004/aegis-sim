@@ -31,7 +31,7 @@ const reg = (name, fn) => { REGISTRY[name] = fn; };
 const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'horizon',
   'radareq', 'flarefight', 'doghouse', 'guidancecompare', 'motorrace', 'seekerloop',
   'irscan', 'prf', 'decisiondrill', 'codex', 'fpole', 'emdiagram', 'grinder',
-  'wez', 'notchgame', 'sternconv', 'sortgame', 'formations', 'rwrscope']);
+  'wez', 'notchgame', 'sternconv', 'sortgame', 'formations', 'rwrscope', 'irbands']);
 
 export function mountWidgets(root) {
   const teardowns = [];
@@ -2631,4 +2631,77 @@ reg('rwrscope', (node) => {
   });
   read.innerHTML = `<div class="wx-hint">The <b>Radar Warning Receiver</b> paints every emitter that touches you as a symbol at its <b>bearing</b> (direction) and <b>ring</b> (signal strength ≈ how close/threatening). Reading it is survival: a <b style="color:${COL.green}">hollow search</b> symbol is just being looked at; it going <b style="color:${COL.amber}">solid (lock)</b> means a fire-control radar has you; a flashing <b style="color:${COL.red}">◇ launch spike</b> is a missile in the air — time to <a data-goto="defence">defend</a>. Half of surviving BVR is knowing you're being shot at <i>before</i> the missile arrives. Watch the top threat cycle search → lock → launch.</div>`;
   return stop;
+});
+
+// ── IR BANDS — why MWIR & LWIR exist: Planck curves under the atmosphere ─────
+reg('irbands', (node) => {
+  const _V = makeCanvas(node, 300); const { g } = _V;
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  const L0 = 2, L1 = 15;                        // wavelength axis, µm
+  // Planck spectral radiance (arbitrary scale): B ∝ λ⁻⁵ / (e^(c₂/λT) − 1)
+  const C2 = 14388;                             // µm·K
+  const planck = (lam, T) => Math.pow(lam, -5) / (Math.exp(C2 / (lam * T)) - 1);
+  // simplified sea-level transmission: MWIR window (CO₂ notch at 4.3), H₂O wall
+  // 5.5–7.5, LWIR window 8–13, CO₂ shutting it past ~14.
+  const trans = (lam) => {
+    const s = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    let T = 0;
+    T = Math.max(T, s(2.9, 3.2, lam) * (1 - s(4.05, 4.25, lam)) * 0.85);   // MWIR lobe A
+    T = Math.max(T, s(4.4, 4.65, lam) * (1 - s(4.85, 5.4, lam)) * 0.7);    // MWIR lobe B (past CO₂ notch)
+    T = Math.max(T, s(7.6, 8.3, lam) * (1 - s(12.8, 14.2, lam)) * 0.85);   // LWIR window
+    T = Math.max(T, s(2.0, 2.05, lam) * (1 - s(2.45, 2.75, lam)) * 0.7);   // SWIR edge
+    return T;
+  };
+  function draw() {
+    const w = _V.w, h = _V.h, padL = 34, padR = 12, padT = 24, padB = 30;
+    const pw = w - padL - padR, ph = h - padT - padB;
+    g.clearRect(0, 0, w, h);
+    const X = lam => padL + (lam - L0) / (L1 - L0) * pw;
+    const Y = f => padT + (1 - f) * ph;
+    // transmission fill (the atmosphere's "windows")
+    g.beginPath(); g.moveTo(X(L0), Y(0));
+    for (let lam = L0; lam <= L1; lam += 0.04) g.lineTo(X(lam), Y(trans(lam) * 0.92));
+    g.lineTo(X(L1), Y(0)); g.closePath();
+    g.fillStyle = 'rgba(120,150,190,0.13)'; g.fill();
+    g.strokeStyle = 'rgba(147,172,203,0.4)'; g.lineWidth = 1; g.stroke();
+    // window band highlights
+    const band = (a, b, col, name) => {
+      g.fillStyle = col; g.fillRect(X(a), padT - 14, X(b) - X(a), 11);
+      g.fillStyle = COL.ink; g.font = 'bold 8.5px "JetBrains Mono"'; g.textAlign = 'center';
+      g.fillText(name, (X(a) + X(b)) / 2, padT - 5.5); g.textAlign = 'left';
+    };
+    band(3, 5, 'rgba(255,176,0,0.25)', 'MWIR 3–5 µm');
+    band(8, 13, 'rgba(0,229,255,0.22)', 'LWIR 8–13 µm');
+    // absorber callouts
+    g.fillStyle = COL.faint; g.font = '8.5px "JetBrains Mono"'; g.textAlign = 'center';
+    g.fillText('CO₂', X(4.3), Y(0.06) - 2);
+    g.fillText('H₂O (opaque)', X(6.5), Y(0.5));
+    g.fillText('CO₂', X(14.4), Y(0.35));
+    g.textAlign = 'left';
+    // Planck curves, each normalised to its own peak (radiance scales differ hugely)
+    const curves = [[900, COL.amber, 'PLUME & HOT PARTS ~900 K'], [320, COL.blue, 'SKIN ~320 K']];
+    curves.forEach(([T, col, name]) => {
+      let peak = 0; for (let lam = L0; lam <= L1; lam += 0.02) peak = Math.max(peak, planck(lam, T));
+      g.strokeStyle = col; g.lineWidth = 2.2; g.beginPath();
+      let first = true;
+      for (let lam = L0; lam <= L1; lam += 0.04) {
+        const y = Y(planck(lam, T) / peak * 0.88);
+        first ? (g.moveTo(X(lam), y), first = false) : g.lineTo(X(lam), y);
+      }
+      g.stroke();
+      const lp = 2898 / T;                       // Wien's law, µm
+      g.fillStyle = col; g.beginPath(); g.arc(X(lp), Y(0.88), 3.4, 0, 7); g.fill();
+      lbl(g, X(lp), Y(0.88) - 10, `${name} · peak ${lp.toFixed(1)} µm`, col, lp < 7 ? 'left' : 'center', 8.5);
+    });
+    // axes
+    g.strokeStyle = COL.grid; g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, h - padB); g.lineTo(w - padR, h - padB); g.stroke();
+    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono"';
+    for (let lam = 2; lam <= 15; lam++) { if (lam % 2 === 1) continue; g.fillText(lam + '', X(lam) - 4, h - padB + 13); }
+    lbl(g, w / 2, h - 4, 'wavelength (µm)', COL.dim, 'center', 9);
+    g.save(); g.translate(10, h / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center';
+    g.fillStyle = COL.dim; g.font = '9px "JetBrains Mono"'; g.fillText('emission / transmission (norm.)', 0, 0); g.restore();
+  }
+  _V.redraw = draw; draw();
+  read.innerHTML = `<div class="wx-hint">Two curves, one atmosphere. A jet's <b style="color:${COL.amber}">plume and hot parts (~900 K)</b> radiate with a Planck peak near <b>3.2 µm</b> — right in the <b style="color:${COL.amber}">MWIR window</b>, which is why classic heat-seekers live there (note the <b>CO₂ notch at 4.3 µm</b> splitting that window — the plume's own CO₂ emission band sits just beside it). <b style="color:${COL.blue}">Skin heated by air friction (~320 K)</b> peaks near <b>9 µm</b> — the <b style="color:${COL.blue}">LWIR window</b>, home of IRSTs and imaging sensors that spot a fighter from <i>any</i> aspect. Between them the atmosphere is a wall of <b>H₂O absorption</b> — the two windows exist only because those gaps in the gas spectrum happen to line up with how hot jets get. (Curves normalised per-peak; in absolute terms the plume outshines the skin enormously.)</div>`;
+  return () => {};
 });
