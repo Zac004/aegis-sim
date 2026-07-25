@@ -637,3 +637,17 @@ body.learn-standalone #help-nav{width:290px}
   background:#0d1728;border:1px solid var(--line2);border-radius:5px;padding:6px 11px;cursor:pointer;transition:.14s}
 .wx-tab:hover{color:var(--blue);border-color:var(--blue)}
 .wx-tab.on{color:#06121f;background:var(--blue);border-color:var(--blue);font-weight:600}
+
+/* bookmark + resume + reset progress */
+.hn-bm{float:right;font-size:11px;margin-left:6px}
+.hr-resume{margin-top:8px;padding:5px 8px;border:1px solid var(--amber);border-radius:5px;
+  font-family:var(--font-mono);font-size:9.5px;color:var(--amber);cursor:pointer;transition:.14s;text-align:center}
+.hr-resume:hover{background:rgba(255,176,0,.1);box-shadow:var(--glow-amber)}
+.sec-toolbar{display:flex;justify-content:flex-end;margin-bottom:2px}
+.bm-btn{font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;color:var(--ink-dim);
+  background:#0d1728;border:1px solid var(--line2);border-radius:5px;padding:5px 10px;cursor:pointer;transition:.14s}
+.bm-btn:hover{color:var(--amber);border-color:var(--amber)}
+.bm-btn.on{color:var(--amber);border-color:var(--amber);background:rgba(255,176,0,.08)}
+.ach-reset{display:block;margin:14px auto 2px;font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;
+  color:var(--ink-faint);background:none;border:1px solid var(--line2);border-radius:5px;padding:6px 12px;cursor:pointer;transition:.14s}
+.ach-reset:hover{color:var(--red);border-color:var(--red)}

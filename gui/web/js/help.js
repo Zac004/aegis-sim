@@ -1658,9 +1658,13 @@ export function openHelp(sectionId) {
       `<div class="hr-bar hr-xpbar"><i style="width:${wingPct}%"></i></div>` +
       `<div class="hr-meta hr-grind">🔥 ${sortie.days}-day streak${sortie.best > sortie.days ? ` (best ${sortie.best})` : ''} · 🏅 ${med.got}/${med.total} medals</div>` +
       (badges.length ? `<div class="hr-badges">${badges.map(b => `<span class="hr-badge">${b}</span>`).join('')}</div>`
-                     : `<div class="hr-badges hr-badge-hint">Read a full category or ace the check-ride to earn badges →</div>`);
-    rankBox.title = 'Rank grows with topics read (60%) and your best check-ride score (40%). Earn XP by reading topics, acing quizzes, solving challenges, the match game, the Decision Drill and the Weapon Codex — XP promotes your WINGS (Bronze → Legend). Show up daily for a sortie streak. Finish a whole category to earn badges, and collect all 16 medals in the Trophy Room.';
+                     : `<div class="hr-badges hr-badge-hint">Read a full category or ace the check-ride to earn badges →</div>`) +
+      (progress.getBookmark() ? `<div class="hr-resume" id="hr-resume">🔖 Resume: ${((HELP_SECTIONS.find(x => x.id === progress.getBookmark()) || {}).title || '').replace(/^[^A-Za-z0-9]+/, '').slice(0, 34)}</div>` : '');
+    rankBox.title = 'Rank grows with topics read (60%) and your best check-ride score (40%). Earn XP by reading topics, acing quizzes, solving challenges, the match game, the Decision Drill and the Weapon Codex — XP promotes your WINGS (Bronze → Legend). Show up daily for a sortie streak. Finish a whole category to earn badges, and collect all 16 medals in the Trophy Room. Bookmark a topic to get a resume link here.';
+    const rz = document.getElementById('hr-resume');
+    if (rz) rz.onclick = () => show(progress.getBookmark());
   };
+  window._aegisRankRefresh = refreshRank;   // let the reset button re-render the header
   // floating +XP toast on any XP award, and live-refresh the rank/XP header
   window._aegisXPtoast = (n) => {
     let t = document.getElementById('xp-toast');
@@ -1719,7 +1723,7 @@ export function openHelp(sectionId) {
       const a = document.createElement('button');
       a.className = 'help-nav-item';
       a.dataset.id = s.id;
-      a.innerHTML = `<span class="hn-tick">${progress.isRead(s.id) ? '✓' : ''}</span>${s.title}`;
+      a.innerHTML = `<span class="hn-tick">${progress.isRead(s.id) ? '✓' : ''}</span>${s.title}<span class="hn-bm">${progress.getBookmark() === s.id ? '🔖' : ''}</span>`;
       a.addEventListener('click', () => show(s.id));
       nav.appendChild(a);
     });
@@ -1728,12 +1732,25 @@ export function openHelp(sectionId) {
   function show(id) {
     if (_activeTeardown) { _activeTeardown(); _activeTeardown = null; }   // stop the previous section's widgets
     const s = HELP_SECTIONS.find(x => x.id === id) || HELP_SECTIONS[0];
-    body.innerHTML = `<h2>${s.title}</h2>` + s.html;
+    const bm = () => progress.getBookmark() === s.id;
+    body.innerHTML = `<div class="sec-toolbar"><button id="bm-toggle" class="bm-btn">${bm() ? '🔖 Bookmarked — your resume point' : '☆ Bookmark this topic'}</button></div><h2>${s.title}</h2>` + s.html;
     body.scrollTop = 0;
     _activeTeardown = mountWidgets(body);            // mount any live widgets in this section
     body.querySelectorAll('[data-goto]').forEach(a => a.addEventListener('click', (e) => {
       e.preventDefault(); show(a.dataset.goto);       // in-guide hyperlinks
     }));
+    // bookmark toggle
+    const bmBtn = body.querySelector('#bm-toggle');
+    if (bmBtn) bmBtn.addEventListener('click', () => {
+      progress.setBookmark(s.id);
+      bmBtn.textContent = bm() ? '🔖 Bookmarked — your resume point' : '☆ Bookmark this topic';
+      bmBtn.classList.toggle('on', bm());
+      nav.querySelectorAll('.help-nav-item').forEach(c => {
+        const st = c.querySelector('.hn-bm'); if (st) st.textContent = progress.getBookmark() === c.dataset.id ? '🔖' : '';
+      });
+      refreshRank();
+    });
+    if (bm()) bmBtn.classList.add('on');
     if (!progress.isRead(s.id)) progress.addXP(15);   // XP for reading a new topic
     progress.markRead(s.id);
     refreshRank();

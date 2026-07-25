@@ -542,6 +542,13 @@ export const progress = {
   },
   sortie() { const p = this._get(); return { days: p.streakDays || 0, best: p.streakDaysBest || 0 }; },
 
+  // ── bookmark: flag where you are in the syllabus ──
+  setBookmark(id) { const p = this._get(); p.bookmark = (p.bookmark === id ? null : id); this._set(p); return p.bookmark; },
+  getBookmark() { return this._get().bookmark || null; },
+
+  // ── wipe all learning progress (XP, medals, reads, streak, codex, bookmark) ──
+  reset() { try { localStorage.removeItem('aegis_learn'); } catch (_) {} },
+
   // ── "used this tool" tracking → the Tinkerer medal ──
   touch(name) { const p = this._get(); p.touched = p.touched || {}; if (!p.touched[name]) { p.touched[name] = 1; this._set(p); this._sync(); } },
   touchedCount() { return Object.keys(this._get().touched || {}).length; },
@@ -1971,6 +1978,14 @@ reg('achievements', (node) => {
       grid.appendChild(cell);
     });
     wrap.appendChild(grid);
+    const reset = el('button', { class: 'wx-btn ach-reset', onclick: () => {
+      if (!confirm('Reset ALL learning progress?\n\nThis clears your XP, rank, medals, sortie streak, codex, quiz scores, bookmark and every topic-read mark. This cannot be undone.')) return;
+      progress.reset();
+      render();
+      if (window._aegisRankRefresh) window._aegisRankRefresh();
+      if (window._aegisMasteryRefresh) window._aegisMasteryRefresh();
+    } }, '↺ Reset all learning progress');
+    wrap.appendChild(reset);
   }
   render();
   window._aegisAchRefresh = render;   // toasts re-render the wall live
@@ -2214,7 +2229,7 @@ reg('fpole', (node) => {
     if (s.impact) { line([s.impact[0], s.impact[1]], COL.amber, 1.6, [5, 3]);
       g.fillStyle = COL.amber; g.beginPath(); g.arc(X(s.impact[1][0]), Yc(s.impact[1][1]), 4, 0, 7); g.fill();
       lbl(g, X(s.impact[1][0]) + 6, Yc(s.impact[1][1]), '✹ impact', COL.amber, 'left', 8);
-      drawJet(g, X(s.impact[0][0]), Yc(s.impact[0][1]), crank, COL.blue, 'YOU'); }
+      drawJet(g, X(s.impact[0][0]), Yc(s.impact[0][1]), crank * Math.PI / 180, COL.blue, 'YOU'); }
     const A = s.apole == null ? '—' : R(s.apole, 1), F = s.fpole == null ? '—' : R(s.fpole, 1);
     read.innerHTML =
       `<div class="wx-line"><b style="color:${COL.blue}">A-pole ${A} km</b> (your range from him when the missile goes active — you're free to turn) · ` +
@@ -2286,40 +2301,38 @@ reg('grinder', (node) => {
   const _V = makeCanvas(node, 340); const { g } = _V;
   const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
   read.innerHTML = `<div class="wx-hint">A single fighter gives a bandit one problem. A <b>2-ship</b> gives him two he can't both solve. In a <b>bracket</b>, the section splits azimuth so the bandit can't point at both — the moment he commits to one (the <b>engaged</b> fighter drags him), the <b>free</b> fighter swings to his stern for the kill. That's the "grinder": trade who's engaged and who's free until someone gets the shot. Numbers and geometry, not heroics.</div>`;
+  // smoothstep + parametric flight paths (s in 0..1). Clean, readable geometry.
+  const ss = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const bandit = (s, w, h) => [w / 2 - ss(0.4, 1, s) * 0.30 * w, 0.10 * h + s * 0.72 * h];
+  const engaged = (s, w, h) => [w / 2 - (0.05 + ss(0, 0.5, s) * 0.26) * w, 0.9 * h - ss(0, 1, s) * 0.42 * h];
+  const free = (s, w, h) => {
+    const b = bandit(s, w, h), bracketX = w / 2 + (0.05 + ss(0, 0.45, s) * 0.24) * w;
+    return [bracketX + ss(0.55, 1, s) * (b[0] + 0.07 * w - bracketX), 0.9 * h - ss(0, 1, s) * (0.9 * h - (b[1] + 0.11 * h))];
+  };
+  const heading = (fn, s, w, h) => { const a = fn(Math.max(0, s - 0.02), w, h), b = fn(Math.min(1, s + 0.02), w, h); return Math.atan2(b[0] - a[0], -(b[1] - a[1])); };
+  const trail = (fn, p, col, w, h) => {
+    g.lineWidth = 1; g.strokeStyle = 'rgba(120,140,170,.16)'; g.beginPath();
+    for (let s = 0; s <= 1.0001; s += 0.02) { const q = fn(s, w, h); s ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); } g.stroke();
+    g.lineWidth = 2; g.strokeStyle = col; g.beginPath();
+    for (let s = 0; s <= p + 1e-6; s += 0.02) { const q = fn(s, w, h); s ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); } g.stroke();
+  };
   const stop = frame((t) => {
     const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
-    const cx = w / 2;
-    const p = (t / 3200) % 1;                    // 0..1 loop
-    // bandit comes down the middle, then commits left
-    const commit = Math.max(0, (p - 0.4) / 0.6);
-    const bX = cx + (-0.5 + Math.min(commit, 1)) * -70 * 0 - commit * 90;  // drifts left as he commits
-    const bY = 40 + p * (h - 120);
-    // blue split: left (engaged) holds nose-on; right (free) flanks to stern
-    const spread = 60 + Math.min(p, 0.5) * 240;
-    const b1X = cx - spread * 0.5, b1Y = h - 40 - p * 40;             // engaged (left)
-    const freeSwing = Math.max(0, (p - 0.35)) * 1.3;
-    const b2X = cx + spread * 0.5 - freeSwing * 150;                 // free (right) cuts in
-    const b2Y = h - 40 - p * (h - 150) - freeSwing * 30;
-    // bracket guide lines
-    g.strokeStyle = 'rgba(78,128,178,.25)'; g.setLineDash([4, 4]); g.lineWidth = 1;
-    g.beginPath(); g.moveTo(b1X, b1Y); g.lineTo(bX, bY); g.moveTo(b2X, b2Y); g.lineTo(bX, bY); g.stroke(); g.setLineDash([]);
-    // headings
-    const ang = (ax, ay, bx, by) => Math.atan2(bx - ax, -(by - ay)) * 180 / Math.PI;
-    drawJet(g, bX, bY, ang(bX, bY, b1X, b1Y) + (commit > 0 ? 0 : 0), COL.red, 'BANDIT');
-    drawJet(g, b1X, b1Y, ang(b1X, b1Y, bX, bY), COL.blue, 'ENGAGED');
-    drawJet(g, b2X, b2Y, ang(b2X, b2Y, bX, bY), COL.green, 'FREE');
-    // free-side shot in the endgame
-    if (p > 0.72) {
-      const s = (p - 0.72) / 0.28;
-      const mx = b2X + (bX - b2X) * s, my = b2Y + (bY - b2Y) * s;
+    const p = (t / 6000) % 1;
+    trail(bandit, p, 'rgba(255,61,0,.65)', w, h);
+    trail(engaged, p, 'rgba(0,229,255,.65)', w, h);
+    trail(free, p, 'rgba(34,255,156,.65)', w, h);
+    const B = bandit(p, w, h), E = engaged(p, w, h), F = free(p, w, h);
+    drawJet(g, B[0], B[1], heading(bandit, p, w, h), COL.red, 'BANDIT');
+    drawJet(g, E[0], E[1], heading(engaged, p, w, h), COL.blue, 'ENGAGED');
+    drawJet(g, F[0], F[1], heading(free, p, w, h), COL.green, 'FREE');
+    if (p > 0.8) {                                   // free-side shot on convert
       g.strokeStyle = COL.amber; g.setLineDash([2, 3]); g.lineWidth = 1.3;
-      g.beginPath(); g.moveTo(b2X, b2Y); g.lineTo(mx, my); g.stroke(); g.setLineDash([]);
-      g.fillStyle = COL.amber; g.beginPath(); g.arc(mx, my, 3, 0, 7); g.fill();
-      if (p > 0.94) { g.fillStyle = COL.red; g.font = '10px "JetBrains Mono"'; g.fillText('✹ STERN KILL', bX + 8, bY); }
+      g.beginPath(); g.moveTo(F[0], F[1]); g.lineTo(B[0], B[1]); g.stroke(); g.setLineDash([]);
+      if (p > 0.93) { g.fillStyle = COL.red; g.font = 'bold 10px "JetBrains Mono"'; g.fillText('✹ STERN KILL', B[0] + 8, B[1]); }
     }
-    // phase caption
     g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono"';
-    g.fillText(p < 0.4 ? 'SECTION BRACKETS — split the azimuth' : p < 0.72 ? 'BANDIT COMMITS — engaged fighter drags him' : 'FREE FIGHTER CONVERTS — stern shot', 12, 16);
+    g.fillText(p < 0.4 ? 'SECTION BRACKETS — split the azimuth' : p < 0.75 ? 'BANDIT COMMITS — engaged fighter drags him' : 'FREE FIGHTER CONVERTS — stern shot', 12, 16);
   });
   return stop;
 });
@@ -2422,34 +2435,42 @@ reg('sternconv', (node) => {
   const _V = makeCanvas(node, 300); const { g } = _V;
   const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
   read.innerHTML = `<div class="wx-hint">To kill from guns or an IR missile you want his <b>stern</b> — the rear-quarter <b>control zone</b> where you match his turn and he can't point back at you. Aim your nose <i>behind</i> him (<b>lag pursuit</b>) and you cut to the inside of his circle and settle in control; aim <i>ahead</i> (<b>lead</b>) too early and you overshoot out front — a classic reversal. Watch the interceptor pull lag into the cone.</div>`;
+  // one consistent convention: phi = standard math angle of a direction vector
+  // (dir = cos/sin, screen y-down); drawJet heading = phi + PI/2.
+  const jetHdg = phi => phi + Math.PI / 2;
+  const ease = x => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
   const stop = frame((t) => {
     const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
-    const p = (t / 4200) % 1;
-    const cx = w * 0.60, cy = h * 0.44, Rt = Math.min(w, h) * 0.28;    // bandit's turn circle
-    // bandit orbits its circle
-    const ba = -Math.PI / 2 + p * Math.PI * 1.15;
+    const p = (t / 5200) % 1;
+    const cx = w * 0.58, cy = h * 0.46, Rt = Math.min(w, h) * 0.27;    // bandit's turn circle
+    // bandit orbits (clockwise on screen); its velocity math-angle is ba + PI/2
+    const ba = -Math.PI / 2 + p * Math.PI * 1.2;
     const bx = cx + Rt * Math.cos(ba), by = cy + Rt * Math.sin(ba);
-    const bh = ba + Math.PI / 2;                                       // bandit heading (tangent)
-    // his control zone: rear 60° cone
-    g.fillStyle = 'rgba(34,255,156,.10)'; g.beginPath(); g.moveTo(bx, by);
-    for (let d = -60; d <= 60; d += 10) { const a = bh + Math.PI + d * Math.PI / 180; g.lineTo(bx + 46 * Math.cos(a), by + 46 * Math.sin(a)); }
+    const phiB = ba + Math.PI / 2;
+    const rear = phiB + Math.PI;                                       // straight behind him
+    // faint turn circle he's flying
+    g.strokeStyle = 'rgba(255,61,0,.18)'; g.setLineDash([3, 4]); g.lineWidth = 1;
+    g.beginPath(); g.arc(cx, cy, Rt, 0, 7); g.stroke(); g.setLineDash([]);
+    // rear-quarter control-zone cone (±60° about the rear)
+    g.fillStyle = 'rgba(34,255,156,.12)'; g.beginPath(); g.moveTo(bx, by);
+    for (let d = -60; d <= 60; d += 8) { const a = rear + d * Math.PI / 180; g.lineTo(bx + 54 * Math.cos(a), by + 54 * Math.sin(a)); }
     g.closePath(); g.fill();
-    // interceptor: starts low-left, pulls a lag-pursuit arc toward the cone
-    const s0 = [w * 0.12, h * 0.9];
-    const ix = s0[0] + (bx - 34 * Math.cos(bh) - s0[0]) * ease(p);
-    const iy = s0[1] + (by - 34 * Math.sin(bh) - s0[1]) * ease(p);
-    // aim line = lag (points behind the bandit)
-    g.strokeStyle = 'rgba(0,229,255,.35)'; g.setLineDash([3, 3]); g.lineWidth = 1;
-    g.beginPath(); g.moveTo(ix, iy); g.lineTo(bx - 30 * Math.cos(bh), by - 30 * Math.sin(bh)); g.stroke(); g.setLineDash([]);
-    const ih = Math.atan2((by - 30 * Math.sin(bh)) - iy, (bx - 30 * Math.cos(bh)) - ix);
-    drawJet(g, bx, by, bh * 180 / Math.PI, COL.red, 'BANDIT');
-    drawJet(g, ix, iy, ih * 180 / Math.PI, COL.blue, 'YOU');
-    lbl(g, bx + Math.cos(bh + Math.PI) * 54, by + Math.sin(bh + Math.PI) * 54, 'CONTROL ZONE', COL.green, 'center', 8);
+    lbl(g, bx + 70 * Math.cos(rear), by + 70 * Math.sin(rear), 'CONTROL ZONE', COL.green, 'center', 8);
+    // interceptor eases from the corner to a lag point in the stern cone
+    const sternPt = [bx + 42 * Math.cos(rear), by + 42 * Math.sin(rear)];
+    const s0 = [w * 0.12, h * 0.92];
+    const ix = s0[0] + (sternPt[0] - s0[0]) * ease(p);
+    const iy = s0[1] + (sternPt[1] - s0[1]) * ease(p);
+    const lagPt = [bx + 28 * Math.cos(rear), by + 28 * Math.sin(rear)];
+    g.strokeStyle = 'rgba(0,229,255,.4)'; g.setLineDash([3, 3]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(ix, iy); g.lineTo(lagPt[0], lagPt[1]); g.stroke(); g.setLineDash([]);
+    const phiI = Math.atan2(lagPt[1] - iy, lagPt[0] - ix);
+    drawJet(g, bx, by, jetHdg(phiB), COL.red, 'BANDIT');
+    drawJet(g, ix, iy, jetHdg(phiI), COL.blue, 'YOU');
     g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono"';
     g.fillText(p < 0.5 ? 'PULL LAG — nose behind him, cut inside his circle' : p < 0.9 ? 'CONVERTING — sliding into the rear quarter' : 'IN CONTROL — matched turn, stern shot', 12, 16);
   });
   return stop;
-  function ease(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
