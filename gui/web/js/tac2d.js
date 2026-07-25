@@ -18,16 +18,59 @@ export class Tac2D {
     this.index = 0;
     this.active = true;
     this.opts = { rings: true, grid: false, bullseye: false };
+    this._panE = 0; this._panN = 0;            // user pan offset (world metres)
+    this._measureMode = false; this._measure = null; this._drag = null;
+    canvas.style.cursor = 'grab';
     window.addEventListener('resize', () => this.resize());
-    // mouse-wheel zoom on the map (the only zoom control — no slider)
+    const local = (e) => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+
+    // mouse-wheel zoom, anchored on the cursor so you zoom into what you point at
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      this._userZoom = Math.max(0.4, Math.min(6, (this._userZoom || 1) * (e.deltaY < 0 ? 1.12 : 0.89)));
-      if (this.bounds) { this._computeTransform(); this.seek(this.index); }
+      if (!this.bounds) return;
+      const [mx, my] = local(e);
+      const overMap = my <= this.mapH;
+      const before = overMap ? this.S2W(mx, my) : null;   // [N,E] under cursor
+      this._userZoom = Math.max(0.4, Math.min(16, (this._userZoom || 1) * (e.deltaY < 0 ? 1.12 : 0.89)));
+      this._computeTransform();
+      if (before) { const after = this.S2W(mx, my); this._panN += before[0] - after[0]; this._panE += before[1] - after[1]; this._computeTransform(); }
+      this.seek(this.index);
     }, { passive: false });
+
+    // left-drag = pan the map; in MEASURE mode it draws a ruler instead
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button !== 0 || !this.bounds) return;
+      const [mx, my] = local(e);
+      if (this._measureMode) {
+        const region = my <= this.mapH ? 'map' : 'elev';
+        const pt = region === 'map' ? this.S2W(mx, my) : [mx, my];   // map: world [N,E]; elev: screen px
+        this._measure = { region, a: pt, b: pt.slice() };
+        this.seek(this.index);
+      } else { this._drag = { x: e.clientX, y: e.clientY, panE: this._panE, panN: this._panN }; canvas.style.cursor = 'grabbing'; }
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (this._drag) {
+        const dx = e.clientX - this._drag.x, dy = e.clientY - this._drag.y;
+        this._panE = this._drag.panE - dx / this.scale;
+        this._panN = this._drag.panN + dy / this.scale;
+        this._computeTransform(); this.seek(this.index);
+      } else if (this._measure) {
+        const [mx, my] = local(e);
+        this._measure.b = this._measure.region === 'map' ? this.S2W(mx, my) : [mx, my];
+        this.seek(this.index);
+      }
+    });
+    window.addEventListener('mouseup', () => { if (this._drag) { this._drag = null; canvas.style.cursor = this._measureMode ? 'crosshair' : 'grab'; } });
+
+    // right-click resets the view (zoom + pan) back to fit
+    canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); this._userZoom = 1; this._panE = 0; this._panN = 0; this._measure = null; if (this.bounds) { this._computeTransform(); this.seek(this.index); } });
   }
 
-  setOption(key, on) { this.opts[key] = on; if (this.result) this.seek(this.index); }
+  setOption(key, on) {
+    this.opts[key] = on;
+    if (key === 'measure') { this._measureMode = on; this.canvas.style.cursor = on ? 'crosshair' : 'grab'; }   // ruler persists until reset
+    if (this.result) this.seek(this.index);
+  }
 
   setResult(result) {
     this.result = result;
@@ -46,6 +89,8 @@ export class Tac2D {
         if (ch.thrust[k] > 10 && ch.thrust[k] < 0.45 * peak && ch.thrust[k - 1] >= 0.45 * peak) { this.iBoostEnd = k; break; }
       }
     }
+    this._userZoom = 1; this._panE = 0; this._panN = 0;   // reset view for each new run
+    this._measure = null;
     this._fit();
     this.seek(0);
   }
@@ -83,8 +128,8 @@ export class Tac2D {
     const sx = (this.vw - 2 * pad) / spanE;
     const sy = (this.mapH - 2 * pad) / spanN;
     this.scale = (this._userZoom || 1) * Math.min(sx, sy);   // metres → px
-    this.cx = (b.minE + b.maxE) / 2;
-    this.cy = (b.minN + b.maxN) / 2;
+    this.cx = (b.minE + b.maxE) / 2 + (this._panE || 0);
+    this.cy = (b.minN + b.maxN) / 2 + (this._panN || 0);
   }
 
   setZoom(f) { this._userZoom = f; if (this.bounds) { this._computeTransform(); this.seek(this.index); } }
@@ -96,6 +141,12 @@ export class Tac2D {
             this.mapH / 2 - (N - this.cy) * this.scale];
   }
 
+  // screen px → world [N, E] (inverse of W2S), for cursor-zoom & the ruler
+  S2W(sx, sy) {
+    return [this.cy - (sy - this.mapH / 2) / this.scale,
+            this.cx + (sx - this.vw / 2) / this.scale];
+  }
+
   setActive(on) {
     this.active = on;
     this.canvas.classList.toggle('hidden', !on);
@@ -104,6 +155,8 @@ export class Tac2D {
 
   seek(i) {
     if (!this.result || !this.active) return;
+    // the canvas may be unlaid-out (0-width panel hidden/collapsed); don't crash
+    if (!this.vw || !this.vh) { this.resize(); if (!this.vw || !this.vh) return; }
     const ch = this.result.channels;
     const n = ch.t.length;
     i = Math.max(0, Math.min(n - 1, Math.round(i)));
@@ -187,6 +240,47 @@ export class Tac2D {
 
     this._overlay(ch, i, phase, dl);
     this._drawElevation(ch, i);
+    this._drawMeasure();
+    // interaction hint (top-right of the map)
+    g.fillStyle = 'rgba(147,172,203,0.45)'; g.font = '9px "JetBrains Mono", monospace'; g.textAlign = 'right';
+    g.fillText(this._measureMode ? 'MEASURE: drag a ruler · right-click: reset' : 'wheel: zoom · drag: pan · right-click: reset', this.vw - 10, 13);
+    g.textAlign = 'left';
+  }
+
+  // ── measuring ruler: ground range/bearing on the map, Δrange/Δalt on the profile
+  _drawMeasure() {
+    const m = this._measure; if (!m) return;
+    const g = this.ctx;
+    let ax, ay, bx, by, label = '';
+    if (m.region === 'map') {
+      [ax, ay] = this.W2S(m.a[0], m.a[1]);      // a,b are world [N,E] → project live
+      [bx, by] = this.W2S(m.b[0], m.b[1]);
+      const dN = m.b[0] - m.a[0], dE = m.b[1] - m.a[1];
+      let brg = Math.atan2(dE, dN) * 180 / Math.PI; if (brg < 0) brg += 360;
+      label = `${(Math.hypot(dN, dE) / 1000).toFixed(1)} km · ${brg.toFixed(0)}°`;
+    } else {
+      [ax, ay] = m.a; [bx, by] = m.b;           // elevation transform is fixed → screen px
+      const e = this._elev;
+      if (e) {
+        const inv = (sx, sy) => [(sx - e.x0) / e.plotW * e.drMax, (e.bot - sy) / e.h * e.altMax];
+        const A = inv(ax, ay), B = inv(bx, by);
+        const dAlt = B[1] - A[1];
+        label = `Δrange ${(Math.abs(B[0] - A[0]) / 1000).toFixed(1)} km · Δalt ${dAlt >= 0 ? '+' : ''}${dAlt.toFixed(0)} m`;
+      }
+    }
+    g.save();
+    g.strokeStyle = '#ffd070'; g.lineWidth = 1.5; g.setLineDash([5, 4]);
+    g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#ffd070';
+    for (const p of [[ax, ay], [bx, by]]) { g.beginPath(); g.arc(p[0], p[1], 3, 0, 7); g.fill(); }
+    const mxp = (ax + bx) / 2, myp = (ay + by) / 2;
+    g.font = 'bold 11px "JetBrains Mono", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const wlab = g.measureText(label).width + 12;
+    g.fillStyle = 'rgba(10,16,26,0.92)'; g.fillRect(mxp - wlab / 2, myp - 24, wlab, 16);
+    g.strokeStyle = '#ffd070'; g.lineWidth = 1; g.strokeRect(mxp - wlab / 2, myp - 24, wlab, 16);
+    g.fillStyle = '#ffd070'; g.fillText(label, mxp, myp - 16);
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    g.restore();
   }
 
   // ── elevation profile: altitude (m) vs downrange (km along the merge axis) ──
@@ -210,6 +304,7 @@ export class Tac2D {
     altMax = Math.ceil(altMax / 2000) * 2000;
     const X = (d) => x0 + (d / drMax) * plotW;
     const Y = (a) => bot - (a / altMax) * h;
+    this._elev = { x0, plotW, drMax, bot, h, altMax };   // for the measure ruler
     // panel bg + frame
     g.fillStyle = 'rgba(8,16,28,0.55)'; g.fillRect(0, this.mapH, this.vw, this.elevH);
     g.strokeStyle = 'rgba(78,128,178,0.25)'; g.lineWidth = 1;
