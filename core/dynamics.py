@@ -30,7 +30,7 @@ from __future__ import annotations
 import numpy as np
 
 from core.entities import quat_to_matrix, quat_derivative, quat_normalize
-from core.atmosphere import G0
+from core.atmosphere import G0, gravity
 
 
 # structural max dynamic pressure [Pa]. Real tactical missiles are limited to
@@ -90,7 +90,9 @@ def missile_derivative(state, missile, atmo_model, thrust, control_moment, t):
     F_thrust = thrust * nose
     F_drag = -q_dyn * Sref * coeffs.cd * vhat
     F_lift = q_dyn * Sref * coeffs.cl * n_hat
-    F_grav = np.array([0.0, 0.0, mass * G0])
+    # inverse-square gravity: a lofted shot spends minutes above 20 km, where g is
+    # ~0.7% weaker — small per step, but it biases the whole ballistic arc.
+    F_grav = np.array([0.0, 0.0, mass * gravity(alt)])
     F_total = F_thrust + F_drag + F_lift + F_grav
     accel = F_total / max(mass, 1e-6)
 
@@ -145,7 +147,7 @@ def missile_derivative_ideal(state, missile, atmo_model, thrust, accel_cmd, t):
     q_dyn = 0.5 * atmo.density * speed * speed
     F_drag = -q_dyn * missile.reference_area * coeffs.cd * vhat
     F_thrust = thrust * vhat
-    F_grav = np.array([0.0, 0.0, missile.mass * G0])
+    F_grav = np.array([0.0, 0.0, missile.mass * gravity(alt)])
     accel = (F_thrust + F_drag + F_grav) / max(missile.mass, 1e-6) + accel_cmd
     # keep attitude roughly aligned with velocity for display
     q_dot = np.zeros(4)

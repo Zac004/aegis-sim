@@ -33,6 +33,21 @@ R_AIR = RSTAR / M0          # ≈ 287.053 J/(kg·K)
 GAMMA = 1.40
 R_EARTH = 6356766.0        # m, effective radius for geopotential conversion
 
+
+def gravity(altitude_m: float) -> float:
+    """Gravitational acceleration [m/s²] at geometric altitude, inverse-square.
+
+        g(h) = g0 · (Re / (Re + h))²
+
+    G0 is the sea-level standard value; at a 25 km loft apogee this returns
+    ≈9.73 m/s² (0.8 % lower). Small per-step, but a long-range shot integrates it
+    for minutes, so using a constant g biases the whole ballistic arc. Clamped at
+    h ≥ 0 so sub-sea-level samples (numerical undershoot) stay finite.
+    """
+    h = altitude_m if altitude_m > 0.0 else 0.0
+    ratio = R_EARTH / (R_EARTH + h)
+    return G0 * ratio * ratio
+
 # Base of each layer: geopotential altitude [m], lapse rate [K/m], base temp [K]
 #   (base pressure is computed once at import so the profile is continuous)
 _LAYERS = [
