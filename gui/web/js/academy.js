@@ -32,7 +32,7 @@ const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'h
   'radareq', 'flarefight', 'doghouse', 'guidancecompare', 'motorrace', 'seekerloop',
   'irscan', 'prf', 'decisiondrill', 'codex', 'fpole', 'emdiagram', 'grinder',
   'wez', 'notchgame', 'sternconv', 'sortgame', 'formations', 'rwrscope', 'irbands',
-  'radarderive', 'rcsaspect']);
+  'radarderive', 'rcsaspect', 'arrayphysics', 'beamwidth', 'barscan', 'radarpick']);
 
 export function mountWidgets(root) {
   const teardowns = [];
@@ -1389,57 +1389,6 @@ function chip(g, x, y, w, h, text, color, sub) {
 }
 
 // ── 1 · MECHANICAL vs AESA SCANNING ──────────────────────────────────────────
-reg('radarscan', (node) => {
-  const _V = makeCanvas(node, 240); const { cv, g, fit } = _V;
-  const controls = el('div', { class: 'wx-controls' }); node.appendChild(controls);
-  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
-  let aesa = false;
-  const btn = el('button', { class: 'wx-btn', onclick: () => { aesa = !aesa; btn.textContent = aesa ? '◧ Show MECHANICAL' : '▦ Show AESA'; } }, '▦ Show AESA');
-  controls.appendChild(btn);
-  const tgts = [[-0.55, 0.55], [-0.15, 0.85], [0.3, 0.7], [0.6, 0.45]];   // az fraction, range fraction
-  let t0 = performance.now();
-  const stop = frame((now) => {
-    const T = (now - t0) / 1000;
-    g.clearRect(0, 0, _V.w, _V.h);
-    const cx = _V.w / 2, cy = _V.h - 26, Rr = _V.h - 60, half = Math.PI * 0.42;
-    // coverage sector
-    g.strokeStyle = 'rgba(78,128,178,.3)'; g.lineWidth = 1;
-    g.beginPath(); g.moveTo(cx, cy);
-    g.arc(cx, cy, Rr, -Math.PI / 2 - half, -Math.PI / 2 + half); g.closePath(); g.stroke();
-    for (const rr of [0.4, 0.7, 1.0]) { g.beginPath(); g.arc(cx, cy, Rr * rr, -Math.PI / 2 - half, -Math.PI / 2 + half); g.stroke(); }
-    // targets
-    const tpos = tgts.map(([az, rf]) => [cx + Math.sin(az * half * 2) * Rr * rf, cy - Math.cos(az * half * 2) * Rr * rf]);
-    // beams
-    const beamTo = (px, py, col, wdt) => { g.strokeStyle = col; g.lineWidth = wdt; g.beginPath(); g.moveTo(cx, cy); g.lineTo(px, py); g.stroke(); };
-    if (!aesa) {
-      // one mechanical beam sweeping sinusoidally
-      const az = Math.sin(T * 1.1) * half;
-      const bx = cx + Math.sin(az) * Rr, by = cy - Math.cos(az) * Rr;
-      g.save(); g.shadowColor = COL.blue; g.shadowBlur = 8; beamTo(bx, by, 'rgba(0,229,255,.7)', 8); g.restore();
-      // dish icon rotating
-      g.save(); g.translate(cx, cy); g.rotate(az);
-      g.strokeStyle = COL.dim; g.lineWidth = 2; g.beginPath(); g.arc(0, -2, 9, Math.PI * 0.8, Math.PI * 2.2); g.stroke(); g.restore();
-      tpos.forEach((p, i) => {
-        const seen = Math.abs(Math.sin(T * 1.1) * half - Math.atan2(p[0] - cx, cy - p[1])) < 0.12;
-        g.fillStyle = seen ? COL.green : COL.faint; g.beginPath(); g.arc(p[0], p[1], seen ? 5 : 3, 0, 7); g.fill();
-      });
-      lbl(g, 10, 16, 'MECHANICAL DISH — 1 pencil beam, inertia-limited', COL.blue, 'left', 10, true);
-      read.innerHTML = `<div class="wx-hint">A spinning/nodding dish points <b>one</b> beam at a time and its scan rate is limited by <b>mechanical inertia</b>. It can search OR track, not both at once, and the whole picture is only as fresh as the last time the beam swept past a target (green = illuminated this instant).</div>`;
-    } else {
-      // AESA: flat panel, multiple beams jumping to all targets + a search beam
-      g.fillStyle = COL.blue; g.fillRect(cx - 16, cy - 3, 32, 6);   // flat array
-      const searchAz = ((T * 2.2) % 1 * 2 - 1) * half;
-      beamTo(cx + Math.sin(searchAz) * Rr, cy - Math.cos(searchAz) * Rr, 'rgba(0,229,255,.35)', 4);
-      tpos.forEach(p => { g.save(); g.shadowColor = COL.green; g.shadowBlur = 6; beamTo(p[0], p[1], 'rgba(34,255,156,.8)', 2); g.restore(); g.fillStyle = COL.green; g.beginPath(); g.arc(p[0], p[1], 5, 0, 7); g.fill(); });
-      lbl(g, 10, 16, 'AESA — agile beam, ALL targets tracked while searching', COL.green, 'left', 10, true);
-      read.innerHTML = `<div class="wx-hint">A flat array of hundreds of tiny transmit/receive modules steers the beam <b>electronically</b> — no moving parts. It repositions in <b>microseconds</b>, so it <b>interleaves</b> search + multi-target track + jamming + datalink from the same aperture (green beams hold every target while the faint beam keeps searching). Plus <b>frequency agility</b> (hard to jam), <b>LPI</b> low-probability-of-intercept emissions, and <b>graceful degradation</b> (lose modules, not the radar). This is the modern fighter and SAM radar.</div>`;
-    }
-    tpos.forEach(p => { /* keep blips above beams already drawn */ });
-  });
-  const onResize = () => fit(); window.addEventListener('resize', onResize);
-  return () => { stop(); window.removeEventListener('resize', onResize); };
-});
-
 // ── 2 · PULSE-DOPPLER PRF TRADE ──────────────────────────────────────────────
 reg('prf', (node) => {
   const _V = makeCanvas(node, 250); const { cv, g, fit } = _V;
@@ -1499,7 +1448,7 @@ reg('radarfamily', (node) => {
       { r: 0.66, half: 0.85, col: COL.amber, name: 'ACQUISITION', band: 'S/C · medium', job: 'build a firm track, hand off', y: 90 },
       { r: 0.42, half: 0.5, col: COL.red, name: 'FIRE CONTROL', band: 'X/Ku · pencil', job: 'precise track + guide weapon', y: 140 },
     ];
-    const Rmax = Math.min(_V.w - 90, 340);
+    const Rmax = Math.max(30, Math.min(_V.w - 90, 340));   // clamp: a narrow canvas must not give arc() a negative radius
     rows.forEach(rw => {
       g.strokeStyle = rw.col; g.lineWidth = 1.4;
       g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, Rmax * rw.r, -rw.half, rw.half); g.closePath(); g.stroke();
@@ -2876,5 +2825,382 @@ reg('rcsaspect', (node) => {
       `<div class="wx-hint">${S.note} This is why a single quoted RCS figure is nearly meaningless: the number in the brochure is almost always the <b>nose-on</b> value, the one the designer worked hardest on. Swing to the <b>beam</b> and σ can jump by a factor of a hundred — and because detection range goes as σ<sup>¼</sup>, even that only multiplies range by about 3. The same fourth root that protects the stealth designer also limits how much the defender gains from catching you side-on. <i>(Shapes here are representative teaching models, not measured signatures — real ones are classified, frequency-dependent and far spikier.)</i></div>`;
   }
   _V.redraw = draw; sync();
+  return () => {};
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  HOW RADAR SCANS — array physics (TR modules), beamwidth, bar scans
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── MECHANICAL vs PESA vs AESA, built from the actual hardware ───────────────
+// Huygens construction: each element radiates a spherical wavelet; the envelope
+// of the wavelets IS the wavefront. Delay the elements progressively and the
+// envelope tilts — that is electronic beam steering, drawn exactly as it works.
+reg('arrayphysics', (node) => {
+  const _V = makeCanvas(node, 380); const { g } = _V;
+  const tabRow = el('div', { class: 'wx-controls' }); node.appendChild(tabRow);
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+
+  const MODES = {
+    mech: { name: 'MECHANICAL', col: COL.blue },
+    pesa: { name: 'PESA', col: COL.amber },
+    aesa: { name: 'AESA', col: COL.green },
+  };
+  let mode = 'mech', steer = 0, failed = 0, N = 16;
+  const btns = {};
+  Object.entries(MODES).forEach(([k, v]) => {
+    const b = el('button', { class: 'wx-tab', onclick: () => { mode = k; sync(); } }, v.name);
+    btns[k] = b; tabRow.appendChild(b);
+  });
+  const sS = slider('Steer the beam (°)', -60, 60, 1, steer, v => { steer = v; });
+  const sF = slider('AESA: failed T/R modules', 0, 8, 1, failed, v => { failed = v; });
+  ctr.append(sS.row, sF.row);
+  function sync() {
+    Object.entries(btns).forEach(([k, b]) => b.classList.toggle('on', k === mode));
+    sF.row.style.display = mode === 'aesa' ? '' : 'none';
+    if (mode === 'mech') { sS.row.querySelector('span').textContent = 'Slew the whole antenna (°)'; }
+    else { sS.row.querySelector('span').textContent = 'Steer the beam — phase only (°)'; }
+    setText();
+  }
+  function setText() {
+    const T = {
+      mech: `<div class="wx-hint"><b>One transmitter, one aperture, one wavefront — and a motor.</b> The entire plate radiates as a <b>single antenna</b>, so the wave leaves perpendicular to the face and the beam points wherever the metal points. There is no phase trickery available: to aim somewhere else you must physically swing kilograms of antenna on a gimbal, against <b>inertia</b>. Scan rates land around 60–70°/s, a full search frame takes <b>seconds</b>, and the antenna can be searching <i>or</i> tracking, never genuinely both. Everything the radar knows is as stale as the last time the beam swept past. Now switch to PESA and watch the single wavefront break into <b>many element wavelets</b> — that is the whole revolution.</div>`,
+      pesa: `<div class="wx-hint"><b>One transmitter feeding many elements, each through a phase shifter.</b> Delay each element a little more than its neighbour and the wavelet envelope — the wavefront — tilts. Nothing moves: the beam repositions in <b>microseconds</b>. But every element is fed from the <i>same</i> source, so a PESA still forms <b>one beam on one frequency</b> at a time, and the single transmitter is a single point of failure. Fast eyes, one pair of them.</div>`,
+      aesa: `<div class="wx-hint"><b>Every element is its own radar.</b> A T/R module = a solid-state power amplifier + a low-noise receiver + its own phase shifter. Independent control means the array can split into sub-arrays and form <b>multiple simultaneous beams</b> — searching here while tracking there while pushing a <a data-goto="datalinks">datalink</a> somewhere else. It can change frequency <b>pulse to pulse</b> (brutal to jam), spread energy into <b>LPI</b> waveforms an <a data-goto="rwr">RWR</a> struggles to classify, and it <b>degrades gracefully</b>: kill modules with the slider and the beam widens and dims, but the radar keeps working. A dish with a dead transmitter is scrap.</div>`,
+    };
+    read.innerHTML = T[mode];
+  }
+
+  const stop = frame((now) => {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const T = now / 1000;
+    const hwY = h - 104;                      // hardware strip baseline (room for labels)
+    const cx = w / 2;
+    const arrayW = Math.max(80, Math.min(w * 0.55, 300));
+    const d = arrayW / (N - 1);               // element spacing in px
+    // dish geometry (kept compact + shallow so it stays in frame at any slew)
+    const dishA = arrayW * 0.32, dishF = dishA * 0.95;
+    const lamPx = Math.max(14, d * 2);        // λ = 2d (half-wave spacing)
+    const th = steer * Math.PI / 180;
+    const live = (i) => !(mode === 'aesa' && i % 2 === 0 && i < failed * 2);
+
+    // ── radiated wavefronts ──
+    const front = ((T * 60) % lamPx) + lamPx * 6;
+    g.save();
+    g.beginPath(); g.rect(0, 0, w, hwY - 6); g.clip();
+    if (mode === 'mech') {
+      // ONE aperture = ONE radiator. The whole plate radiates a single wavefront
+      // that propagates along the face normal — so the ONLY way to move the beam
+      // is to move the plate. Drawn as arcs from a single origin, in a beam sector.
+      const halfBeam = 0.22;                            // radians, illustrative
+      for (let k = 0; k < 9; k++) {
+        const r = front - k * lamPx;
+        if (r <= 6) continue;
+        g.strokeStyle = `rgba(0,229,255,${0.46 - k * 0.045})`;
+        g.lineWidth = 2;
+        g.beginPath();
+        g.arc(cx, hwY, r, -Math.PI / 2 + th - halfBeam, -Math.PI / 2 + th + halfBeam);
+        g.stroke();
+      }
+      // beam edges, to make the single-aperture sector obvious
+      g.strokeStyle = 'rgba(0,229,255,.18)'; g.setLineDash([4, 5]); g.lineWidth = 1;
+      for (const s of [-1, 1]) {
+        const a = th + s * halfBeam;
+        g.beginPath(); g.moveTo(cx, hwY);
+        g.lineTo(cx + Math.sin(a) * (hwY - 10), hwY - Math.cos(a) * (hwY - 10)); g.stroke();
+      }
+      g.setLineDash([]);
+    } else {
+      // Phased array: EACH ELEMENT is its own wave origin; the envelope of those
+      // wavelets is the wavefront. Delay them progressively and the envelope tilts.
+      for (let i = 0; i < N; i++) {
+        if (!live(i)) continue;
+        const xn = cx + (i - (N - 1) / 2) * d;
+        const delay = (xn - cx) * Math.sin(th);
+        for (let k = 0; k < 7; k++) {
+          const r = front - delay - k * lamPx;
+          if (r <= 2) continue;
+          g.strokeStyle = `rgba(0,229,255,${0.30 - k * 0.035})`;
+          g.lineWidth = 1;
+          g.beginPath(); g.arc(xn, hwY, r, Math.PI, 2 * Math.PI); g.stroke();
+        }
+        // the element itself, glowing as the origin of its wavelet
+        const c = mode === 'aesa' ? COL.green : COL.amber;
+        g.fillStyle = c; g.shadowColor = c; g.shadowBlur = 6;
+        g.beginPath(); g.arc(xn, hwY, 2.6, 0, 7); g.fill(); g.shadowBlur = 0;
+      }
+      lbl(g, 10, 30, `${N} element sources — each radiates its own wavelet`,
+        mode === 'aesa' ? COL.green : COL.amber, 'left', 8.5);
+    }
+    g.restore();
+
+    // ── resulting beam axis (+ a second beam for AESA) ──
+    const beam = (ang, col, wide) => {
+      const L = hwY - 14;
+      g.strokeStyle = col; g.lineWidth = wide;
+      g.save(); g.shadowColor = col; g.shadowBlur = 10;
+      g.beginPath(); g.moveTo(cx, hwY); g.lineTo(cx + Math.sin(ang) * L, hwY - Math.cos(ang) * L); g.stroke();
+      g.restore();
+    };
+    const degraded = mode === 'aesa' ? 1 + failed * 0.16 : 1;
+    beam(th, MODES[mode].col, 6 * degraded);
+    if (mode === 'aesa') {
+      const th2 = Math.sin(T * 0.9) * 0.9;      // simultaneous search beam
+      beam(th2, 'rgba(34,255,156,.45)', 3);
+      lbl(g, 10, 30, 'second beam: searching while beam 1 tracks', COL.green, 'left', 8.5);
+    }
+
+    // ── hardware strip ──
+    g.strokeStyle = 'rgba(78,128,178,.3)'; g.beginPath();
+    g.moveTo(0, hwY + 2); g.lineTo(w, hwY + 2); g.stroke();
+    if (mode === 'mech') {
+      // ONE flat plate (a slotted planar array on a gimbal — what mechanically
+      // scanned fighter radars actually use), fed by a single transmitter.
+      const A = dishA;
+      g.save(); g.translate(cx, hwY); g.rotate(th);
+      g.fillStyle = 'rgba(0,229,255,.20)'; g.strokeStyle = COL.blue; g.lineWidth = 3;
+      g.fillRect(-A, -5, 2 * A, 10); g.strokeRect(-A, -5, 2 * A, 10);
+      for (let i = 1; i < 10; i++) {                   // slot detail on the face
+        const x = -A + (2 * A) * i / 10;
+        g.strokeStyle = 'rgba(0,229,255,.45)'; g.lineWidth = 1;
+        g.beginPath(); g.moveTo(x, -4); g.lineTo(x, 4); g.stroke();
+      }
+      g.restore();
+      lbl(g, cx + Math.cos(th) * (A + 16), hwY + Math.sin(th) * (A + 16),
+        'ONE aperture', COL.blue, 'center', 8.5);
+      // single transmitter feeding the whole plate through a waveguide
+      g.strokeStyle = COL.amber; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(cx, hwY + 4); g.lineTo(cx, hwY + 22); g.stroke();
+      g.fillStyle = COL.amber; g.fillRect(cx - 30, hwY + 22, 60, 14);
+      g.fillStyle = '#06121f'; g.font = 'bold 8px "JetBrains Mono"'; g.textAlign = 'center';
+      g.fillText('1 TRANSMITTER', cx, hwY + 32); g.textAlign = 'left';
+      // the gimbal that has to physically move it
+      g.strokeStyle = COL.red; g.lineWidth = 1.6;
+      g.beginPath(); g.arc(cx, hwY + 44, 11, 0.2, Math.PI - 0.2); g.stroke();
+      arrow(g, cx - 11, hwY + 44, cx - 14, hwY + 38, COL.red, 4, 1.2);
+      lbl(g, cx, hwY + 62, 'GIMBAL + MOTOR — the whole plate must swing; inertia sets the scan rate', COL.red, 'center', 8.5);
+    } else {
+      // element row
+      for (let i = 0; i < N; i++) {
+        const xn = cx + (i - (N - 1) / 2) * d;
+        const ok = live(i);
+        const c = !ok ? '#5a2020' : mode === 'aesa' ? COL.green : COL.amber;
+        g.fillStyle = c; g.fillRect(xn - d * 0.32, hwY - 4, Math.max(3, d * 0.64), 9);
+        if (mode === 'aesa') {         // per-element T/R module block
+          g.strokeStyle = ok ? 'rgba(34,255,156,.65)' : 'rgba(255,61,0,.55)';
+          g.lineWidth = 1; g.strokeRect(xn - d * 0.36, hwY + 12, Math.max(4, d * 0.72), 16);
+          if (!ok) { g.strokeStyle = COL.red; g.beginPath();
+            g.moveTo(xn - d * 0.3, hwY + 15); g.lineTo(xn + d * 0.3, hwY + 25);
+            g.moveTo(xn + d * 0.3, hwY + 15); g.lineTo(xn - d * 0.3, hwY + 25); g.stroke(); }
+        } else {                        // PESA: phase shifter fed from one source
+          g.strokeStyle = 'rgba(255,176,0,.5)'; g.lineWidth = 1;
+          g.beginPath(); g.moveTo(xn, hwY + 6); g.lineTo(cx, hwY + 34); g.stroke();
+          g.strokeStyle = COL.amber; g.strokeRect(xn - 3, hwY + 8, 6, 7);
+        }
+      }
+      if (mode === 'pesa') {
+        g.fillStyle = COL.amber; g.fillRect(cx - 30, hwY + 36, 60, 15);
+        g.fillStyle = '#06121f'; g.font = 'bold 8px "JetBrains Mono"'; g.textAlign = 'center';
+        g.fillText('1 TRANSMITTER', cx, hwY + 46); g.textAlign = 'left';
+        lbl(g, cx, hwY + 62, 'one source → divider → φ shifters: ONE beam, ONE frequency', COL.amber, 'center', 8.5);
+      } else {
+        lbl(g, cx, hwY + 40, 'φ', COL.green, 'center', 8);
+        lbl(g, cx, hwY + 56, `${N} independent T/R modules — amp + receiver + φ each` + (failed ? `  ·  ${failed * 2} DEAD` : ''), COL.green, 'center', 8.5);
+      }
+    }
+    lbl(g, 10, 16, MODES[mode].name + (mode === 'mech' ? ' — the metal must move' : ' — the wavefront tilts, nothing moves'), MODES[mode].col, 'left', 10, true);
+  });
+  sync();
+  return stop;
+});
+
+// ── BEAMWIDTH: aperture, wavelength, and the price of steering off boresight ─
+reg('beamwidth', (node) => {
+  const _V = makeCanvas(node, 300); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let D = 0.6, fGHz = 10, steer = 0;
+  const sD = slider('Array width D (m)', 0.2, 1.2, 0.05, D, v => { D = v; draw(); });
+  const sF = slider('Frequency (GHz)', 1, 16, 0.5, fGHz, v => { fGHz = v; draw(); });
+  const sS = slider('Steer off boresight (°)', 0, 70, 1, steer, v => { steer = v; draw(); });
+  ctr.append(sD.row, sF.row, sS.row);
+  const C = 3e8;
+  // uniform linear array factor, half-wave spacing
+  const AF = (u, u0, N) => {
+    const psi = Math.PI * (Math.sin(u) - Math.sin(u0));
+    const den = N * Math.sin(psi / 2);
+    if (Math.abs(den) < 1e-9) return 1;
+    return Math.abs(Math.sin(N * psi / 2) / den);
+  };
+  function draw() {
+    const w = _V.w, h = _V.h, cx = w / 2, cy = h - 26;
+    const R0 = Math.max(40, Math.min(w / 2 - 30, h - 60));
+    g.clearRect(0, 0, w, h);
+    const lam = C / (fGHz * 1e9);
+    const N = Math.max(2, Math.round(D / (lam / 2)));
+    const u0 = steer * Math.PI / 180;
+    // polar pattern, dB scale (0 to -35 dB)
+    const dbFloor = -35;
+    const rOf = db => R0 * Math.max(0.02, (Math.max(db, dbFloor) - dbFloor) / -dbFloor);
+    // grid
+    g.strokeStyle = 'rgba(78,128,178,.16)';
+    for (const db of [0, -10, -20, -30]) { const r = rOf(db);
+      g.beginPath(); g.arc(cx, cy, r, Math.PI, 2 * Math.PI); g.stroke();
+      g.fillStyle = COL.faint; g.font = '8px "JetBrains Mono"'; g.fillText(db + ' dB', cx + 3, cy - r - 2); }
+    for (const a of [-60, -30, 0, 30, 60]) { const rad = a * Math.PI / 180;
+      g.strokeStyle = 'rgba(78,128,178,.14)'; g.beginPath(); g.moveTo(cx, cy);
+      g.lineTo(cx + R0 * Math.sin(rad), cy - R0 * Math.cos(rad)); g.stroke();
+      lbl(g, cx + (R0 + 14) * Math.sin(rad), cy - (R0 + 14) * Math.cos(rad) + 3, a + '°', COL.faint, 'center', 8); }
+    // pattern
+    g.beginPath();
+    let first = true, peak = 0, peakU = 0;
+    for (let deg = -90; deg <= 90; deg += 0.35) {
+      const u = deg * Math.PI / 180;
+      const amp = AF(u, u0, N);
+      if (amp > peak) { peak = amp; peakU = u; }
+      const db = 20 * Math.log10(Math.max(amp, 1e-4));
+      const r = rOf(db);
+      const x = cx + r * Math.sin(u), y = cy - r * Math.cos(u);
+      first ? (g.moveTo(x, y), first = false) : g.lineTo(x, y);
+    }
+    g.strokeStyle = COL.blue; g.lineWidth = 2; g.stroke();
+    g.lineTo(cx, cy); g.closePath(); g.fillStyle = 'rgba(0,229,255,.10)'; g.fill();
+    // measure the -3 dB beamwidth numerically about the steered peak
+    const half = Math.pow(10, -3 / 20);
+    let lo = peakU, hi = peakU;
+    for (let dd = 0; dd < 90; dd += 0.05) { const u = peakU - dd * Math.PI / 180;
+      if (u < -Math.PI / 2 || AF(u, u0, N) < half * peak) { lo = u; break; } }
+    for (let dd = 0; dd < 90; dd += 0.05) { const u = peakU + dd * Math.PI / 180;
+      if (u > Math.PI / 2 || AF(u, u0, N) < half * peak) { hi = u; break; } }
+    const bw = (hi - lo) * 180 / Math.PI;
+    // boresight reference beamwidth
+    let bl = 0, bh = 0;
+    for (let dd = 0; dd < 90; dd += 0.05) { const u = -dd * Math.PI / 180; if (AF(u, 0, N) < half) { bl = u; break; } }
+    for (let dd = 0; dd < 90; dd += 0.05) { const u = dd * Math.PI / 180; if (AF(u, 0, N) < half) { bh = u; break; } }
+    const bw0 = (bh - bl) * 180 / Math.PI;
+    // array face + steer marker
+    g.strokeStyle = COL.dim; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(cx - Math.min(60, R0 * 0.5), cy); g.lineTo(cx + Math.min(60, R0 * 0.5), cy); g.stroke();
+    g.strokeStyle = COL.amber; g.setLineDash([3, 3]); g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + R0 * Math.sin(u0), cy - R0 * Math.cos(u0)); g.stroke(); g.setLineDash([]);
+    const gainLoss = 10 * Math.log10(Math.max(Math.cos(u0), 1e-3));
+    read.innerHTML =
+      `<div class="wx-line">λ = <b>${(lam * 100).toFixed(1)} cm</b> · <b>${N}</b> elements at λ/2 · beamwidth <b style="color:${COL.blue}">${bw.toFixed(1)}°</b> ` +
+      `<span style="color:${COL.dim}">(${bw0.toFixed(1)}° on boresight)</span> · aperture gain penalty <b style="color:${COL.amber}">${gainLoss.toFixed(1)} dB</b></div>` +
+      `<div class="wx-hint">Beamwidth is set by how many wavelengths wide the aperture is: <b>θ ≈ λ/D</b>. Widen the array or shorten the wavelength and the beam sharpens — better angular resolution and more gain, but a narrower straw to search the sky with. Now drag the steer angle: an electronically scanned array does not turn, so the beam sees a <b>foreshortened</b> aperture of D·cos θ. The beam <b>fattens as 1/cos θ</b> and gain falls with cos θ — by 60° you have lost about <b>3 dB</b> and the beam is twice as wide. That geometry, not electronics, is why an AESA face is generally worked within roughly <b>±60°</b> and why fighters still have to point at the fight. Watch the <b>sidelobes</b> too — the little lobes either side of the main beam. They are how jamming and ground clutter sneak in through the "back door", and taming them is a whole discipline (amplitude tapering, at the cost of a slightly wider main beam).</div>`;
+  }
+  _V.redraw = draw; draw();
+  return () => {};
+});
+
+// ── BAR SCAN: the raster that actually searches the sky, and its frame time ──
+reg('barscan', (node) => {
+  const _V = makeCanvas(node, 300); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let azHalf = 60, bars = 4, rng = 60;
+  const sA = slider('Azimuth scan (± °)', 10, 60, 5, azHalf, v => { azHalf = v; });
+  const sB = slider('Elevation bars', 1, 8, 1, bars, v => { bars = v; });
+  const sR = slider('Target range (km)', 10, 150, 5, rng, v => { rng = v; });
+  ctr.append(sA.row, sB.row, sR.row);
+  const BW = 3.3;            // beam/bar height, degrees (typical X-band fighter)
+  const RATE = 70;           // antenna sweep rate, deg/s
+  const stop = frame((now) => {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const padL = 46, padR = 16, padT = 26, padB = 54;
+    const pw = Math.max(40, w - padL - padR), ph = Math.max(40, h - padT - padB);
+    const elevSpan = Math.max(bars * BW, 6);
+    const X = az => padL + (az + azHalf) / (2 * azHalf) * pw;
+    const Y = elv => padT + (elevSpan / 2 - elv) / elevSpan * ph;
+    // frame geometry
+    g.strokeStyle = 'rgba(78,128,178,.35)'; g.lineWidth = 1; g.strokeRect(padL, padT, pw, ph);
+    // bar lanes
+    for (let b = 0; b < bars; b++) {
+      const eC = elevSpan / 2 - BW * (b + 0.5);
+      g.fillStyle = b % 2 ? 'rgba(0,229,255,0.035)' : 'rgba(0,229,255,0.06)';
+      g.fillRect(padL, Y(eC + BW / 2), pw, Math.max(2, ph * BW / elevSpan));
+      lbl(g, padL - 6, Y(eC) + 3, 'bar ' + (b + 1), COL.faint, 'right', 8);
+    }
+    // the sweeping beam
+    const frameT = bars * (2 * azHalf) / RATE;
+    const tt = (now / 1000) % frameT;
+    const barIdx = Math.min(bars - 1, Math.floor(tt / (frameT / bars)));
+    const within = (tt % (frameT / bars)) / (frameT / bars);
+    const azNow = (barIdx % 2 === 0 ? -azHalf + within * 2 * azHalf : azHalf - within * 2 * azHalf);
+    const eNow = elevSpan / 2 - BW * (barIdx + 0.5);
+    // painted trail for the current frame
+    for (let b = 0; b <= barIdx; b++) {
+      const eC = elevSpan / 2 - BW * (b + 0.5);
+      const done = b < barIdx ? 1 : within;
+      const x0 = b % 2 === 0 ? X(-azHalf) : X(azHalf);
+      const x1 = b % 2 === 0 ? X(-azHalf + done * 2 * azHalf) : X(azHalf - done * 2 * azHalf);
+      g.strokeStyle = 'rgba(0,229,255,.28)'; g.lineWidth = Math.max(2, ph * BW / elevSpan * 0.7);
+      g.beginPath(); g.moveTo(x0, Y(eC)); g.lineTo(x1, Y(eC)); g.stroke();
+    }
+    g.fillStyle = COL.blue; g.shadowColor = COL.blue; g.shadowBlur = 10;
+    g.beginPath(); g.arc(X(azNow), Y(eNow), 6, 0, 7); g.fill(); g.shadowBlur = 0;
+    // axes
+    g.fillStyle = COL.dim; g.font = '9px "JetBrains Mono"';
+    lbl(g, w / 2, h - 34, 'AZIMUTH  (−' + azHalf + '° … +' + azHalf + '°)', COL.dim, 'center', 9);
+    lbl(g, padL - 8, padT - 8, 'ELEV', COL.dim, 'right', 9);
+    lbl(g, 10, 16, `RASTER SEARCH — ${bars}-bar, ±${azHalf}°`, COL.blue, 'left', 10, true);
+    // numbers
+    const slabKm = 2 * rng * Math.tan(elevSpan / 2 * Math.PI / 180);
+    const moved = 400 * frameT / 1000;
+    read.innerHTML =
+      `<div class="wx-line">frame time <b style="color:${COL.amber}">${frameT.toFixed(1)} s</b> · elevation covered <b>${elevSpan.toFixed(1)}°</b> ` +
+      `· at ${rng} km that is a slab only <b style="color:${COL.blue}">${slabKm.toFixed(1)} km</b> tall · a 400 m/s target moves <b style="color:${COL.red}">${moved.toFixed(1)} km</b> between looks</div>` +
+      `<div class="wx-hint">A radar does not "see" a cone — it <b>paints</b> one, one <b>bar</b> at a time. The antenna sweeps azimuth, steps down roughly one beamwidth in elevation, sweeps back, and repeats; the number of bars is a direct trade of <b>volume against freshness</b>. Widen the azimuth or add bars and you cover more sky, but the <b>frame time</b> grows and every track gets staler — which is exactly the gap a defender exploits. And notice the elevation slab: even a 4-bar scan is a thin sheet at long range, so a target only a few thousand feet off your scan centre is simply <b>not in the volume</b>. Half of intercept work is putting the beam where the target will be — and the reason an <b>AESA</b> changes the game is that it can revisit a track between search bars instead of waiting for the next frame.</div>`;
+  });
+  return stop;
+});
+
+// ── Gamified: pick the right radar for the requirement ──────────────────────
+const RADARQ = [
+  { q: 'You must track six targets while still searching for new ones, from one antenna.',
+    a: ['Mechanical dish', 'PESA', 'AESA'], correct: 2,
+    why: 'Only an AESA can split its elements into sub-arrays and run genuinely simultaneous beams. A dish and a PESA both form one beam at a time — TWS interleaving helps, but the beam is still shared.' },
+  { q: 'The enemy is jamming a narrow band hard. Which survives best?',
+    a: ['Mechanical dish', 'AESA with pulse-to-pulse frequency agility', 'PESA'], correct: 1,
+    why: 'Independent T/R modules let an AESA change frequency between pulses and spread energy across the band, so a narrowband jammer never sits on the right frequency long enough.' },
+  { q: 'A cruise missile is skimming the deck below you against heavy ground clutter. What actually solves this?',
+    a: ['A bigger antenna', 'Pulse-Doppler processing', 'A faster scan rate'], correct: 1,
+    why: 'This is a PROCESSING problem, not a steering one. Pulse-Doppler filters returns by radial velocity, separating a fast mover from the huge zero-Doppler ground return. A mechanical radar with pulse-Doppler can do it; an AESA without it cannot.' },
+  { q: 'One transmitter tube fails. Which radar keeps fighting?',
+    a: ['Mechanical dish', 'PESA', 'AESA'], correct: 2,
+    why: 'Graceful degradation. AESA power is distributed across hundreds of modules — losing some slightly widens the beam and lowers power. A dish or PESA fed by a single transmitter simply goes dark.' },
+  { q: 'You want the beam to jump between two widely separated targets in microseconds.',
+    a: ['Mechanical dish', 'Either PESA or AESA', 'Only a mechanical dish'], correct: 1,
+    why: 'Both electronically scanned types steer by phase, with no inertia at all. That is the shared advantage of PESA and AESA over any moving antenna.' },
+  { q: 'Your AESA is steering 60° off boresight. What has happened to the beam?',
+    a: ['Nothing — electronic steering is lossless', 'It is about twice as wide with roughly 3 dB less gain', 'It got narrower'], correct: 1,
+    why: 'The array presents a foreshortened aperture D·cos θ. Beamwidth broadens as 1/cos θ and gain falls with cos θ — geometry no electronics can undo, which is why a face is worked within about ±60°.' },
+];
+reg('radarpick', (node) => {
+  const wrap = el('div', { class: 'wx-quiz' }); node.appendChild(wrap);
+  let idx = 0, score = 0;
+  function render() {
+    const c = RADARQ[idx];
+    wrap.innerHTML = '';
+    wrap.appendChild(el('div', { class: 'wx-qmeta' }, `RADAR CALL ${idx + 1}/${RADARQ.length} · score ${score}`));
+    wrap.appendChild(el('div', { class: 'wx-q' }, c.q));
+    const opts = el('div', { class: 'wx-opts' });
+    let answered = false;
+    c.a.forEach((txt, i) => opts.appendChild(el('button', { class: 'wx-opt', onclick: () => {
+      if (answered) return; answered = true;
+      const ok = i === c.correct;
+      [...opts.children].forEach((b, j) => { b.classList.add(j === c.correct ? 'correct' : (j === i ? 'wrong' : 'dim')); b.disabled = true; });
+      if (ok) { score++; progress.addXP(8); }
+      const why = wrap.querySelector('#rp-why');
+      why.innerHTML = `<b style="color:${ok ? COL.green : COL.red}">${ok ? '✓ Correct. +8 XP' : '✗ Not quite.'}</b> ${c.why}`;
+      why.appendChild(el('div', {}, el('button', { class: 'wx-btn', style: 'margin-top:10px',
+        onclick: () => { idx = (idx + 1) % RADARQ.length; render(); } },
+        idx === RADARQ.length - 1 ? '↻ Start over' : 'Next call →')));
+    } }, txt)));
+    wrap.appendChild(opts);
+    wrap.appendChild(el('div', { class: 'wx-why', id: 'rp-why' }));
+  }
+  render();
   return () => {};
 });

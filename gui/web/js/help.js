@@ -167,25 +167,80 @@ export const HELP_SECTIONS = [
   {
     id: 'radartypes', title: 'How Radar Scans — Mechanical, Pulse-Doppler & AESA',
     html: `
-      <p>"Radar" is not one thing. <i>How</i> it points its beam and <i>how</i> it processes echoes decide
-      what it can do. Two revolutions separate a 1960s dish from a modern fighter's array.</p>
-      <h3>Steering the beam: mechanical vs electronic</h3>
-      <p>Toggle between a spinning dish and an AESA and watch the difference in how the sky is scanned:</p>
-      <div class="wx" data-widget="radarscan"></div>
+      <p>"Radar" is not one thing. Before anything else, separate the two questions people constantly
+      confuse:</p>
       <ul>
-        <li><b>Mechanical (dish).</b> A physical antenna is slewed by motors. One pencil beam, scan rate
-        limited by inertia, and it can search <i>or</i> track — not both at once. The picture is only as
-        fresh as the last sweep.</li>
-        <li><b>PESA</b> (passive electronically-scanned) steers a single beam electronically from one
-        central transmitter — faster than mechanical, but still one beam.</li>
-        <li><b>AESA</b> (active electronically-scanned) is hundreds/thousands of tiny transmit-receive
-        modules, each its own mini-radar. The beam is formed and repositioned in <b>microseconds</b>, so
-        the radar <b>interleaves</b> search + multi-target track + jamming + <a data-goto="datalinks">datalink</a>
-        from one face. Bonus: <b>frequency agility</b> (hard to jam), <b>LPI</b> emissions (hard to even
-        detect on an RWR), and <b>graceful degradation</b> — lose modules, not the radar. This is why AESA
-        rewrote air combat.</li>
+        <li><b>How does it POINT the beam?</b> — mechanical, PESA, or AESA. This is <i>antenna</i>
+        architecture.</li>
+        <li><b>How does it PROCESS the echo?</b> — pulse-Doppler, and everything built on it. This is
+        <i>signal</i> architecture.</li>
       </ul>
-      <h3>Processing echoes: the pulse-Doppler PRF trade</h3>
+      <p class="tip">These are <b>independent</b>. A 1970s mechanical dish can absolutely be
+      pulse-Doppler (the F-16's early APG-66 was), and an AESA without Doppler processing would be
+      helpless against a low-flyer in clutter. "AESA" tells you how fast the beam moves — it says nothing
+      about whether the radar can pick a cruise missile out of the ground return.</p>
+
+      <h3>1 · How the beam is actually steered</h3>
+      <p>Electronic steering is not magic and it is not a metaphor. Each element radiates a little
+      spherical wavelet; the <b>envelope of those wavelets is the wavefront</b> (Huygens' principle).
+      Fire the elements simultaneously and the wavefront is flat and the beam goes straight ahead. Delay
+      each element slightly more than its neighbour and the envelope <b>tilts</b> — and the beam points
+      somewhere else, with nothing having moved. Switch modes and watch the hardware behind it change:</p>
+      <div class="wx" data-widget="arrayphysics"></div>
+      <p>The steering law is one line: to point at angle θ, each element gets a progressive phase shift</p>
+      <p class="eq">Δφ = (2π d / λ) · sin θ &nbsp;&nbsp;&nbsp;<span style="color:var(--ink-dim)">(d = element spacing, typically λ/2)</span></p>
+      <table class="range-table"><thead><tr><th></th><th>Mechanical</th><th>PESA</th><th>AESA</th></tr></thead><tbody>
+      <tr><td><b>How it aims</b></td><td>Motors slew the antenna</td><td>Phase shifters</td><td>Phase shifters, one per module</td></tr>
+      <tr><td><b>Transmitter</b></td><td>One tube + feed horn</td><td><b>One</b> central tube, power divided out</td><td><b>Hundreds</b> of solid-state T/R modules</td></tr>
+      <tr><td><b>Repoint time</b></td><td>~tens of ms (inertia)</td><td>microseconds</td><td>microseconds</td></tr>
+      <tr><td><b>Simultaneous beams</b></td><td>1</td><td>1</td><td><b>Several</b> (sub-arrays)</td></tr>
+      <tr><td><b>Frequency agility</b></td><td>Limited</td><td>Limited (shared source)</td><td><b>Pulse-to-pulse</b></td></tr>
+      <tr><td><b>Failure mode</b></td><td>Tube dies → radar dead</td><td>Tube dies → radar dead</td><td><b>Graceful</b> — lose modules, not the radar</td></tr>
+      <tr><td><b>LPI / low intercept</b></td><td>Poor</td><td>Moderate</td><td><b>Strong</b> (spread, agile waveforms)</td></tr>
+      </tbody></table>
+      <p><b>What a T/R module actually is:</b> a solid-state <b>power amplifier</b> for transmit, a
+      <b>low-noise amplifier</b> for receive, a <b>phase shifter</b>, and a switch — a complete miniature
+      radar a few centimetres across. Put 1,000 of them behind a radome and you no longer have an antenna
+      being fed by a transmitter; you have a thousand transmitters that <i>agree</i> to point somewhere.
+      Everything AESA does well flows from that one change.</p>
+
+      <h3>2 · Beamwidth — the straw you search the sky with</h3>
+      <p>The beam is not a laser. Its width comes straight from aperture physics: <b>θ ≈ λ/D</b> — a beam
+      is narrow only if the antenna is many wavelengths across. That single ratio decides your angular
+      resolution, your gain, and how much sky you can cover per second. Drag the aperture, the band, and
+      the steer angle:</p>
+      <div class="wx" data-widget="beamwidth"></div>
+      <ul>
+        <li><b>Bigger D or higher frequency ⇒ narrower beam</b> — sharper angular resolution, more gain,
+        longer detection range. But a narrow beam is a thin straw: covering the same volume takes longer.</li>
+        <li><b>Steering costs you.</b> An electronically scanned face does not turn, so off boresight it
+        presents a <b>foreshortened</b> aperture D·cos θ. Beamwidth grows as <b>1/cos θ</b> and gain drops
+        with <b>cos θ</b>. That is why practical AESA coverage is roughly <b>±60°</b> per face, and why
+        fighters still manoeuvre to keep the fight in front of them — the "gimbal limit" that makes
+        <a data-goto="polegame">cranking</a> a real constraint rather than a free lunch.</li>
+        <li><b>Sidelobes matter.</b> The little lobes flanking the main beam are the back door through
+        which jamming and clutter enter. Suppressing them (amplitude tapering) costs main-beam width —
+        another trade with no free side.</li>
+      </ul>
+
+      <h3>3 · Bars — how the sky actually gets painted</h3>
+      <p>A search radar does not illuminate a cone; it <b>paints a raster</b>. The beam sweeps across in
+      azimuth, steps down about one beamwidth in elevation — one <b>bar</b> — sweeps back, and repeats.
+      A fighter pilot selecting "4-bar, 60 degrees" is choosing exactly this pattern, and it is one of the
+      most consequential decisions in the intercept:</p>
+      <div class="wx" data-widget="barscan"></div>
+      <p>The trade is brutal and unavoidable: <b>volume versus freshness</b>. More bars and wider azimuth
+      cover more sky but stretch the <b>frame time</b>, so every track ages before the beam returns. Fewer
+      bars give a fast, fresh picture of a thin slice — and a target a few thousand feet outside that slice
+      is not "faint", it is simply <b>not in the volume being searched</b>. This is why the elevation
+      question ("where is he in height?") dominates real intercept geometry, and why an AESA's ability to
+      <b>squeeze a track update in between search bars</b> — instead of waiting a whole frame — is worth
+      more in practice than its headline range.</p>
+
+      <h3>4 · Test yourself</h3>
+      <div class="wx" data-widget="radarpick"></div>
+
+      <h3>5 · Processing echoes: the pulse-Doppler PRF trade</h3>
       <p>How often the radar pulses (its <b>PRF</b>) forces a fundamental compromise between measuring
       <i>range</i> and measuring <i>velocity</i>. Sweep it:</p>
       <div class="wx" data-widget="prf"></div>
