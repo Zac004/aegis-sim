@@ -31,7 +31,8 @@ const reg = (name, fn) => { REGISTRY[name] = fn; };
 const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'horizon',
   'radareq', 'flarefight', 'doghouse', 'guidancecompare', 'motorrace', 'seekerloop',
   'irscan', 'prf', 'decisiondrill', 'codex', 'fpole', 'emdiagram', 'grinder',
-  'wez', 'notchgame', 'sternconv', 'sortgame', 'formations', 'rwrscope', 'irbands']);
+  'wez', 'notchgame', 'sternconv', 'sortgame', 'formations', 'rwrscope', 'irbands',
+  'radarderive', 'rcsaspect']);
 
 export function mountWidgets(root) {
   const teardowns = [];
@@ -79,10 +80,14 @@ function makeCanvas(parent, h) {
   }
   return V;
 }
-function slider(label, min, max, step, val, oninput) {
-  const out = el('b', { class: 'wx-val' }, String(val));
+// `fmt` (optional) maps the raw slider number to what the user should SEE — e.g.
+// a log-scale control whose slider position is an exponent but which must read
+// out as the real physical quantity (never a negative area).
+function slider(label, min, max, step, val, oninput, fmt) {
+  const show = (v) => (fmt ? fmt(+v) : String(v));
+  const out = el('b', { class: 'wx-val' }, show(val));
   const input = el('input', { type: 'range', min, max, step, value: val,
-    oninput: (e) => { out.textContent = e.target.value; oninput(+e.target.value); } });
+    oninput: (e) => { out.textContent = show(e.target.value); oninput(+e.target.value); } });
   return { row: el('label', { class: 'wx-slider' }, [el('span', {}, label), input, out]), input, out };
 }
 function frame(fn) {   // rAF loop with a stop flag
@@ -726,9 +731,15 @@ reg('radareq', (node) => {
   node.appendChild(controls);
   const read = el('div', { class: 'wx-readout' });
   node.appendChild(read);
-  let pwr = 50, rcsExp = 0.7;   // rcs = 10^x, x in [-4, 2]
+  let pwr = 50, rcsExp = 0.7;   // slider carries log10(σ); σ itself is never < 0
+  // σ is an AREA — it can never be negative. The slider travels on a log scale
+  // (10^-4 … 10^2 m²) but must always read out the real, positive value.
+  const fmtRcs = (x) => {
+    const v = 10 ** x;
+    return (v < 0.01 ? v.toExponential(1) : v < 1 ? v.toFixed(3) : v.toFixed(1)) + ' m²';
+  };
   const s1 = slider('Radar power (rel)', 10, 100, 5, pwr, v => { pwr = v; draw(); });
-  const s2 = slider('Target RCS 10^x m²', -4, 2, 0.1, rcsExp, v => { rcsExp = v; draw(); });
+  const s2 = slider('Target RCS σ (log scale)', -4, 2, 0.1, rcsExp, v => { rcsExp = v; draw(); }, fmtRcs);
   controls.append(s1.row, s2.row);
   const R0 = 160;   // km detection at pwr 50 vs 5 m²
   function draw() {
@@ -746,13 +757,16 @@ reg('radareq', (node) => {
     const cls = rcs <= 0.001 ? ['VLO STEALTH (F-22 class)', COL.green]
       : rcs <= 0.1 ? ['LO / reduced (F-35, Rafale-class front)', COL.green]
       : rcs <= 6 ? ['FIGHTER', COL.amber] : ['BOMBER / TANKER', COL.red];
+    const rel = rdet / R0;
     read.innerHTML =
       `<div class="wx-line">σ = <b style="color:${COL.amber}">${rcs < 0.01 ? rcs.toExponential(1) : R(rcs, 2)} m²</b> (${cls[0]})` +
-      ` &nbsp;→&nbsp; detection range <b style="color:${COL.amber}">${R(rdet)} km</b></div>` +
+      ` &nbsp;→&nbsp; detection range <b style="color:${COL.amber}">${R(rdet)} km</b>` +
+      ` <span style="color:${COL.dim}">(${rel >= 1 ? R(rel, 2) + '×' : '1/' + R(1 / rel, 1) + '×'} the 5 m² reference)</span></div>` +
       `<div class="wx-hint">R<sub>detect</sub> ∝ (P·σ)<sup>¼</sup> — the brutal fourth root. Cutting RCS from 5 m² to ` +
       `0.0005 m² (10,000×) only shrinks detection 10× — but that 10× collapses the enemy's entire timeline: he detects, sorts and ` +
       `shoots you a hundred kilometres later than you shoot him. Notice power is also under the fourth root: doubling radar ` +
-      `power buys only 19% more range. Stealth beats wattage.</div>`;
+      `power buys only 19% more range. Stealth beats wattage. <b>σ is an area, so it is never negative</b> — the slider runs on a ` +
+      `log scale from 0.0001 m² (a bird, or a VLO fighter head-on) to 100 m² (a bomber broadside).</div>`;
   }
   function ring(g, x, y, r, color, label, glow) {
     g.strokeStyle = color; g.lineWidth = glow ? 2 : 1.2;
@@ -2703,5 +2717,164 @@ reg('irbands', (node) => {
   }
   _V.redraw = draw; draw();
   read.innerHTML = `<div class="wx-hint">Two curves, one atmosphere. A jet's <b style="color:${COL.amber}">plume and hot parts (~900 K)</b> radiate with a Planck peak near <b>3.2 µm</b> — right in the <b style="color:${COL.amber}">MWIR window</b>, which is why classic heat-seekers live there (note the <b>CO₂ notch at 4.3 µm</b> splitting that window — the plume's own CO₂ emission band sits just beside it). <b style="color:${COL.blue}">Skin heated by air friction (~320 K)</b> peaks near <b>9 µm</b> — the <b style="color:${COL.blue}">LWIR window</b>, home of IRSTs and imaging sensors that spot a fighter from <i>any</i> aspect. Between them the atmosphere is a wall of <b>H₂O absorption</b> — the two windows exist only because those gaps in the gas spectrum happen to line up with how hot jets get. (Curves normalised per-peak; in absolute terms the plume outshines the skin enormously.)</div>`;
+  return () => {};
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  RADAR EQUATION — stepped derivation + RCS-vs-aspect polar signature
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── Step through the two-way path that produces the 1/R⁴ law ─────────────────
+reg('radarderive', (node) => {
+  const _V = makeCanvas(node, 300); const { g } = _V;
+  const row = el('div', { class: 'wx-controls' }); node.appendChild(row);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let step = 0;
+  const STEPS = [
+    { t: 'ISOTROPIC TRANSMIT',
+      eq: 'S = P<sub>t</sub> / 4πR²',
+      why: 'The transmitter radiates <b>P<sub>t</sub></b> watts. If it spread that energy equally in every direction, at range <b>R</b> it would be smeared over the surface of a sphere, <b>4πR²</b>. So the power crossing each square metre — the <b>power density S</b> — already falls as <b>1/R²</b>. Nothing has hit the target yet.' },
+    { t: 'ANTENNA GAIN FOCUSES IT',
+      eq: 'S = P<sub>t</sub>G / 4πR²',
+      why: 'A real antenna does not radiate equally everywhere: it concentrates energy into a beam. <b>Gain G</b> is exactly that concentration factor — how many times stronger the beam is than the isotropic case. A fighter radar might have G of tens of thousands. This is free range: G multiplies the density without extra watts.' },
+    { t: 'THE TARGET INTERCEPTS',
+      eq: 'P<sub>refl</sub> = (P<sub>t</sub>G / 4πR²) · σ',
+      why: 'The target intercepts some of that beam and scatters it back. We bundle everything about the target — size, shape, material, aspect — into one number: the <b>radar cross-section σ</b>, in <b>square metres</b>. σ is the area of a perfect isotropic reflector that would send back the same echo. It is an <b>area, so it is never negative</b>, and it is not the physical size of the jet.' },
+    { t: 'THE ECHO SPREADS BACK',
+      eq: 'S<sub>echo</sub> = P<sub>t</sub>Gσ / (4πR²)²',
+      why: 'Here is the cruelty. That scattered energy now makes its <i>own</i> journey home, spreading over another <b>4πR²</b> sphere. The echo therefore suffers <b>1/R²</b> twice — once out, once back. Multiply them and the returning density falls as <b>1/R⁴</b>. Double the range and the echo is <b>16 times weaker</b>.' },
+    { t: 'THE ANTENNA COLLECTS',
+      eq: 'P<sub>r</sub> = P<sub>t</sub>G²λ²σ / (4π)³R⁴',
+      why: 'The receiving antenna captures that density over its <b>effective aperture</b> A<sub>e</sub> = Gλ²/4π. Substituting it in gives the classic radar equation. Note <b>G appears squared</b> (once transmitting, once receiving) and the <b>wavelength λ</b> enters — a longer λ means a physically bigger effective aperture for the same gain.' },
+    { t: 'SOLVE FOR RANGE',
+      eq: 'R<sub>max</sub> = [ P<sub>t</sub>G²λ²σ / (4π)³S<sub>min</sub> ]<sup>¼</sup>',
+      why: 'Detection happens when the received power exceeds the receiver\'s <b>minimum detectable signal S<sub>min</sub></b> (set by noise). Set P<sub>r</sub> = S<sub>min</sub> and solve for R. Because P<sub>r</sub> fell as R⁴, range comes back as a <b>fourth root</b> — and every design term is trapped under it. That single exponent is why 1000× less RCS buys only ~5.6× less range, and why doubling power buys 19%.' },
+  ];
+  const prev = el('button', { class: 'wx-btn', onclick: () => { step = (step + STEPS.length - 1) % STEPS.length; draw(); } }, '◀ Back');
+  const next = el('button', { class: 'wx-btn', onclick: () => { step = (step + 1) % STEPS.length; draw(); } }, 'Next ▶');
+  row.append(prev, next);
+
+  function draw() {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    // proportional layout so the geometry can never invert on a narrow canvas
+    // (a fixed inset would make tx < rx and hand arc() a negative radius).
+    const rx = Math.max(28, w * 0.10), tx = Math.max(rx + 40, w * 0.86), cy = h / 2 - 16;
+    const span = tx - rx;
+    const s = STEPS[step];
+    // ── outbound wavefronts (steps 0+) ──
+    const outLive = step >= 0;
+    for (let i = 1; i <= 4; i++) {
+      const f = i / 4, rad = Math.max(1, span * f);
+      const spread = 12 + f * (step >= 1 ? 26 : 60);      // gain narrows the beam at step 1+
+      g.strokeStyle = outLive ? `rgba(0,229,255,${0.5 - f * 0.09})` : 'rgba(0,229,255,.12)';
+      g.lineWidth = 1.6;
+      g.beginPath(); g.arc(rx, cy, rad, -Math.atan2(spread, rad), Math.atan2(spread, rad)); g.stroke();
+    }
+    // beam envelope
+    if (step >= 1) {
+      g.strokeStyle = 'rgba(0,229,255,.22)'; g.setLineDash([4, 4]); g.lineWidth = 1;
+      g.beginPath(); g.moveTo(rx, cy); g.lineTo(tx, cy - 38); g.moveTo(rx, cy); g.lineTo(tx, cy + 38); g.stroke(); g.setLineDash([]);
+    }
+    // ── return wavefronts (steps 3+) ──
+    if (step >= 3) {
+      for (let i = 1; i <= 4; i++) {
+        const f = i / 4;
+        g.strokeStyle = `rgba(255,176,0,${0.45 - f * 0.08})`; g.lineWidth = 1.4;
+        g.beginPath(); g.arc(tx, cy, Math.max(1, span * f), Math.PI - 0.55, Math.PI + 0.55); g.stroke();
+      }
+    }
+    // radar + target
+    g.fillStyle = COL.blue; g.shadowColor = COL.blue; g.shadowBlur = 8;
+    g.beginPath(); g.arc(rx, cy, 6, 0, 7); g.fill(); g.shadowBlur = 0;
+    lbl(g, rx, cy + 22, 'RADAR', COL.blue, 'center', 9);
+    const tCol = step >= 2 ? COL.amber : COL.dim;
+    g.fillStyle = tCol; g.shadowColor = tCol; g.shadowBlur = step >= 2 ? 10 : 0;
+    g.beginPath(); g.arc(tx, cy, step >= 2 ? 8 : 5, 0, 7); g.fill(); g.shadowBlur = 0;
+    lbl(g, tx, cy + 24, step >= 2 ? 'TARGET σ' : 'TARGET', tCol, 'center', 9);
+    // range bracket
+    g.strokeStyle = 'rgba(147,172,203,.4)'; g.setLineDash([2, 3]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(rx, cy + 44); g.lineTo(tx, cy + 44); g.stroke(); g.setLineDash([]);
+    lbl(g, (rx + tx) / 2, cy + 58, 'R', COL.dim, 'center', 11);
+    // step header + equation
+    lbl(g, 12, 18, `STEP ${step + 1}/${STEPS.length} — ${s.t}`, COL.green, 'left', 10, true);
+    read.innerHTML = `<div class="wx-line" style="font-family:var(--font-mono);font-size:14px;color:${COL.amber}">${s.eq}</div>` +
+      `<div class="wx-hint">${s.why}</div>`;
+  }
+  _V.redraw = draw; draw();
+  return () => {};
+});
+
+// ── RCS is not one number: the polar signature ───────────────────────────────
+reg('rcsaspect', (node) => {
+  const _V = makeCanvas(node, 340); const { g } = _V;
+  const row = el('div', { class: 'wx-controls' }); node.appendChild(row);
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);   // aspect slider sits with the tabs
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  const angDiff = (a, b) => { let d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+  const lobe = (d, c, w, p) => p * Math.exp(-Math.pow(angDiff(d, c), 2) / (2 * w * w));
+  const SIGS = {
+    conv: { name: 'CONVENTIONAL FIGHTER', col: COL.amber,
+      f: d => 0.8 + lobe(d, 0, 22, 3.5) + lobe(d, 180, 28, 7) + lobe(d, 90, 16, 90) + lobe(d, 270, 16, 90) + lobe(d, 45, 14, 4) + lobe(d, 315, 14, 4),
+      note: 'Big, smooth lobes everywhere, and an enormous <b>broadside flash</b> — flat fuselage sides, slab wings and a vertical tail all act like mirrors when the beam hits them square.' },
+    vlo: { name: 'VLO / SHAPED', col: COL.green,
+      f: d => 0.0008 + lobe(d, 40, 4, 0.35) + lobe(d, 320, 4, 0.35) + lobe(d, 140, 5, 0.5) + lobe(d, 220, 5, 0.5) + lobe(d, 90, 12, 4) + lobe(d, 270, 12, 4) + lobe(d, 180, 20, 0.15),
+      note: 'Shaping does not delete energy — it <b>redirects</b> it. The frontal sector is scrubbed to almost nothing, but the energy reappears as a few <b>narrow spikes</b> off the planform edges, and the beam aspect is still far from invisible.' },
+  };
+  let cur = 'conv', aspect = 0;
+  const btns = {};
+  Object.entries(SIGS).forEach(([k, v]) => { const b = el('button', { class: 'wx-tab', onclick: () => { cur = k; sync(); } }, v.name); btns[k] = b; row.appendChild(b); });
+  const sA = slider('Your aspect to him (°)', 0, 359, 1, aspect, v => { aspect = v; draw(); });
+  ctr.appendChild(sA.row);
+  function sync() { Object.entries(btns).forEach(([k, b]) => b.classList.toggle('on', k === cur)); draw(); }
+
+  const DBMIN = -35, DBMAX = 22;
+  const toDb = s => 10 * Math.log10(Math.max(s, 1e-6));
+  function draw() {
+    const w = _V.w, h = _V.h, cx = w / 2, cy = h / 2 + 4;
+    // clamp: a narrow first-mount measurement must never produce a negative radius
+    const R0 = Math.max(24, Math.min(w, h) / 2 - 40);
+    g.clearRect(0, 0, w, h);
+    const rOf = db => Math.max(1, R0 * Math.max(0.04, (Math.min(Math.max(db, DBMIN), DBMAX) - DBMIN) / (DBMAX - DBMIN)));
+    // rings (dBsm)
+    g.font = '8px "JetBrains Mono"';
+    for (let db = -30; db <= 20; db += 10) {
+      const r = rOf(db);
+      g.strokeStyle = 'rgba(78,128,178,0.16)'; g.lineWidth = 1;
+      g.beginPath(); g.arc(cx, cy, r, 0, 7); g.stroke();
+      g.fillStyle = COL.faint; g.fillText(db + ' dBsm', cx + 3, cy - r - 2);
+    }
+    // spokes + aspect labels (0 = nose, drawn up)
+    [[0, 'NOSE'], [90, 'BEAM'], [180, 'TAIL'], [270, 'BEAM']].forEach(([d, t]) => {
+      const a = (d - 90) * Math.PI / 180;
+      g.strokeStyle = 'rgba(78,128,178,0.2)'; g.beginPath(); g.moveTo(cx, cy);
+      g.lineTo(cx + R0 * Math.cos(a), cy + R0 * Math.sin(a)); g.stroke();
+      lbl(g, cx + (R0 + 20) * Math.cos(a), cy + (R0 + 20) * Math.sin(a) + 3, t, COL.dim, 'center', 8.5);
+    });
+    // the signature curve
+    const S = SIGS[cur];
+    g.beginPath();
+    for (let d = 0; d <= 360; d += 1) {
+      const a = (d - 90) * Math.PI / 180, r = rOf(toDb(S.f(d)));
+      const x = cx + r * Math.cos(a), y = cy + r * Math.sin(a);
+      d ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.closePath();
+    g.fillStyle = cur === 'vlo' ? 'rgba(34,255,156,0.13)' : 'rgba(255,176,0,0.13)';
+    g.fill(); g.strokeStyle = S.col; g.lineWidth = 2; g.stroke();
+    // jet silhouette at centre, nose up
+    drawJet(g, cx, cy, 0, COL.ink, '');
+    // current-aspect marker
+    const sig = S.f(aspect), a = (aspect - 90) * Math.PI / 180, r = rOf(toDb(sig));
+    g.strokeStyle = COL.red; g.setLineDash([3, 3]); g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + R0 * Math.cos(a), cy + R0 * Math.sin(a)); g.stroke(); g.setLineDash([]);
+    g.fillStyle = COL.red; g.beginPath(); g.arc(cx + r * Math.cos(a), cy + r * Math.sin(a), 4.5, 0, 7); g.fill();
+    // readout: σ at this aspect + what the 4th root does to detection range
+    const nose = S.f(0), ratio = Math.pow(sig / nose, 0.25);
+    read.innerHTML =
+      `<div class="wx-line">At <b>${aspect}°</b> aspect: σ = <b style="color:${S.col}">${sig < 0.01 ? sig.toExponential(1) : R(sig, 2)} m²</b> ` +
+      `(<b>${R(toDb(sig), 1)} dBsm</b>) — detection range <b style="color:${COL.red}">${R(ratio, 2)}×</b> what it is nose-on.</div>` +
+      `<div class="wx-hint">${S.note} This is why a single quoted RCS figure is nearly meaningless: the number in the brochure is almost always the <b>nose-on</b> value, the one the designer worked hardest on. Swing to the <b>beam</b> and σ can jump by a factor of a hundred — and because detection range goes as σ<sup>¼</sup>, even that only multiplies range by about 3. The same fourth root that protects the stealth designer also limits how much the defender gains from catching you side-on. <i>(Shapes here are representative teaching models, not measured signatures — real ones are classified, frequency-dependent and far spikier.)</i></div>`;
+  }
+  _V.redraw = draw; sync();
   return () => {};
 });

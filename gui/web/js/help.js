@@ -118,10 +118,33 @@ export const HELP_SECTIONS = [
       Modern doctrine fires BVR shots from TWS precisely to deny the defender that scream: often the
       first warning is the missile's own seeker at pitbull ("<b>MADDOG/HUSKY</b> surprise").</p>
       <h3>The radar equation — and why stealth wins arguments</h3>
-      <p class="eq">R<sub>detect</sub> ∝ ( P<sub>t</sub> · G² · λ² · σ )<sup>¼</sup></p>
-      <p>Every term under a fourth root. Sweep power and RCS below and watch how little raw power
-      buys — and how catastrophically RCS reduction collapses detection range:</p>
+      <p>This one equation governs who sees whom first, so it is worth building rather than quoting.
+      Step through the two-way journey the energy actually makes — each click adds one physical idea
+      and one factor to the formula:</p>
+      <div class="wx" data-widget="radarderive"></div>
+      <h4>Every term, and what it costs you</h4>
+      <p class="eq">P<sub>r</sub> = P<sub>t</sub> · G² · λ² · σ / ( (4π)³ · R⁴ ) &nbsp;&nbsp;⇒&nbsp;&nbsp;
+      R<sub>max</sub> = [ P<sub>t</sub> · G² · λ² · σ / ( (4π)³ · S<sub>min</sub> ) ]<sup>¼</sup></p>
+      <table class="range-table"><thead><tr><th>Term</th><th>Units</th><th>What it is — and the engineering reality</th></tr></thead><tbody>
+      <tr><td><b>P<sub>t</sub></b> — transmit power</td><td>W</td><td>Peak power out of the transmitter. The obvious knob, and the weakest: it sits under the fourth root, so <b>16× the power doubles your range</b>. Also the one that makes you loudest to his <a data-goto="rwr">RWR</a>.</td></tr>
+      <tr><td><b>G</b> — antenna gain</td><td>dimensionless</td><td>How much the antenna concentrates energy into a beam versus radiating equally in all directions. It appears <b>squared</b> because you get it twice: focusing on transmit and collecting on receive. Bigger array or higher frequency ⇒ more gain, narrower beam, less search volume per second.</td></tr>
+      <tr><td><b>λ</b> — wavelength</td><td>m</td><td>Sets antenna physics: effective aperture A<sub>e</sub> = Gλ²/4π. Short λ (X-band) gives fine resolution and small antennas — ideal in a fighter nose. Long λ (VHF/UHF) gives coarse tracking but is far <b>harder to hide from</b>, because shaping and coatings are tuned to specific wavelengths. That is the whole counter-stealth argument.</td></tr>
+      <tr><td><b>σ</b> — radar cross-section</td><td><b>m²</b></td><td>Everything about the target — size, shape, material, aspect — collapsed into one equivalent area. Formally: the area of a perfect isotropic scatterer that would return the same echo. Being an <b>area, σ is always positive</b>; it is <i>not</i> the jet's physical size, and it swings by orders of magnitude with aspect and band (see the polar plot below).</td></tr>
+      <tr><td><b>R</b> — range</td><td>m</td><td>The killer. Out-and-back spreading means the echo falls as <b>1/R⁴</b>: double the range, one-sixteenth the signal.</td></tr>
+      <tr><td><b>S<sub>min</sub></b> — min detectable signal</td><td>W</td><td>The receiver's noise floor and processing threshold. Lower it (better receivers, longer integration, pulse compression) and range grows — still only as the fourth root. This is where modern radars quietly win.</td></tr>
+      </tbody></table>
+      <p><b>Where the fourth root comes from:</b> power dies as R⁴, and range is what you get when you
+      invert that — so <i>every</i> design term is trapped under a ¼ exponent. This is the single most
+      important intuition in sensor warfare: <b>brute force barely moves range, and enormous effort
+      buys modest gains — which is exactly why attacking σ is worth billions.</b></p>
+      <p>Sweep power and RCS and watch it happen:</p>
       <div class="wx" data-widget="radareq"></div>
+      <h4>RCS is not one number</h4>
+      <p>The σ in that equation is a single value only for a single aspect and a single frequency. In
+      reality it is a wildly spiky function of the angle you are looking from — which is why the "brochure
+      RCS" is always the flattering nose-on figure. Spin the aspect and compare a conventional fighter
+      against a shaped design:</p>
+      <div class="wx" data-widget="rcsaspect"></div>
       <div class="workex">A search radar sees a clean 5 m² fighter at 85 km. Hang low-observable
       shaping on the threat and its RCS drops 1000× to 0.005 m². New detection range:
       <span class="m">85 × (0.001)<sup>¼</sup> ≈ 85 × 0.178 ≈ 15 km</span>. A <b>thousand-fold</b>

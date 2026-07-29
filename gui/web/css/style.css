@@ -666,3 +666,7 @@ body.learn-standalone #help-nav{width:290px}
   letter-spacing:2px;color:var(--blue);margin-bottom:6px}
 .workex .m{font-family:var(--font-mono);color:var(--ink);background:rgba(0,229,255,.07);
   padding:1px 5px;border-radius:3px;white-space:nowrap}
+
+/* sub-headings inside a Learn section (used for equation term breakdowns) */
+.help-body h4{font-family:var(--font-display);font-size:12px;font-weight:700;color:var(--amber);
+  letter-spacing:1.2px;margin:16px 0 7px;padding-bottom:4px;border-bottom:1px dashed var(--line)}
