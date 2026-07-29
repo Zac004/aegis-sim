@@ -302,7 +302,9 @@ export const HELP_SECTIONS = [
       for the aspect bands — see <a data-goto="brevity">the full brevity glossary</a>.</p>
       <p class="tip">Where this leads: aspect is the lever behind <a data-goto="defence">aspect defeat</a>
       (going beam/cold to beat a shot) and the <a data-goto="ew">Doppler notch</a>. Closure sets your
-      <a data-goto="mar">MAR and no-escape zone</a>.</p>`,
+      <a data-goto="mar">MAR and no-escape zone</a>.</p>
+      <div class="lore"><b>Why every beat has a name.</b> BVR combat was declared inevitable in the early 1960s — the F-4 Phantom entered service without an internal gun because <b>AIM-7 Sparrow</b> salvoes were expected to settle everything at radar range. Vietnam wrecked the script: rules of engagement demanded visual identification, dragging fights inside dogfight range, and crews under fire launched most Sparrows outside the missile's parameters. Kill rates collapsed to roughly one shot in ten, against test-range forecasts several times higher. The fix was not just better missiles — it was <b>choreography</b>: named phases, briefed commit criteria, disciplined <a data-goto="mar">abort ranges</a>. The commit–crank–pitbull litany in this section is the institutional memory of those losses, drilled until it runs faster than adrenaline.</div>
+      <div class="workex"><b>Worked example — what cranking buys in A-pole.</b> You launch at <span class="m">60 km</span>. The missile averages <span class="m">900 m/s</span> along the line of sight and the hot target adds <span class="m">300 m/s</span>, so missile–target range shrinks at <span class="m">1200 m/s</span>. The seeker goes pitbull at <span class="m">15 km</span>, so it must close <span class="m">60 − 15 = 45 km</span>, taking <span class="m">45 000 / 1200 = 37.5 s</span>. Fly straight and your own closure is <span class="m">300 + 300 = 600 m/s</span>: A-pole = <span class="m">60 − 0.6 × 37.5 = 37.5 km</span>. Crank 60° off instead and your closing component drops to <span class="m">300 × cos 60° = 150 m/s</span> (total closure <span class="m">450 m/s</span>): A-pole = <span class="m">60 − 0.45 × 37.5 ≈ 43.1 km</span>. One turn bought <span class="m">5.6 km</span> of extra separation at the moment the missile stopped needing you.</div>`,
   },
   {
     id: 'guidance', title: 'Guidance Laws — How a Missile Steers',
@@ -335,7 +337,8 @@ export const HELP_SECTIONS = [
       <p class="tip">Which laws loft? Only datalink-capable weapons flying APN or OGL midcourse —
       because a loft needs a <i>predicted intercept point</i> to fly toward. PN/CLOS home on the
       here-and-now and IR missiles have no datalink, so none of them loft. The sim enforces exactly
-      this. See the flight paths compared in <a data-goto="guidancelaws">Guidance Laws Compared</a>.</p>`,
+      this. See the flight paths compared in <a data-goto="guidancelaws">Guidance Laws Compared</a>.</p>
+      <div class="lore"><b>The mathematics came from space.</b> Proportional navigation is the old mariner's rule mechanised, but the laws above it — the <b>optimal</b> ones — were born in the guidance labs of the early space age. In <b>1960</b> Rudolf Kalman published a recursive filter for estimating a system's true state from noisy measurements; within a few years the same optimal-control mathematics was running in the Apollo guidance computer. Missile engineers recognised their own problem in it: given a noisy seeker, a moving target and a finite control budget, what steering <i>minimises</i> the miss? The answer is the <b>zero-effort miss</b> formulation — where you would miss by if nobody ever steered again — nulled with the least total effort. That is the <b>OGL</b> option in this simulator: PN is the sailor's instinct, OGL is the moon-shot's arithmetic pointed at a fighter.</div>`,
   },
   {
     id: 'guidancelaws', title: 'Guidance Laws Compared — Pursuit vs PN vs Beam-Riding',
@@ -368,7 +371,9 @@ export const HELP_SECTIONS = [
       <p class="tip">Play with <b>N</b> in the <a data-goto="guidance">PN sandbox</a> and feel the trade:
       higher N nulls the LOS rotation sooner (leads harder) but amplifies seeker noise into the command.
       The sim lets you fly all of PN / APN / OGL / CLOS on any missile — swap the guidance law and watch
-      the trajectory and G-load change.</p>`,
+      the trajectory and G-load change.</p>
+      <div class="lore"><b>PN before the computer.</b> Proportional navigation sounds like a job for a flight computer, but the missile that made it famous carried none. The trick was mechanical: mount the seeker optics on the rotor of a <b>gyroscope</b>. A spinning gyro resists being turned, so the torque required to keep it pointed at a drifting target is — by the physics of precession — directly proportional to the <b>line-of-sight rate</b>. The seeker therefore <i>measures</i> the exact quantity PN consumes, and the guidance law falls out of the hardware for free, with no computation at all. Generations of engineers have since added APN's target-acceleration term and OGL's optimal-control polish, but every one of them is still chasing the same number that a 1950s spinning mirror produced as a side effect of trying to stay still.</div>
+      <div class="workex"><b>Worked example — what PN actually commands.</b> A target cuts across the line of sight at <span class="m">v<sub>⊥</sub> = 300 m/s</span> at range <span class="m">R = 6 km</span>. The LOS rate is <span class="m">λ̇ = v<sub>⊥</sub>/R = 300 / 6000 = 0.05 rad/s</span> (≈ 2.9°/s). With closing velocity <span class="m">V<sub>c</sub> = 1200 m/s</span> and <span class="m">N = 4</span>, PN commands <span class="m">a = N·V<sub>c</sub>·λ̇ = 4 × 1200 × 0.05 = 240 m/s² ≈ 24.5 g</span>. Now let the same geometry close to <span class="m">R = 3 km</span>: λ̇ doubles to <span class="m">0.1 rad/s</span> and the command doubles to <span class="m">480 m/s² ≈ 49 g</span> — beyond what most airframes can pull. That is why a late-crossing target is so expensive, and why PN's whole strategy is to null λ̇ <i>early</i>, while the correction is still cheap.</div>`,
   },
   {
     id: 'midcourse', title: 'Midcourse, Datalink & the PIP',
@@ -394,7 +399,9 @@ export const HELP_SECTIONS = [
       kill probability drops; the classic mistake case). Compare all three and watch the miss
       distance move.</p>
       <p><b>SARH</b> (Sparrow, R-27R, big legacy SAMs) is the harsh version: the missile homes on
-      your radar's <i>reflection</i>, so you must illuminate to impact — no crank, no cold.</p>`,
+      your radar's <i>reflection</i>, so you must illuminate to impact — no crank, no cold.</p>
+      <div class="lore"><b>Why the datalink exists.</b> In Vietnam, the semi-active <b>AIM-7 Sparrow</b> scored roughly one kill per ten shots. Crews had to hold lock and illuminate to impact — nose-on, closing fast — while fragile 1960s electronics, tropical humidity and dogfight geometry ate the rest. The fix took two decades: give the missile its own <b>INS</b>, feed it <b>datalink</b> corrections in midcourse, and let an onboard <b>active seeker</b> close the deal so the shooter can crank away. That weapon is <b>AMRAAM</b>. After a long, nearly-cancelled development it entered service in 1991 and drew first blood on 27 December 1992: a USAF F-16 downed an Iraqi MiG-25 over the southern no-fly zone — the first air-to-air kill ever scored by a USAF F-16.</div>
+      <div class="workex"><b>Worked example — what the crank buys.</b> Head-on, both fighters at <span class="m">250 m/s</span>: closure is <span class="m">250 + 250 = 500 m/s</span>. Now crank <span class="m">50°</span> off the target — still inside a typical ±60° radar gimbal, so the datalink keeps feeding. Your closing component drops to <span class="m">250 × cos 50° ≈ 161 m/s</span>, total closure to <span class="m">161 + 250 = 411 m/s</span> — an 18% cut. Over a <span class="m">40 s</span> missile flight that is <span class="m">(500 − 411) × 40 ≈ 3,560 m</span> less closing: your <b>F-pole</b> — your range from the target at missile impact — grows by roughly 3.6 km, often the difference between standing inside or outside the bandit's return shot. Turn fully cold and closure falls to <span class="m">250 − 250 = 0</span> — but the link, and your Pk, go with it.</div>`,
   },
   {
     id: 'loft', title: 'Energy & the Loft',
@@ -421,7 +428,9 @@ export const HELP_SECTIONS = [
       <p class="tip">The Mach chart tells the whole story: boost spike → cruise decay → dive
       re-acceleration → the number that matters: <b>Mach at the merge</b>. A missile arriving below
       ~Mach 1.5 can't out-turn anyone. This is why the best defence is often simply making the shot
-      longer.</p>`,
+      longer.
+      <div class="lore"><b>Point Mugu, 1973 — the loft, proven.</b> To show the <b>AIM-54 Phoenix</b> could defend the fleet at absurd ranges, the US Navy fired one from an F-14 at a target drone about <b>110 nautical miles</b> away. The missile flew this page's profile exactly: pitch up, climb past <b>100,000 ft</b> where drag all but vanishes, cruise across the gap, then nose over and dive onto the drone — the longest air-to-air intercept publicly demonstrated at the time. The motor burned out long before the midpoint; everything after was pure <b>energy management</b> — altitude banked in the climb, cashed in the dive. Half a century on, AMRAAM, R-37M and <a data-goto="propulsion">Meteor</a> ride the same arc. The physics never expired.</div>
+      <div class="workex"><b>What the dive buys back.</b> A missile coasts over apogee at 20 km doing Mach 2.5 — sound speed there is <span class="m">≈295 m/s</span>, so <span class="m">v = 2.5 × 295 ≈ 737 m/s</span>. It noses over and trades 10 km of altitude for speed. Lossless exchange: <span class="m">v'² = v² + 2gΔh = 737² + 2 × 9.81 × 10,000 ≈ 543,200 + 196,200 = 739,400 m²/s²</span>, so <span class="m">v' ≈ 860 m/s</span>. At 10 km sound speed is <span class="m">≈299.5 m/s</span>, giving <span class="m">Mach ≈ 860 / 299.5 ≈ 2.87</span> — the dive returned about <span class="m">+123 m/s</span> without burning a gram of propellant. And the cruise leg was cheap to begin with: at 20 km, density is <span class="m">0.089 / 1.225 ≈ 7%</span> of sea level, so at the same true airspeed the missile pays roughly 7% of the drag a sea-level dash would.</div></p>`,
   },
   {
     id: 'propulsion', title: 'Propulsion — Boost-Sustain, Dual-Pulse, Ramjet',
@@ -453,7 +462,9 @@ export const HELP_SECTIONS = [
       <p>Every number is editable in the Forge: thrusts, burn times, grain masses, Isp, pulse-2
       ignition time, ramjet fuel/cruise-Mach/flame-out limit. The library's motors are built
       impulse-consistent: thrust-curve area = propellant × Isp × g₀, and propellant always equals
-      launch mass − empty mass. See the cutaways in <a data-goto="motors">Rocket Motors Up Close</a>.</p>`,
+      launch mass − empty mass. See the cutaways in <a data-goto="motors">Rocket Motors Up Close</a>.</p>
+      <div class="lore"><b>The ramjet gamble.</b> In 2000 Britain had to choose its next BVR missile. Raytheon offered an evolved AMRAAM — proven solid rocket, low risk. A six-nation European team offered <b>Meteor</b>, built around a throttleable <b>ducted rocket</b> that had never powered an operational air-to-air missile. The physics case was seductive: a solid spends its energy in seconds and then coasts; an air-breather sips oxidizer from the atmosphere and arrives at the merge still under power. Britain took the gamble — and paid in time: Meteor didn't reach operational service until 2016, on Swedish Gripens, sixteen years after selection. The payoff was the cruise-then-sprint energy management that makes Meteor the no-escape-zone benchmark every other AAM is measured against. Sometimes the harder motor is the right motor.</div>
+      <div class="workex"><b>Worked example — the impulse budget of a boost-sustain motor.</b> An AMRAAM-class motor carries <span class="m">50 kg</span> of propellant at <span class="m">Isp = 235 s</span>. Total impulse: <span class="m">50 × 235 × 9.81 ≈ 115,270 N·s</span>. Spend <span class="m">22 kN × 3 s = 66,000 N·s</span> on the boost, and the sustain grain inherits the remainder: <span class="m">115,270 − 66,000 = 49,270 N·s</span> — which at <span class="m">5 kN</span> buys <span class="m">49,270 / 5,000 ≈ 9.9 s</span> of sustain. The ideal drag-free speed gain, launching at <span class="m">152 kg</span> and burning down to <span class="m">102 kg</span>: <span class="m">Δv = 235 × 9.81 × ln(152/102) ≈ 2,305 × 0.399 ≈ 920 m/s</span> — roughly +3 Mach at high altitude, before drag takes its cut. This is exactly the thrust-curve-area = propellant × Isp × g₀ bookkeeping the Forge enforces.</div>`,
   },
   {
     id: 'motors', title: 'Rocket Motors Up Close — Grains, Bulkheads & Intakes',
@@ -484,7 +495,9 @@ export const HELP_SECTIONS = [
         flames out for good if it decelerates below its minimum Mach.</li>
       </ul>
       <p class="tip">Fire a PL-15 (dual-pulse) and a Meteor (ramjet) in the sim and find the second
-      hump / the sustained plateau on the Mach chart — the hardware in these cutaways, made real.</p>`,
+      hump / the sustained plateau on the Mach chart — the hardware in these cutaways, made real.</p>
+      <div class="lore"><b>The ramjet's combat debut, 1973.</b> The Soviet <b>2K12 Kub</b> (NATO: <b>SA-6 Gainful</b>) was built exactly like the cutaway above: a solid booster burned first, then its emptied casing became the <b>ramjet combustor</b>, with four <b>intakes</b> feeding it air the rest of the way. When Egypt and Syria unleashed it in the October 1973 Yom Kippur War, Israeli pilots met a missile that was <i>still under power</i> when it arrived — no coast phase to out-turn — and the radar warning receivers of the day gave little or no alert. Losses in the opening days were brutal, and diving away from the Kub dropped jets straight into ZSU-23-4 gun range. The lesson has held for fifty years: sustained thrust in the endgame, not peak speed, is what shrinks a <a data-goto="defence">defence</a> — the same logic that produced Meteor.</div>
+      <div class="workex"><b>Worked example — why air-breathing wins on fuel.</b> Total impulse = propellant mass × g₀ × I<sub>sp</sub>. Give two missiles the same <span class="m">100 kg</span> of propellant. A solid rocket at a textbook <span class="m">I<sub>sp</sub> ≈ 250 s</span>: <span class="m">100 × 9.81 × 250 = 245,250 N·s ≈ 245 kN·s</span>. A ramjet at a textbook <span class="m">I<sub>sp</sub> ≈ 1000 s</span> (class figure — the oxidiser comes free from the atmosphere): <span class="m">100 × 9.81 × 1000 = 981,000 N·s ≈ 981 kN·s</span> — four times the impulse from the same tank. Now spend it the way the hardware does: the rocket dumps its impulse in ~10 s of boost (<span class="m">245,250 / 10 ≈ 24.5 kN</span> of brute thrust), while the ramjet meters its out over ~200 s (<span class="m">981,000 / 200 ≈ 4.9 kN</span>) — modest thrust that never stops. That is the arithmetic behind "still under power at the merge".</div>`,
   },
   {
     id: 'fuzing', title: 'Warheads & Fuzing — How the Kill Actually Happens',
@@ -513,7 +526,9 @@ export const HELP_SECTIONS = [
       </ul>
       <p class="tip">Doctrine note: a missile that misses by 30 m produced a <b>defeat</b>, not a
       malfunction. Almost every "missile defeated" story is geometry + energy + fuzing conspiring —
-      exactly the three things every defensive move in this academy attacks.</p>`,
+      exactly the three things every defensive move in this academy attacks.</p>
+      <div class="lore"><b>The shell that thinks — the VT fuze, 1943.</b> The proximity fuze began as a WWII artillery project: a complete <b>radio Doppler sensor</b> squeezed into a shell nose, its vacuum tubes built to survive gun launch at roughly <b>20,000 g</b> while spinning hundreds of times per second. The Allies guarded it like the atomic bomb — for most of the war it was fired only <b>over water</b>, so no dud could be picked apart on enemy soil. It drew first blood in January 1943, when the cruiser <b>USS Helena</b> downed a Japanese dive bomber near Guadalcanal. In summer 1944, VT-fuzed guns slaved to radar-directed predictors gutted the <b>V-1</b> streams over southern England; that December, cleared at last for land use, airbursts over the Ardennes caught German infantry in the open. Every proximity fuze in this sim is that shell's descendant.</div>
+      <div class="workex"><b>Worked example — why the fuze must aim ahead.</b> Take a near-head-on intercept: closure <span class="m">V<sub>c</sub> = 1,500 m/s</span>, miss distance <span class="m">10 m</span>, fragment velocity <span class="m">V<sub>f</sub> = 2,000 m/s</span>. Fragment fly-out time to the target's track: <span class="m">10 / 2,000 = 5 ms</span>. In those 5 ms the geometry keeps moving: <span class="m">1,500 m/s × 0.005 s = 7.5 m</span> of closure. Detonate exactly at closest approach and the frag ring arrives 7.5 m behind a target that has already passed — so the fuze fires early and skews the pattern forward along the crossing line. And the whole decision must fit inside the lethal-zone transit: a 20 m lethal diameter sweeps past in <span class="m">20 / 1,500 ≈ 13 ms</span>. No human reflex lives at this timescale — which is why the fuze, not the pilot, makes the call.</div>`,
   },
   {
     id: 'battery', title: 'Batteries, Flight Time & Hard Limits',
@@ -536,7 +551,9 @@ export const HELP_SECTIONS = [
       </ul>
       <p class="tip">Watch a max-range shot's log: motor burnout in the first seconds, then a
       minutes-long unpowered glide managed entirely by the loft — the battery quietly ticking away
-      the whole time. Long-range missiles are mostly <i>gliders with excellent brains</i>.</p>`,
+      the whole time. Long-range missiles are mostly <i>gliders with excellent brains</i>.</p>
+      <div class="lore"><b>Born on the V-2.</b> The <b>thermal battery</b> is German wartime engineering: chemist <b>Georg Otto Erb</b> built cells whose salt electrolyte sits as a solid, inert lump at room temperature — chemically asleep, effectively unable to self-discharge. Fire a pyrotechnic charge, the salt melts, and full power arrives in a fraction of a second. The <b>V-2</b> rocket carried the idea to war; Allied technical intelligence carried it home after the war, and the US applied it first to artillery <b>proximity fuzes</b>, then to nearly every guided missile since. The genius is the storage problem it solves: a round can hang on a rail for two decades through desert heat and deck frost, then wake at launch with fresh, full-voltage power — exactly once. When the melt refreezes, the fins freeze with it.</div>
+      <div class="workex"><b>Worked example — the battery clock vs the chase.</b> Same missile, same launch range, two geometries. Say the missile averages <span class="m">900 m/s</span> over its whole flight, the battery lasts <span class="m">100 s</span>, and you fire at <span class="m">60 km</span>.<br><b>Hot target</b> (head-on at <span class="m">300 m/s</span>): closure is <span class="m">900 + 300 = 1200 m/s</span>, so time to intercept is <span class="m">60,000 / 1200 = 50 s</span> — half the battery still alive at impact.<br><b>Cold target</b> (running at <span class="m">300 m/s</span>): closure drops to <span class="m">900 - 300 = 600 m/s</span>, so <span class="m">60,000 / 600 = 100 s</span> — the intercept lands exactly as the electricity runs out. Any extra drag, any lofted detour, any target acceleration, and the log prints the ballistic message short of the merge. Aspect doesn't just change Pk — it decides whether the battery outlives the flight.</div>`,
   },
   {
     id: 'seeker', title: 'Seekers & Sensors',
@@ -559,7 +576,8 @@ export const HELP_SECTIONS = [
       <b>gimbal limit</b> (look-angle before track physically breaks — this is what the notch
       exploits when combined with Doppler), <b>FOV</b>, <b>track bandwidth</b> (agile tracking vs
       noise), <b>angle noise</b> (why terminal G wiggles and misses cluster at a few metres),
-      <b>jam susceptibility</b>, <b>burn-through range</b>, and <b>frequency band</b>.</p>`,
+      <b>jam susceptibility</b>, <b>burn-through range</b>, and <b>frequency band</b>.</p>
+      <div class="lore"><b>The missile pilots begged to remove.</b> In 1967 USAF F-4Ds went to war over North Vietnam carrying the <b>AIM-4 Falcon</b> instead of the Sidewinder, and the seeker design nearly ended careers. Its cooled detector ran on a small charge of coolant: the pilot had to cool the seeker <i>before</i> firing, the supply lasted only a couple of minutes, and once exhausted the missiles were inert lumps for the rest of the sortie — a dogfight timer no pilot wanted. Worse, the Falcon had no <a data-goto="fuzing">proximity fuze</a>: it had to physically strike the target to detonate. Colonel <b>Robin Olds</b>, the 8th Tactical Fighter Wing commander and one of the war's great fighter leaders, loathed it and had his wing's jets rewired to carry Sidewinders again. The lesson is baked into every seeker page in this guide: a seeker is not a spec sheet, it is a <b>contract with the pilot</b> about when, and for how long, it will actually work.</div>`,
   },
   {
     id: 'seekertrack', title: 'Seeker Tracking Logic — The Gimbal Loop & IR Scan Types',
@@ -589,7 +607,8 @@ export const HELP_SECTIONS = [
       <p>The march from <b>spin-scan</b> (brightest wins → easily flared) through con-scan and rosette to
       an <b>imaging focal-plane array</b> (sees the target's shape) is exactly the <code>ir → iir</code>
       jump in this sim's seeker models, and why modern <a data-goto="cm">countermeasures</a> need
-      pre-emptive programs, kinematics and DIRCM, not just hot flares.</p>`,
+      pre-emptive programs, kinematics and DIRCM, not just hot flares.</p>
+      <div class="lore"><b>The day the rear hemisphere stopped mattering.</b> Early heat-seekers could only smell a hot tailpipe, so a shooter had to fight his way into a narrow cone behind the target — the whole reason classic dogfighting was about getting to someone's six. Cooled seekers changed the geometry: chill the detector and it becomes sensitive enough to see the dimmer, cooler glow of an airframe head-on. The <b>Falklands, 1982</b>, was the public proof. RAF and Royal Navy <b>Sea Harriers</b> carried the all-aspect <b>AIM-9L</b> and could shoot from angles no previous Sidewinder could use; the missile accounted for the great majority of their air-to-air kills at a hit rate several times what Vietnam-era rear-aspect rounds had managed. Argentine pilots, flying faster jets, found there was no longer a safe hemisphere. Every modern <a data-goto="wvr">merge</a> assumption dates from that shift.</div>`,
   },
   {
     id: 'ew', title: 'Jamming — The Full Taxonomy',
@@ -651,7 +670,8 @@ export const HELP_SECTIONS = [
       <p class="tip">In the sim: ECM raises the seeker's break-lock probability until
       <b>burn-through</b> range (editable per seeker), and a jam-degraded track means wilder guidance
       noise — script ECM in ④ Red Forces and watch the terminal G-trace roughen exactly the way the
-      physics says it should.</p>`,
+      physics says it should.</p>
+      <div class="lore"><b>The Battle of the Beams, 1940.</b> Electronic warfare was invented before radar jamming existed, to fight <i>navigation</i>. British scientific intelligence, led by the young physicist <b>R. V. Jones</b>, deduced that Luftwaffe bombers were flying down intersecting radio beams — <b>Knickebein</b>, later the finer <b>X-Ger&auml;t</b> — to find English cities in cloud and darkness. The counter was not brute force but deception: Britain re-radiated and bent the beams so crews believed they were on track while drifting off it, and bombs fell on empty fields. Germany kept refining; Britain kept spoofing. Every principle in this section was already present in that duel — <b>detect the emission, understand the waveform, then lie to it convincingly</b> rather than merely shout over it. Noise jamming is the crude cousin; deception has always been the deadly one.</div>`,
   },
   {
     id: 'cm', title: 'Countermeasures — Chaff, Flares, Decoys & the Physics of Fooling',
@@ -697,7 +717,8 @@ export const HELP_SECTIONS = [
         chaff without the notch, or flares without the break, just decorate your shoot-down. Every
         canned defence in ④ Red Forces pairs a maneuver with the matching expendable for exactly this
         reason.</li>
-      </ul>`,
+      </ul>
+      <div class="lore"><b>The flare became standard because the threat became portable.</b> Chaff was a strategic-bomber problem; flares became everyone's problem when infrared <b>MANPADS</b> arrived. The Soviet <b>9K32 Strela-2</b> (NATO: SA-7 Grail) — a shoulder-launched IR missile a single soldier could carry — appeared in Vietnam in 1972 and in large numbers in the 1973 Yom Kippur War, and suddenly any aircraft flying low over hostile ground was under threat from an infantryman. The response fitted flare dispensers to practically everything that flies, from fighters to airliners in some fleets. The seekers then learned to reject the counter — rise-time discrimination, two-colour ratios, imaging — and the flares answered with spectrally-tailored and kinematically-matched decoys, then <b>DIRCM</b> laser turrets that dazzle the seeker directly. That ladder has been climbing for fifty years and shows no sign of stopping.</div>`,
   },
   {
     id: 'defence', title: 'Aspect Defeat — The NATO Defensive Playbook',
@@ -751,7 +772,9 @@ export const HELP_SECTIONS = [
       <p class="tip">Sustained G above ~5.5 bleeds the target's airspeed second by second (the sim
       models it) — a defender who breaks too early arrives at the endgame slow and out of options.
       Timing beats effort. And note the counters: a look-<b>down</b> shooter separates you from ground
-      clutter, so the notch is far less reliable when he's above you.</p>`,
+      clutter, so the notch is far less reliable when he's above you.</p>
+      <div class="lore"><b>The SAM break, learned the hard way.</b> When SA-2s began killing aircraft over North Vietnam in 1965, crews discovered something the engineers already knew: a huge, fast missile is a poor turner. The <b>S-75</b> flew far quicker than any fighter but pulled only a handful of G, and its guidance had to solve an ever-worsening geometry as range collapsed. So pilots were taught to <i>watch the telephone pole</i> — track it visually, hold the nerve, and at the last moment break hard into and under it, forcing a turn the missile could not physically make. Break too early and it simply re-corrected; break too late and nothing helped. That is the entire logic of the <b>last-ditch break</b> in this section: you are not out-running the missile, you are spending its remaining turn budget at the instant it has the least left.</div>
+      <div class="workex"><b>Why late beats early.</b> A missile closing at <span class="m">V<sub>c</sub> = 1000 m/s</span> that can pull <span class="m">20 g</span> needs lateral room to correct. Its achievable sideways displacement in the last <span class="m">t</span> seconds is roughly <span class="m">&frac12;at&sup2; = &frac12; &times; 196 &times; t&sup2;</span>. Break <span class="m">8 s</span> out and it can still shift <span class="m">&asymp;6300 m</span> &mdash; your turn is irrelevant. Break at <span class="m">2 s</span> and it can only manage <span class="m">&asymp;390 m</span>; at <span class="m">1 s</span>, <span class="m">&asymp;98 m</span>. Your jink only has to exceed what is left of <i>that</i> budget, which is why the break is timed in seconds-to-impact, never in kilometres.</div>`,
   },
   {
     id: 'mar', title: 'MAR, No-Escape Zone & Recommit — the Tactical-AI',
@@ -783,7 +806,9 @@ export const HELP_SECTIONS = [
       <p class="tip">Rule-of-thumb doctrine the sim reproduces: NEZ ≈ 30–50% of max kinematic range;
       MAR grows with your altitude <i>and</i> the shooter's; going low before the merge shrinks the
       threat's reach but costs you your own missile's reach identically. The one instinct to build:
-      <b>know your MAR before the merge and honor it</b> — most BVR deaths are late aborts. Next: <a data-goto="brevity">the timeline &amp; brevity</a> that turns MAR into a radio call, and <a data-goto="defence">aspect defeat</a> for when you're committed.</p>`,
+      <b>know your MAR before the merge and honor it</b> — most BVR deaths are late aborts. Next: <a data-goto="brevity">the timeline &amp; brevity</a> that turns MAR into a radio call, and <a data-goto="defence">aspect defeat</a> for when you're committed.</p>
+      <div class="lore"><b>Badme front, February 1999.</b> The Eritrea–Ethiopia war put <b>MiG-29s</b> and <b>Su-27s</b> against each other in combat for the first time — and produced the cleanest field demonstration of the <b>No-Escape Zone</b> on record. Open-source accounts count roughly two dozen <b>R-27</b> shots exchanged, with not a single confirmed kill. Nearly every launch went out near maximum range against aware, maneuvering targets; the defenders turned cold and dragged the missiles to energy death, exactly as the abort math says they must. The kills that did come arrived only after the fights collapsed to visual range — short-range, heat-seeking <b>R-73s</b>, fired deep inside anyone's no-escape zone. A shot taken outside the NEZ is a suggestion, not a sentence — provided you know your <a data-goto="brevity">timeline</a>, honor MAR, and go cold in time.</div>
+      <div class="workex"><b>Worked example — why the cold turn works.</b> Say the Tactical Brief credits a threat missile with a maximum kinematic reach of <span class="m">Rmax = 80 km</span> head-on at your altitude. The rule of thumb puts the NEZ at 30–50% of that: <span class="m">0.30 × 80 = 24 km</span> to <span class="m">0.50 × 80 = 40 km</span>. He launches at <span class="m">55 km</span> — outside even the pessimistic NEZ. Head-on, with you at <span class="m">300 m/s</span> and the missile averaging <span class="m">900 m/s</span>, closure is <span class="m">900 + 300 = 1200 m/s</span>, so it arrives in <span class="m">55,000 / 1200 ≈ 46 s</span>. Turn cold and closure collapses to <span class="m">900 − 300 = 600 m/s</span>: now it needs <span class="m">55,000 / 600 ≈ 92 s</span> of flight — exactly double. And the constant-speed assumption flatters the missile: its real average speed decays as the tail-chase drags on, stretching that even further. Somewhere in the second minute it goes energy-dead — the moment the brief prints as your recommit time.</div>`,
   },
   {
     id: 'brevity', title: 'The BVR Timeline & Brevity — Skate, Banzai, Fox Three',
@@ -813,8 +838,11 @@ export const HELP_SECTIONS = [
       <ul>
         <li><b>FOX ONE / TWO / THREE</b> — launched SARH / IR / active-radar missile. "Fox three, two
         away" = two ARH shots flying.</li>
-        <li><b>PITBULL / HUSKY</b> — your missile's seeker is active (it no longer needs you). In this
-        sim: the diamond on the map and the A-pole moment.</li>
+        <li><b>PITBULL</b> — your missile's seeker has gone active and it no longer needs you: the
+        moment you are free to turn. In this sim: the diamond on the map and the A-pole moment.
+        (Strictly, <b>HUSKY</b> is the earlier call — the missile is approaching active range and can
+        still benefit from support — while <b>PITBULL</b> is true autonomy. This guide mostly uses
+        PITBULL for the whole handover.)</li>
         <li><b>CRANK</b> — post-launch gimbal-limit turn (keep guiding, open range). <b>NOTCH</b> —
         defensive beam. <b>PUMP</b> — brief cold turn to reset spacing, then re-commit on plan.
         <b>ABORT / OUT</b> — terminate the intercept, go cold for real.</li>
@@ -826,7 +854,9 @@ export const HELP_SECTIONS = [
       <p class="tip">Fly a SKATE in the sim: fire at your computed Rmax·0.9, then script the shooter
       support to crank, and the <i>target's</i> timeline to go cold at its own MAR. The Tactical
       Brief's numbers (Rmax, MAR, recommit) are exactly the briefed decision ranges of this section —
-      that's the point of them.</p>`,
+      that's the point of them.</p>
+      <div class="lore"><b>Where brevity was born.</b> In the summer of 1940, RAF Fighter Command fought the Battle of Britain through the <b>Dowding system</b>: <b>Chain Home</b> radar and Observer Corps plots flowed into filter rooms, and sector controllers steered squadrons onto raids by voice radio. A crowded, crackling net forced a compressed vocabulary — <b>"angels"</b> for altitude in thousands of feet, <b>"bandits"</b> for hostiles, <b>"vector"</b> for a steer, <b>"buster"</b> for full throttle, <b>"tally-ho"</b> when the enemy was sighted, <b>"pancake"</b> to come home and land. Every code word replaced a sentence, and the seconds saved let one controller run several squadrons at once — ground-controlled interception at scale. Today's multiservice brevity list, SKATE and PITBULL included, is that vocabulary's direct descendant: a pre-briefed shared language so the radio carries decisions, not descriptions.</div>
+      <div class="workex"><b>Why one word, not a sentence.</b> Two fighters run at each other, each at about <span class="m">350 m/s</span> (roughly Mach 1.15 at altitude), so closure is <span class="m">2 × 350 = 700 m/s</span>. From commit at <span class="m">60 km</span> to MAR at <span class="m">20 km</span> the fight crosses <span class="m">40 km</span>: <span class="m">40,000 m ÷ 700 m/s ≈ 57 s</span>. In under a minute the flight must sort, shoot, crank, judge pitbull, and make the abort-or-press call — and each <span class="m">10 km</span> bracket of the timeline lasts only <span class="m">10,000 ÷ 700 ≈ 14 s</span>. A full sentence on a shared net costs several of those seconds; "SKATE" costs about one. That ratio is the whole argument for brevity.</div>`,
   },
   {
     id: 'wvr', title: 'The WVR Arena — Energy, Angles & the Merge',
@@ -835,21 +865,30 @@ export const HELP_SECTIONS = [
       rules here: turn <b>rate</b>, turn <b>radius</b>, and the energy to keep buying them.</p>
       <h3>Corner velocity — the one number of dogfighting</h3>
       <p>Turn rate ω = g·√(n²−1)/V and radius R = V²/(g·√(n²−1)). Slow down and you can't pull max G
-      (lift-limited); speed up and the radius balloons with V². The sweet spot — max G at the lowest
-      speed that sustains it — is <b>corner velocity</b>. Sweep it yourself:</p>
+      (lift-limited); speed up and the radius balloons with V². The sweet spot — the lowest speed at
+      which you can still <i>reach</i> max G — is <b>corner velocity</b>. (Reach, not sustain: at corner
+      most fighters are bleeding energy hard, which is why a corner-speed fight has a clock on it.)
+      Sweep it yourself:</p>
       <div class="wx" data-widget="doghouse"></div>
       <h3>The classic fights</h3>
       <ul>
-        <li><b>One-circle vs two-circle</b> — turn <i>toward</i> the passing bandit (one circle:
-        radius fight, favours the tighter turner and HOBS weapons) or <i>away</i> (two circle: rate
-        fight, favours rate and energy). The choice is made in the first second of the merge.</li>
+        <li><b>One-circle vs two-circle</b> — this is decided by <i>both</i> pilots, not one: if the
+        two fighters turn in <b>opposite</b> directions after the pass they share a single circle
+        (<b>one-circle</b>: a radius fight, favouring the tighter turner and HOBS weapons); if they
+        turn the <b>same</b> way they carve two circles (<b>two-circle</b>: a rate fight, favouring
+        nose authority and energy). Each pilot picks in the first second of the merge, and the
+        <i>combination</i> sets the flow — which is why reading his turn matters as much as choosing
+        yours.</li>
         <li><b>Energy vs angles</b> — the energy fighter keeps speed/altitude and makes the angles
         fighter bleed dry chasing snapshots; the angles fighter bets on getting the nose (or helmet)
         on first. Sustained G above ~5.5 bleeds speed every second — the sim models exactly this
         bleed on the target.</li>
         <li><b>The vertical</b> — trading altitude for turn performance (and back) is the third
-        dimension amateurs forget: an Immelmann/Split-S resets a losing geometry using gravity as a
-        motor.</li>
+        dimension amateurs forget. The two halves are opposites: a <b>Split-S</b> spends altitude to
+        <i>buy</i> speed and tightens the turn with gravity pulling the nose down; an <b>Immelmann</b>
+        spends speed to <i>buy</i> altitude, banking energy for later at the cost of being slow at the
+        top. Gravity is a motor going down and a tax going up — which one you can afford is an energy
+        decision, not a preference.</li>
       </ul>
       <h3>HOBS changed the arithmetic</h3>
       <p>With helmet-cued 90°+ off-boresight missiles (AIM-9X, R-73, PL-10, IRIS-T) both fighters can
@@ -857,7 +896,9 @@ export const HELP_SECTIONS = [
       lotteries. Modern doctrine follows: <b>win BVR, don't donate a merge</b>; if merged, fight for
       the first HOBS shot and deny his (keep him out of your rear hemisphere <i>and</i> his helmet
       off you). Try it: set up a 5 km, 90°-aspect merge in the sim with an AIM-9X vs a flare-dropping,
-      jinking target.</p>`,
+      jinking target.</p>
+      <div class="lore"><b>The Archer shock.</b> When Germany reunified in 1990, the Luftwaffe inherited East German MiG-29s — and with them the <b>R-73 "Archer"</b> and its helmet-mounted sight. Flying dissimilar combat from Laage, <b>JG 73</b> pilots simply looked at NATO jets and shot them: in merge after merge, Western fighters with better radars and cockpits lost the WVR fight to a missile cued far off boresight. The West had shelved its own agile-missile and helmet-sight work (AIM-95 Agile, VTAS) in the 1970s as luxuries. Laage reversed the verdict: the direct answers were <b>AIM-9X</b> with the JHMCS helmet and the German-led <b>IRIS-T</b>. The doctrinal lesson became orthodoxy — against a HOBS shooter the merge is a coin flip, so <a data-goto="modern">win before it</a>.</div>
+      <div class="workex"><b>Worked example — the corner-velocity arithmetic.</b> A fighter pulls its limit of <span class="m">n = 7.5 G</span>. The load-factor term is <span class="m">√(n² − 1) = √55.25 ≈ 7.43</span>, giving <span class="m">g·√(n² − 1) ≈ 9.81 × 7.43 ≈ 72.9 m/s²</span> of turning acceleration. At <span class="m">V = 150 m/s</span>: rate <span class="m">ω = 72.9 / 150 ≈ 0.486 rad/s ≈ 27.9°/s</span>, radius <span class="m">R = 150² / 72.9 ≈ 309 m</span>. At <span class="m">V = 300 m/s</span> and the same G: <span class="m">ω ≈ 13.9°/s</span>, <span class="m">R ≈ 1,234 m</span>. Doubling speed at fixed G halves the rate and quadruples the circle — a 180° reversal takes <span class="m">≈ 6.5 s</span> slow versus <span class="m">≈ 12.9 s</span> fast. That asymmetry is the whole case for fighting at corner velocity.</div>`,
   },
   {
     id: 'horizon', title: 'Radar Horizon & the LRSAM Blind Spot',
@@ -883,7 +924,9 @@ export const HELP_SECTIONS = [
       </ul>
       <p class="tip">Terrain masking is the extreme case: fly a valley and even the horizon formula is
       optimistic — the ridge blocks you entirely. This is the whole basis of low-level penetration and
-      of why cruise missiles and strike jets hug the ground. This is the heart of <a data-goto="iadsnet">IADS &amp; SEAD</a>.</p>`,
+      of why cruise missiles and strike jets hug the ground. This is the heart of <a data-goto="iadsnet">IADS &amp; SEAD</a>.</p>
+      <div class="lore"><b>The first shots of Desert Storm were fired under the horizon.</b> The 1991 air campaign opened not with stealth bombers but with helicopters: <b>Task Force Normandy</b>, a joint flight of US Army <b>AH-64 Apaches</b> guided by Air Force special-operations helicopters, crossed into Iraq in the dark at extremely low level and destroyed two <b>early-warning radar</b> sites in the pre-dawn hours of <b>17 January 1991</b>. Flying under the radar horizon meant the sites never saw them coming; destroying those sites tore a corridor in Iraqi coverage through which the main strike packages flowed minutes later. It is the cleanest demonstration of this page's geometry ever staged: the curvature of the Earth is a weapon, and the side that plans around it writes the opening move.</div>
+      <div class="workex"><b>How low is low enough?</b> Radar line-of-sight is approximately <span class="m">R &asymp; 4.12 (&radic;h<sub>1</sub> + &radic;h<sub>2</sub>)</span> km with heights in metres. Against a <span class="m">30 m</span> mast: a jet at <span class="m">9000 m</span> is visible from <span class="m">4.12(94.9 + 5.5) &asymp; 414 km</span>. Drop that jet to <span class="m">60 m</span> and it is visible only from <span class="m">4.12(7.7 + 5.5) &asymp; 54 km</span>. Descending has cut the enemy's warning time by nearly <b>87%</b> — the same aircraft, the same radar, a completely different war.</div>`,
   },
   {
     id: 'iadsnet', title: 'IADS & SEAD — Layered Defence and How It\'s Broken',
@@ -926,7 +969,8 @@ export const HELP_SECTIONS = [
       <p class="tip">Recreate the core duel in the sim: an S-400 shot vs a striker that ingresses at
       150 m (horizon-limited pickup), pops to release, and beams+chaffs the terminal phase. Then give
       the target 10,000 m altitude and watch the same missile own a 150 km bubble. That contrast IS
-      the IADS story.</p>`,
+      the IADS story.</p>
+      <div class="lore"><b>Bekaa Valley, 9 June 1982 — the template for every SEAD campaign since.</b> Israel faced a dense Syrian belt of <b>SA-2, SA-3 and SA-6</b> batteries in Lebanon and dismantled it in a matter of hours. The method was systemic, not heroic: unmanned <b>decoy drones</b> flew in first to look like strike aircraft, Syrian batteries switched on their fire-control radars to engage them, and that single act of radiating handed the Israelis exactly what they needed — precise emitter locations for <b>anti-radiation missiles</b> and artillery, while jamming severed the network's coordination. Nearly the whole belt was destroyed, and in the air battle that followed, Syrian fighters launched piecemeal without radar cover were cut apart. The enduring lesson sits at the top of this page: <b>an air-defence network is only as strong as its willingness to emit</b>, and the side that controls that dilemma controls the sky.</div>`,
   },
   {
     id: 'modern', title: 'Modern BVR — Stealth, AESA, HOBS & the Kill Chain',
@@ -967,7 +1011,8 @@ export const HELP_SECTIONS = [
       <h3>Race the kill chain</h3>
       <p>Set both sides' RCS and watch who completes DETECT → TRACK → IDENTIFY → ENGAGE → LAUNCH first.
       Shrink your own signature and you finish the loop before he even sees you:</p>
-      <div class="wx" data-widget="killchain"></div>`,
+      <div class="wx" data-widget="killchain"></div>
+      <div class="lore"><b>Stealth was published, in Russian, and ignored.</b> In <b>1962</b> the Soviet physicist <b>Pyotr Ufimtsev</b> published a paper on the physical theory of diffraction — mathematics predicting how radio waves scatter off <b>edges</b>. It was open literature; Soviet authorities saw no military value in it. In the mid-1970s a Lockheed engineer, <b>Denys Overholser</b>, found the translated work and realised it gave a way to <i>compute</i> the radar return of a shape built from flat panels. The result was a faceted design so ungainly the team nicknamed it the <b>Hopeless Diamond</b> — which became <b>Have Blue</b>, and then the <b>F-117</b>. The jet looks the way it does because 1970s computers could only solve Ufimtsev's equations for flat plates; once computing caught up, stealth aircraft turned into the smooth curves of the B-2 and F-22. An idea nobody wanted rewrote air warfare two decades later.</div>`,
   },
   {
     id: 'sam', title: 'SAM Engagements — Vertical Launch & Up-and-Over',
@@ -989,7 +1034,8 @@ export const HELP_SECTIONS = [
       </ol>
       <p>The defender's counterplay is the same playbook: beam the site's radar, drag off, get low —
       but note the asymmetry: the SAM site never runs out of fuel, only your patience and its
-      battery/kinematics.</p>`,
+      battery/kinematics.</p>
+      <div class="lore"><b>27 March 1999 — the night a SAM beat stealth.</b> Over Serbia, an <b>F-117 Nighthawk</b> was shot down by a 1960s-vintage <b>S-125</b> (SA-3) battery commanded by Colonel <b>Zolt&aacute;n Dani</b>. No magic was involved, only discipline and physics: the unit used <b>lower-frequency</b> acquisition radars against which the aircraft's shaping was far less effective, kept its emitters silent for a few seconds at a time so <a data-goto="iadsnet">SEAD</a> could never localise it, relocated constantly, and exploited predictable strike routing and the fleeting moments when the F-117 opened its bomb bay. It remains the only combat loss of an F-117 — and the standing rebuttal to the idea that low observability is invisibility. Stealth buys you a shorter detection range, not a different set of physical laws.</div>`,
   },
   {
     id: 'aero', title: 'Aerodynamics — Drag, Lift, G, and the Atmosphere in Everything',
@@ -1070,7 +1116,8 @@ export const HELP_SECTIONS = [
       </ul>
       <p>Seeker noise is real, so even clean shots miss by a few metres — that IS homing accuracy.
       A last-second break or a chaff bloom can push closest approach just outside the fuze: the
-      target lives by metres, and the charts show you exactly which second decided it.</p>`,
+      target lives by metres, and the charts show you exactly which second decided it.</p>
+      <div class="lore"><b>The argument that produced hit-to-kill.</b> During the 1991 Gulf War, Patriot batteries engaging Iraqi <b>Scud</b> ballistic missiles were initially reported as near-perfect. Post-war analysis was far harsher and deeply contested — the central problem being exactly what this page is about: against a large ballistic body, a <b>proximity-fuzed blast-fragmentation warhead</b> detonating nearby often failed to destroy the warhead itself, which continued on a ballistic path to the ground. Intercept and kill turned out to be different events. The engineering answer was <b>hit-to-kill</b>: the <b>PAC-3</b> carries no blast warhead at all and instead steers with tiny attitude thrusters to physically strike the target, converting closing speed into destruction. It is why this simulator scores a <i>closest approach</i> rather than a hit flag — miss distance is the whole story.</div>`,
   },
   {
     id: 'params', title: 'Parameter Reference — Every Number in the Forge',
@@ -1164,12 +1211,18 @@ export const HELP_SECTIONS = [
         <li><b>Instantaneous turn</b> — the hardest turn you can pull for a moment (lift/structural
         limit), bleeding energy fast. An <b>angles fighter</b> bets on getting the nose (or helmet)
         around first before it runs out of energy.</li>
-        <li><b>Corner velocity</b> — where those two meet: max turn rate. The knife-fight speed.</li>
+        <li><b>Corner velocity</b> — the <i>lowest</i> speed at which you can still reach the structural
+        G limit, so it is where <b>instantaneous turn rate peaks</b>. Below it you are lift-limited
+        (can't reach max G); above it the G cap holds while radius grows. Note this is a point on the
+        <i>instantaneous</i> curve — most fighters cannot <b>sustain</b> max G there, so a corner-speed
+        turn is a loan against your energy, not an income. The knife-fight speed.</li>
       </ul>
       <p class="tip">Why a BVR pilot cares: a missile is an energy fighter with no engine after burnout.
       Its "sustained G" collapses as it coasts — which is the whole basis of <a data-goto="mar">MAR
       and the no-escape zone</a>. Drag it <a data-goto="defence">low and slow</a> and its P<sub>s</sub>
-      goes so negative it can't complete the intercept. EM theory <i>is</i> BVR survival, one layer down.</p>`,
+      goes so negative it can't complete the intercept. EM theory <i>is</i> BVR survival, one layer down.</p>
+      <div class="lore"><b>EM theory</b> began as a semi-legal act. In the early 1960s Major <b>John Boyd</b> — the Nellis instructor called "Forty-Second Boyd" for his standing bet that, starting from a position of disadvantage, he could reverse and win inside forty seconds — teamed with civilian mathematician <b>Thomas Christie</b> at Eglin AFB and quietly bootlegged mainframe time to compute P<sub>s</sub> across the whole envelope for American and Soviet fighters. The charts were heresy: the MiG-17 and MiG-21 out-turned the US inventory across broad regions of the plot. The Air Force opened an investigation into the stolen computer hours — then decorated Boyd for the results instead. Those overlays hardened into the thrust-to-weight demands of the <b>F-15</b> and later the lightweight <b>F-16</b>. The doghouse plot above is Boyd's chart, still doing its job.</div>
+      <div class="workex">Put numbers on the energy trade. A fighter at <span class="m">5,000 m</span> and <span class="m">300 m/s</span>: <span class="m">E<sub>s</sub> = 5000 + 300² / (2 × 9.81) = 5000 + 4,587 ≈ 9,590 m</span> of energy height. Trade every metre for speed in an ideal dive to the deck and <span class="m">V = √(2 × 9.81 × 9,590) ≈ 434 m/s</span> — about Mach 1.27 at sea level. Same energy state, utterly different fight. Now hold a hard defensive break where <span class="m">P<sub>s</sub> ≈ −40 m/s</span> for ten seconds: you have spent <span class="m">40 × 10 = 400 m</span> of energy height — the zoom-climb you no longer own when the missile arrives.</div>`,
   },
   {
     id: 'humanfactors', title: 'The Pilot as a Limit — G, GLOC & Situational Awareness',
@@ -1271,7 +1324,9 @@ export const HELP_SECTIONS = [
         <li><b>Reading the tone.</b> A trained pilot reacts to the <i>change</i>: search→lock means
         commit against you; lock→launch means it's time to defend at <a data-goto="mar">MAR</a>. The
         Tactical-AI's decision table is essentially "what your RWR tone should trigger, by range".</li>
-      </ul>`,
+      </ul>
+      <div class="lore"><b>Born over Hanoi.</b> On 24 July 1965 an SA-2 climbed out of the haze and destroyed a USAF F-4C — the first American aircraft lost to a surface-to-air missile in Vietnam. Crews had no way of knowing a <b>Fan Song</b> radar was tracking them until the "flying telephone pole" arrived. The crash-priority answer was <b>Wild Weasel</b>: two-seat F-100Fs fitted with the <b>APR-25 vector receiver</b> — ancestor of the modern fighter RWR — turning invisible radar beams into bearing strobes and audio tones. Told his new job was to fly ahead of the strike and invite SAMs to shoot at him first, one electronic-warfare officer answered with an acronym — <b>YGBSM</b> — that Weasel squadrons wear on patches to this day. On 22 December 1965 a Weasel crew homed down a Fan Song's own beam and destroyed the site: the receiver had become a weapon.</div>
+      <div class="workex"><b>Worked example — the pitbull-to-impact budget.</b> A TWS shot gives you no launch tone; your first RWR cue may be the missile's own seeker going active. Say it acquires you at <span class="m">16 km</span> (open-source estimate class for modern active seekers) while you're pointed hot: your <span class="m">300 m/s</span> plus the missile's <span class="m">1000 m/s</span> average gives closure <span class="m">1300 m/s</span>. Warning time = <span class="m">16,000 / 1300 ≈ 12.3 s</span> — your entire budget to break, notch and dispense. Had a proper LAUNCH tone sounded at <span class="m">40 km</span> of separation, the same closure gives <span class="m">40,000 / 1300 ≈ 31 s</span>. The silent shot doesn't change the missile — it deletes about 60% of your reaction time.</div>`,
   },
   {
     id: 'formations', title: 'Formations & Roles — Fighting as a Team',
@@ -1286,8 +1341,12 @@ export const HELP_SECTIONS = [
         — formations exist so someone always has eyes/sensors on the threat.</li>
         <li><b>The wall</b> — fighters line-abreast, radars overlapping: maximum forward detection and
         simultaneous shots across a front. The classic offensive BVR picture.</li>
-        <li><b>Ladder / champagne</b> — staggered in range/altitude so shooters and supporters trade
-        roles: the front presents shots while the back stays cold, then they swap (the <b>grinder</b>).</li>
+        <li><b>Ladder</b> — groups stacked one behind another in <b>range</b> (a trail stagger), so
+        shooters and supporters trade roles: the front presents shots while the back stays cold, then
+        they swap (the <b>grinder</b>). <b>Champagne</b> is the related three-group picture — <i>two
+        groups split in azimuth with a third in trail</i>, so it buys a bracket <b>and</b> depth at
+        once. (Strictly these are radar-<b>picture</b> labels from brevity, used for describing both
+        your own formation and the bandits' presentation.)</li>
         <li><b>Sort & targeting</b> — the discipline of deciding <i>who shoots whom</i> before anyone
         fires, so two missiles don't chase one bandit while a second flies through untouched. Bad
         sort loses fights that good missiles would have won.</li>
@@ -1299,7 +1358,8 @@ export const HELP_SECTIONS = [
       </ul>
       <p class="tip">This 1-v-1 sim models the duel; real employment layers these roles on top. The
       <a data-goto="brevity">brevity & timeline</a> section is the radio language that lets a four-ship
-      run all of this as one brain.</p>`,
+      run all of this as one brain.</p>
+      <div class="lore"><b>Where pairs and fours came from.</b> Over Spain in the late 1930s, Luftwaffe Condor Legion pilots — <b>Werner Mölders</b> foremost — codified the <b>Rotte</b> (a leader who shoots, a wingman who guards his tail) and the <b>Schwarm</b>: two pairs spread wide, the famous <b>finger-four</b>, so every pilot searched the sky instead of holding station. The RAF entered the Battle of Britain in tight three-ship <b>vics</b>, wingmen staring at the leader's wingtip; German pilots dubbed the neat rows <i>Idiotenreihen</i> — rows of idiots — and bounced them relentlessly. The stopgap "weaver" snaking behind each squadron was routinely the first man to die. The RAF swallowed its pride and copied the finger-four, and every air force since has kept it: the element and wall above are its direct descendants. Formation is not parade drill — it is distributed eyesight. More in <a data-goto="history">Lessons from Real Engagements</a>.</div>`,
   },
   {
     id: 'cccm', title: 'Seekers vs Countermeasures — The CCM Arms Race',
@@ -1332,7 +1392,9 @@ export const HELP_SECTIONS = [
       <p class="tip">The lesson repeated across the whole domain: a countermeasure buys <b>seconds and
       doubt against the generation it was designed for</b>, and becomes decoration against the next.
       The sim's per-seeker <i>jam susceptibility</i> and <i>burn-through range</i> are exactly where
-      this ladder lives — edit them in the Forge and watch a defence work or fail.</p>`,
+      this ladder lives — edit them in the Forge and watch a defence work or fail.</p>
+      <div class="lore">The entire ladder was climbed once before, in a single year. Britain and Germany each invented <a data-goto="cm">chaff</a> independently — and each withheld it, terrified the other side would copy the trick. The RAF finally broke the seal over <b>Hamburg</b> on the night of 24/25 July 1943: clouds of foil strips, code-named <b>Window</b>, flooded the German <b>Würzburg</b> radars with thousands of false blips, and a defence that had been butchering bombers went blind in a single raid. The counter-countermeasure appeared within months: <b>Würzlaus</b> used the <b>Doppler shift</b> to separate a moving bomber from drifting foil, and <b>Nürnberg</b> let operators listen for propeller modulation in the echo. Chaff versus Doppler discrimination — the first rung of this section's ladder, cut in 1943. Everything since is the same cycle, run faster.</div>
+      <div class="workex">Why burn-through is inevitable: your echo makes a two-way trip off the target (power ∝ 1/R⁴) while a self-protection jammer's noise travels one way (∝ 1/R²), so <span class="m">J/S ∝ R²</span> — every halving of range strips <span class="m">≈6 dB</span> off the jammer's advantage. Say the jammer enjoys <span class="m">J/S = 20 dB</span> at 40 km and the seeker can track once <span class="m">J/S ≤ 0 dB</span>. A 20 dB swing needs a range factor of <span class="m">10<sup>20/20</sup> = 10</span>: burn-through at <span class="m">40 / 10 = 4 km</span>. Noise jamming buys the defender time, never immunity — and <b>home-on-jam</b> makes even the waiting free for the attacker.</div>`,
   },
   {
     id: 'datalinknet', title: 'Datalink Networks & the Digital Battlefield',
@@ -1362,7 +1424,8 @@ export const HELP_SECTIONS = [
       <p class="tip">This sim models the weapon datalink directly (shooter support: straight / crank /
       cold, and the INS fallback when the link drops). Fly the <b>Turn cold — drop link</b> support
       option and watch a good shot go stupid — that's the network's value in one experiment.
-      See the link <i>types</i> diagrammed in <a data-goto="datalinks">Datalink Types</a>.</p>`,
+      See the link <i>types</i> diagrammed in <a data-goto="datalinks">Datalink Types</a>.</p>
+      <div class="lore"><b>From plotting tables to Link 16.</b> Networked air warfare began at sea. Cold War naval task forces needed every ship to hold the <i>same</i> picture, so early tactical data links (the <b>Link 11</b> generation) began automatically exchanging track data between ships and aircraft instead of relying on voice reports and grease-pencil plots. Its descendant, <b>Link 16</b>, added jam-resistant, frequency-hopping, time-slotted messaging — every participant transmitting in its own assigned instants so hundreds of platforms can share one picture without stepping on each other. The tactical consequence is the whole point of this page: once tracks are common property, the aircraft that <b>sees</b> and the aircraft that <b>shoots</b> no longer have to be the same aircraft — and a silent fighter can fight using someone else's eyes.</div>`,
   },
   {
     id: 'datalinks', title: 'Datalink Types — One-Way, Two-Way & Networked',
@@ -1386,7 +1449,8 @@ export const HELP_SECTIONS = [
       </ul>
       <p class="tip">The jump from one-way to networked is as big as the jump from a dish to
       <a data-goto="radartypes">AESA</a> — it's what lets a stealth jet arm a whole formation without
-      ever emitting.</p>`,
+      ever emitting.</p>
+      <div class="lore"><b>Six missiles, six targets, one radar.</b> The uplink concept had a spectacular proof in <b>November 1973</b>, when a US Navy <b>F-14A</b> demonstrated the AWG-9 and <b>AIM-54 Phoenix</b> combination by launching six missiles in a single pass against six separate drone targets, with multiple confirmed hits. Nothing about that is possible with a <a data-goto="seeker">semi-active</a> weapon: SARH requires the launching radar to floodlight <i>one</i> target continuously until impact, so one shooter equals one engagement. Time-shared track-while-scan plus a <b>command uplink</b> broke that limit — the radar services many tracks and sends each missile its own steering corrections until the missile's own seeker takes over. Every modern multi-shot BVR engagement, including the ones you fly in this simulator, is descended from that idea.</div>`,
   },
   {
     id: 'history', title: 'Lessons from Real Engagements',
@@ -1416,7 +1480,8 @@ export const HELP_SECTIONS = [
         three levers every widget in this academy has been teaching you to pull.</li>
       </ul>
       <p class="hint">(This section is deliberately doctrinal and non-specific — it's about principles
-      you can verify in the sim, not a claim about any particular real engagement.)</p>`,
+      you can verify in the sim, not a claim about any particular real engagement.)</p>
+      <div class="lore"><b>The arc, in two wars.</b> Air forces entered the 1960s believing the missile had made the gunfight obsolete — and then fought over Vietnam with radar missiles whose combat hit rates were a small fraction of test-range predictions, under rules of engagement that usually demanded a visual identification and therefore erased the BVR advantage entirely. The response was institutional rather than merely technical: dedicated adversary training (the US Navy's Top Gun and the Air Force's Red Flag), reliable all-aspect weapons, airborne early warning, and identification systems good enough to permit shooting at a radar contact. By <b>Desert Storm in 1991</b>, coalition fighters — cued by AWACS, with positive identification available — took the majority of their air-to-air kills at beyond visual range, many without the loser ever manoeuvring. Same physics, opposite outcome: the difference was <b>training, identification and the network</b>.</div>`,
   },
   {
     id: 'challenge_sec', title: '🎖 Tactical Decision Trainer',
