@@ -274,6 +274,77 @@ export const HELP_SECTIONS = [
         for ARH). Short-ranged but exact. On a fighter, one AESA does all three roles interleaved; a
         ground <a data-goto="iadsnet">IADS</a> splits them so killing one radar doesn't blind the system.</li>
       </ul>
+
+      <h3>What separates them is the band — and λ decides everything</h3>
+      <p>These three radars are not just "big" and "small". They live in different parts of the spectrum,
+      and almost every property you care about falls out of the wavelength. Sweep the band and watch the
+      consequences:</p>
+      <div class="wx" data-widget="radarbands"></div>
+      <table class="range-table"><thead><tr><th>Band</th><th>λ</th><th>Typical job</th><th>Why</th></tr></thead><tbody>
+      <tr><td><b>VHF / UHF</b></td><td>~1–10 m</td><td>Early warning, counter-stealth</td><td>Wavelengths comparable to whole airframe features, so <a data-goto="modern">shaping/RAM tuned for X-band works far less well</a>. But a narrow beam would need an antenna the size of a building — coarse by nature.</td></tr>
+      <tr><td><b>L / S</b></td><td>~10–30 cm</td><td>Long-range surveillance, acquisition</td><td>The practical compromise: real range, usable (if not weapon-grade) accuracy, tolerant of weather. AEW radars and big acquisition sets live here.</td></tr>
+      <tr><td><b>C</b></td><td>~4–8 cm</td><td>Acquisition / multifunction</td><td>Middle ground — enough precision to hand off, enough aperture efficiency to stay mobile.</td></tr>
+      <tr><td><b>X / Ku</b></td><td>~2–3 cm</td><td>Fighter FCR, missile seekers</td><td>A genuinely narrow beam fits behind a fighter radome or in a missile nose. Precision for weapons — and the exact band stealth is designed against.</td></tr>
+      </tbody></table>
+      <p class="tip"><b>The counter-stealth trap.</b> "Low-band radars see stealth aircraft" is true and
+      routinely over-sold. A VHF set can tell you <i>something is out there, roughly that way</i> — but
+      θ ≈ λ/D means its angular precision is measured in degrees, which at 200 km is an error box
+      kilometres across. That is a <b>cue</b>, not a firing solution. The real counter-stealth play is
+      <b>networked</b>: low band detects and cues, and something else — an X-band FCR sneaking a look, an
+      <a data-goto="ir101">IRST</a>, or another sensor entirely — converts that cue into a track worth
+      shooting at. That handoff is the seam a stealth force spends its whole mission plan trying to break.</p>
+
+      <h3>What "track quality" actually means</h3>
+      <p>A radar contact is not binary. It matures through levels, and every tactical decision depends on
+      which level you have:</p>
+      <ul>
+        <li><b>Detection</b> — energy above threshold in some resolution cell. One look. Could be a jet,
+        a bird, or noise; you cannot even be sure it is real yet.</li>
+        <li><b>Track initiation</b> — several detections associated across successive looks into a
+        consistent motion. Now it has a velocity and a history.</li>
+        <li><b>Firm track</b> — the track's error covariance has settled small enough that the system will
+        commit to it: sort it, assign it, hand it off. This is the currency of <a data-goto="section2ship">sorting</a>.</li>
+        <li><b>Weapon-quality track</b> — accurate <i>and</i> updated fast enough to steer a missile. This
+        is what only an FCR (or an AESA dedicating time to that track) can produce.</li>
+      </ul>
+      <p>The gate between these is <b>revisit rate</b>. A track fed every 10 seconds by a slow-turning
+      early-warning set has huge uncertainty between updates — plenty for an air picture, nowhere near
+      enough to shoot. That is why <a data-goto="radartypes">how many bars you scan</a> is not a detail:
+      it directly sets how good your tracks are allowed to be.</p>
+
+      <h3>The FCR's workload depends on your missile</h3>
+      <p>Here is the link that ties this page to every shot in the simulator — <b>how the weapon is guided
+      decides how long the fire-control radar is captive</b>:</p>
+      <ul>
+        <li><b>SARH</b> (semi-active) — the FCR must <b>illuminate that one target continuously until
+        impact</b>. One illuminator equals one engagement at a time, and everyone else in the raid flies
+        on untouched. This is the single biggest limit on old SAM systems' and old fighters' magazine depth.</li>
+        <li><b>Command / TVM</b> — the ground radar tracks both target and missile and computes the
+        steering, uplinking corrections. Still captive, but the smarts stay on the ground where they can
+        be big and cheap.</li>
+        <li><b>ARH</b> (active) — the FCR only needs to supply <a data-goto="midcourse">midcourse
+        updates</a> until the missile's own seeker goes <b>pitbull</b>, then it is free. That is what makes
+        genuinely simultaneous multi-target engagement possible — and what lets a shooter
+        <a data-goto="polegame">crank away</a> instead of flying into the merge.</li>
+      </ul>
+
+      <h3>Why an IADS deliberately splits the roles</h3>
+      <ul>
+        <li><b>Survivability.</b> An FCR that radiates continuously is an <a data-goto="iadsnet">anti-radiation
+        missile</a> magnet. Keeping detection on a separate, distant, low-band set means the expensive,
+        vulnerable, short-legged FCR can stay <b>silent</b> until the last possible moment.</li>
+        <li><b>EMCON.</b> Emission control is a tactic in itself: radiate only what the current phase
+        requires. The 1999 <a data-goto="sam">F-117 shoot-down</a> was won largely by a crew who kept their
+        fire-control radar off for all but a few seconds.</li>
+        <li><b>Redundancy.</b> Separate boxes fail — and are killed — separately. Losing an FCR costs you
+        an engagement; losing the only radar costs you the sector.</li>
+        <li><b>Optimisation.</b> No single antenna can be simultaneously huge and low-band (for range) and
+        tiny and high-band (for precision). Splitting the roles lets each radar be good at exactly one thing.</li>
+      </ul>
+      <p class="tip">The fighter took the opposite path: one <a data-goto="radartypes">AESA</a> time-shares
+      all three jobs from a single aperture, because a fighter cannot carry three radars. That is a
+      genuine engineering triumph — and also why an aircraft's radar range will never match a purpose-built
+      ground early-warning set with a hundred times the antenna and a power station behind it.</p>
       <h3>Ground-based vs airborne — the geometry that changes everything</h3>
       <div class="wx" data-widget="groundvsair"></div>
       <p>A <b>ground radar</b> has big power and no self-clutter looking up, but it's <a data-goto="horizon">horizon-limited</a>

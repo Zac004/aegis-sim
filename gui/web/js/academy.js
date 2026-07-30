@@ -32,7 +32,8 @@ const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'h
   'radareq', 'flarefight', 'doghouse', 'guidancecompare', 'motorrace', 'seekerloop',
   'irscan', 'prf', 'decisiondrill', 'codex', 'fpole', 'emdiagram', 'grinder',
   'wez', 'notchgame', 'sternconv', 'sortgame', 'formations', 'rwrscope', 'irbands',
-  'radarderive', 'rcsaspect', 'arrayphysics', 'beamwidth', 'barscan', 'radarpick']);
+  'radarderive', 'rcsaspect', 'arrayphysics', 'beamwidth', 'barscan', 'radarpick',
+  'radarbands']);
 
 export function mountWidgets(root) {
   const teardowns = [];
@@ -1438,36 +1439,89 @@ reg('prf', (node) => {
 
 // ── 3 · RADAR FAMILY: EARLY WARNING → ACQUISITION → FIRE CONTROL ──────────────
 reg('radarfamily', (node) => {
-  const _V = makeCanvas(node, 300); const { cv, g, fit } = _V;
+  const _V = makeCanvas(node, 360); const { g } = _V;
   const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
-  function draw() {
-    g.clearRect(0, 0, _V.w, _V.h);
-    const cx = 60, cy = _V.h - 30;
-    const rows = [
-      { r: 1.0, half: 1.15, col: 'rgba(147,172,203,.6)', name: 'EARLY WARNING', band: 'VHF/UHF · wide', job: 'detect & cue far (coarse)', y: 40 },
-      { r: 0.66, half: 0.85, col: COL.amber, name: 'ACQUISITION', band: 'S/C · medium', job: 'build a firm track, hand off', y: 90 },
-      { r: 0.42, half: 0.5, col: COL.red, name: 'FIRE CONTROL', band: 'X/Ku · pencil', job: 'precise track + guide weapon', y: 140 },
-    ];
-    const Rmax = Math.max(30, Math.min(_V.w - 90, 340));   // clamp: a narrow canvas must not give arc() a negative radius
-    rows.forEach(rw => {
-      g.strokeStyle = rw.col; g.lineWidth = 1.4;
-      g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, Rmax * rw.r, -rw.half, rw.half); g.closePath(); g.stroke();
-      g.fillStyle = rw.col.includes('rgba') ? rw.col : rw.col;
+  // Three jobs, three radars, one kill chain. The target flies in and is handed
+  // along the chain: cue -> firm track -> weapon-quality lock.
+  const ROLES = [
+    { r: 1.00, col: 'rgba(147,172,203,.85)', name: 'EARLY WARNING',
+      spec: 'VHF/UHF · λ 0.3–3 m · revisit ~10 s',
+      job: 'detect + cue, 300 km class, coarse',
+      status: 'DETECTED — cue passed down the chain' },
+    { r: 0.64, col: COL.amber, name: 'ACQUISITION',
+      spec: 'S/C-band · λ 5–15 cm · revisit ~2–4 s',
+      job: 'build a firm track, hand off',
+      status: 'FIRM TRACK — target sorted and handed off' },
+    { r: 0.36, col: COL.red, name: 'FIRE CONTROL',
+      spec: 'X/Ku · λ 2–3 cm · continuous, pencil beam',
+      job: 'precision track + guide the weapon',
+      status: 'LOCKED — weapon-quality track, engage' },
+  ];
+  const ELEV = 72 * Math.PI / 180;          // top of the drawn coverage wedge
+  const stop = frame((now) => {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const cx = 44, cy = h - 46;
+    // radius clamped so the wedge can never spill off the top or the right
+    const Rmax = Math.max(40, Math.min(w * 0.46, (cy - 30) / Math.sin(ELEV)));
+    // ground
+    g.strokeStyle = 'rgba(78,128,178,.45)'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(0, cy); g.lineTo(w * 0.52, cy); g.stroke();
+    // inbound target: closes from beyond EW range down to the site
+    const period = 11000, p = (now % period) / period;
+    const tRange = Rmax * (1.22 - 1.22 * p);
+    const tElev = 34 * Math.PI / 180;
+    const tx = cx + tRange * Math.cos(tElev), ty = cy - tRange * Math.sin(tElev);
+    // which rings currently hold the target
+    let active = -1;
+    ROLES.forEach((rl, i) => { if (tRange <= Rmax * rl.r) active = i; });
+    // coverage wedges — drawn ONLY above the horizon (0 → -ELEV), so nothing clips
+    ROLES.forEach((rl, i) => {
+      const on = i <= active;
+      const R = Rmax * rl.r;
+      g.strokeStyle = rl.col; g.lineWidth = on ? 2.2 : 1.2;
+      g.globalAlpha = on ? 1 : 0.5;
+      g.beginPath(); g.moveTo(cx, cy);
+      g.arc(cx, cy, R, -ELEV, 0); g.closePath(); g.stroke();
+      // tint the active wedge — set alpha rather than rewriting the colour string
+      // (rl.col is hex for some roles and rgba() for others; string surgery breaks)
+      if (on) { g.globalAlpha = 0.12; g.fillStyle = rl.col; g.fill(); }
+      g.globalAlpha = 1;
+      // range tick on the horizon
+      lbl(g, cx + R - 2, cy + 13, rl.name.split(' ')[0], rl.col, 'right', 8);
     });
-    // radar site
-    g.fillStyle = COL.ink; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx - 6, cy + 8); g.lineTo(cx + 6, cy + 8); g.closePath(); g.fill();
-    // handoff arrows + spec chips (right side)
-    const bx = _V.w - 230, cw = 216;
-    rows.forEach((rw, i) => {
-      chip(g, bx, rw.y - 14, cw, 34, `${rw.name}  ·  ${rw.band}  ·  ${rw.beam}`, rw.col, rw.job);
-      if (i < rows.length - 1) arrow(g, bx + cw / 2, rw.y + 22, bx + cw / 2, rows[i + 1].y - 16, COL.dim, 5);
+    // the target and its inbound track
+    g.strokeStyle = 'rgba(255,61,0,.35)'; g.setLineDash([3, 4]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(cx + Rmax * 1.22 * Math.cos(tElev), cy - Rmax * 1.22 * Math.sin(tElev));
+    g.lineTo(tx, ty); g.stroke(); g.setLineDash([]);
+    drawJet(g, tx, ty, -Math.PI / 2 - tElev, COL.red, '');
+    // beam from the site to the target for whichever radar owns it
+    if (active >= 0) {
+      const c = ROLES[active].col;
+      g.strokeStyle = c; g.lineWidth = active === 2 ? 3 : 1.6;
+      g.save(); g.shadowColor = c; g.shadowBlur = 8;
+      g.beginPath(); g.moveTo(cx, cy); g.lineTo(tx, ty); g.stroke(); g.restore();
+    }
+    // the site itself
+    g.fillStyle = COL.ink;
+    g.beginPath(); g.moveTo(cx, cy - 10); g.lineTo(cx - 7, cy); g.lineTo(cx + 7, cy); g.closePath(); g.fill();
+    lbl(g, cx, cy + 26, 'IADS SITE', COL.dim, 'center', 8.5);
+    // right-hand chips, laid out proportionally (never hard-coded off-canvas)
+    const bx = Math.min(w * 0.55, w - 170), cw = Math.max(150, w - bx - 12);
+    const chH = 40, gap = Math.max(14, (h - 40 - 3 * chH) / 3);
+    ROLES.forEach((rl, i) => {
+      const y = 26 + i * (chH + gap);
+      const on = i <= active;
+      g.globalAlpha = on ? 1 : 0.45;
+      chip(g, bx, y, cw, chH, rl.name + '  ·  ' + rl.spec, rl.col, rl.job);
+      g.globalAlpha = 1;
+      if (i < ROLES.length - 1) arrow(g, bx + cw / 2, y + chH + 2, bx + cw / 2, y + chH + gap - 3, i < active ? COL.green : COL.dim, 5);
     });
-    lbl(g, 12, 18, 'ONE IADS, THREE RADAR JOBS (coverage arcs, left)', COL.blue, 'left', 10, true);
-    read.innerHTML = `<div class="wx-hint">These are three <b>different jobs</b>, often three different radars, chained together. <b>Early-warning</b> radars are huge, low-frequency and long-ranged — they see hundreds of km (and see stealth best) but only roughly; their product is a <i>cue</i>. The <b>acquisition</b> radar takes that cue and builds a firm track. The <b>fire-control radar (FCR)</b> is a narrow, high-update pencil that <i>tracks the target precisely and guides the weapon</i> (illuminating for SARH, or uplinking a datalink). A fighter\'s single AESA does all three roles interleaved; a ground <a data-goto="iadsnet">IADS</a> splits them across dedicated radars so killing one doesn\'t blind the system.</div>`;
-  }
-  _V.redraw = draw;
-  const onResize = () => { fit(); draw(); }; window.addEventListener('resize', onResize); draw();
-  return () => window.removeEventListener('resize', onResize);
+    lbl(g, 12, 18, 'ONE KILL CHAIN — THREE RADAR JOBS', COL.blue, 'left', 10, true);
+    const st = active < 0 ? 'SEARCHING — target still outside every envelope' : ROLES[active].status;
+    lbl(g, 12, h - 10, st, active < 0 ? COL.dim : ROLES[active].col, 'left', 9.5, true);
+  });
+  read.innerHTML = `<div class="wx-hint">Watch the handoff. These are three <b>different jobs</b>, usually three different radars, chained together. The <b>early-warning</b> set is huge and low-frequency: it sees hundreds of kilometres and sees <a data-goto="modern">stealth</a> best, but its product is a <i>cue</i> — a rough "something is out there, that way", far too coarse to shoot with. The <b>acquisition</b> radar takes that cue, looks in the right place, and builds a <b>firm track</b> good enough to sort and assign. Only the <b>fire-control radar</b> — a narrow, high-update pencil beam — produces the continuous, weapon-quality track needed to actually guide a missile. A fighter's single AESA time-shares all three roles from one aperture; a ground <a data-goto="iadsnet">IADS</a> deliberately splits them across separate radars so that killing one does not blind the system.</div>`;
+  return stop;
 });
 
 // ── 4 · GROUND-BASED vs AIRBORNE RADAR ───────────────────────────────────────
@@ -3202,5 +3256,86 @@ reg('radarpick', (node) => {
     wrap.appendChild(el('div', { class: 'wx-why', id: 'rp-why' }));
   }
   render();
+  return () => {};
+});
+
+// ── RADAR BANDS: the one trade that decides what a radar can be used for ────
+reg('radarbands', (node) => {
+  const _V = makeCanvas(node, 300); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  const C = 3e8;
+  // IEEE band letters with their frequency edges (GHz)
+  const BANDS = [
+    { n: 'VHF', f0: 0.03, f1: 0.30, col: '#7fa8d0', use: 'Early warning, counter-stealth' },
+    { n: 'UHF', f0: 0.30, f1: 1.0, col: '#8fbce0', use: 'Long-range surveillance, AEW' },
+    { n: 'L', f0: 1.0, f1: 2.0, col: '#22ff9c', use: 'Air-route surveillance, long-range acq' },
+    { n: 'S', f0: 2.0, f1: 4.0, col: '#5ce0b0', use: 'Acquisition, naval search, weather' },
+    { n: 'C', f0: 4.0, f1: 8.0, col: '#FFB000', use: 'Acquisition / multifunction' },
+    { n: 'X', f0: 8.0, f1: 12.0, col: '#ff9a3a', use: 'Fighter FCR, missile seekers' },
+    { n: 'Ku', f0: 12.0, f1: 18.0, col: '#FF3D00', use: 'Seekers, high-resolution mapping' },
+    { n: 'Ka', f0: 27.0, f1: 40.0, col: '#ff6b5a', use: 'Very-high-resolution, short range' },
+  ];
+  let logf = Math.log10(10);            // start in X-band (10 GHz)
+  const fmt = (x) => { const f = 10 ** x; return (f < 1 ? (f * 1000).toFixed(0) + ' MHz' : f.toFixed(1) + ' GHz'); };
+  const sF = slider('Frequency', Math.log10(0.03), Math.log10(40), 0.005, logf, v => { logf = v; draw(); }, fmt);
+  ctr.appendChild(sF.row);
+  const bandOf = (f) => BANDS.find(b => f >= b.f0 && f < b.f1) || (f >= 18 && f < 27 ? { n: 'K', col: '#ff8a5a', use: 'Mostly avoided — water-vapour absorption peak' } : BANDS[BANDS.length - 1]);
+  function draw() {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const padL = 34, padR = 16, y0 = 42, barH = 30;
+    const pw = Math.max(60, w - padL - padR);
+    const L0 = Math.log10(0.03), L1 = Math.log10(40);
+    const X = lf => padL + (lf - L0) / (L1 - L0) * pw;
+    // band ruler
+    BANDS.forEach(b => {
+      const x0 = X(Math.log10(b.f0)), x1 = X(Math.log10(b.f1));
+      g.fillStyle = b.col; g.globalAlpha = 0.30; g.fillRect(x0, y0, Math.max(1, x1 - x0), barH); g.globalAlpha = 1;
+      g.strokeStyle = b.col; g.lineWidth = 1; g.strokeRect(x0, y0, Math.max(1, x1 - x0), barH);
+      if (x1 - x0 > 16) lbl(g, (x0 + x1) / 2, y0 + 20, b.n, b.col, 'center', 10, true);
+    });
+    // frequency ticks
+    g.fillStyle = COL.faint; g.font = '8px "JetBrains Mono"';
+    [0.03, 0.1, 0.3, 1, 3, 10, 30].forEach(f => {
+      const x = X(Math.log10(f));
+      g.strokeStyle = 'rgba(78,128,178,.3)'; g.beginPath(); g.moveTo(x, y0 + barH); g.lineTo(x, y0 + barH + 4); g.stroke();
+      lbl(g, x, y0 + barH + 14, f < 1 ? (f * 1000) + 'M' : f + 'G', COL.faint, 'center', 8);
+    });
+    // selected marker
+    const f = 10 ** logf, lam = C / (f * 1e9), b = bandOf(f);
+    const mx = X(logf);
+    g.strokeStyle = COL.ink; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(mx, y0 - 8); g.lineTo(mx, y0 + barH + 6); g.stroke();
+    g.fillStyle = COL.ink; g.beginPath(); g.moveTo(mx, y0 - 10); g.lineTo(mx - 5, y0 - 18); g.lineTo(mx + 5, y0 - 18); g.closePath(); g.fill();
+    lbl(g, 12, 18, 'PICK A BAND — everything else follows from λ', COL.blue, 'left', 10, true);
+
+    // consequence bars: antenna size for a 3° beam, resolution, stealth-shaping bite
+    const need3deg = 70 * lam / 3;                       // metres of aperture for ~3°
+    const rangeRes = 150 / 1;                            // (illustrative, bandwidth-limited)
+    const rows = [
+      ['ANTENNA for a 3° beam', Math.min(1, need3deg / 25), need3deg < 1 ? need3deg.toFixed(2) + ' m' : need3deg.toFixed(1) + ' m',
+        need3deg > 6 ? COL.red : need3deg > 1.2 ? COL.amber : COL.green],
+      ['ANGULAR PRECISION', Math.min(1, 1 - Math.min(1, need3deg / 25)), need3deg > 6 ? 'coarse' : need3deg > 1.2 ? 'moderate' : 'fine',
+        need3deg > 6 ? COL.red : need3deg > 1.2 ? COL.amber : COL.green],
+      ['STEALTH SHAPING BITES', Math.min(1, Math.max(0.06, (f / 12))), f < 1 ? 'poorly' : f < 4 ? 'partly' : 'strongly',
+        f < 1 ? COL.green : f < 4 ? COL.amber : COL.red],
+      ['WEATHER / RAIN LOSS', Math.min(1, Math.max(0.03, (f - 3) / 37)), f < 3 ? 'negligible' : f < 10 ? 'modest' : 'significant',
+        f < 3 ? COL.green : f < 10 ? COL.amber : COL.red],
+    ];
+    const ry0 = y0 + barH + 34;
+    rows.forEach((r, i) => {
+      const y = ry0 + i * 26;
+      lbl(g, padL, y + 9, r[0], COL.dim, 'left', 8.5);
+      const bx = padL + 150, bw = Math.max(40, pw - 150 - 116);   // reserve room for the value text
+      g.fillStyle = 'rgba(10,18,30,.7)'; g.fillRect(bx, y, bw, 11);
+      g.strokeStyle = 'rgba(78,128,178,.3)'; g.strokeRect(bx, y, bw, 11);
+      g.fillStyle = r[3]; g.fillRect(bx + 1, y + 1, Math.max(2, (bw - 2) * r[1]), 9);
+      lbl(g, bx + bw + 6, y + 9, r[2], r[3], 'left', 8.5);
+    });
+    read.innerHTML =
+      `<div class="wx-line"><b style="color:${b.col}">${b.n}-band</b> · f = <b>${f < 1 ? (f * 1000).toFixed(0) + ' MHz' : f.toFixed(1) + ' GHz'}</b> · λ = <b>${lam >= 1 ? lam.toFixed(2) + ' m' : (lam * 100).toFixed(1) + ' cm'}</b> — ${b.use}</div>` +
+      `<div class="wx-hint">Band choice is not a detail, it <b>is</b> the radar's job description. Everything above flows from λ. <b>Low bands</b> (VHF/UHF) need enormous antennas to get any angular precision — so they are big, fixed, and coarse, useless for guiding a weapon — but their long wavelengths interact with airframe features on their own scale, so <a data-goto="modern">shaping and coatings tuned for X-band bite far less</a>: that is the entire counter-stealth argument, and its limit. They can tell you <i>something is there</i>; they cannot give you a firing solution. <b>High bands</b> (X/Ku) put a genuinely narrow beam behind a fighter-sized nose and give the precision a <a data-goto="guidance">weapon</a> needs — and are exactly what a stealth designer optimised against, and what rain attenuates. Note the gap around <b>22 GHz</b>: a water-vapour absorption peak everyone designs around.</div>`;
+  }
+  _V.redraw = draw; draw();
   return () => {};
 });
