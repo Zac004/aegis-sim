@@ -752,6 +752,16 @@ export const HELP_SECTIONS = [
         <li><b>Imaging IR (IIR)</b> — a thermal camera that recognises target <i>shape</i>: rejects
         point-source flares (much lower break-lock probability), tracks crisply.</li>
       </ul>
+      <h3>Three seekers, three different range laws</h3>
+      <p>Those bullets each hide a different equation, and the differences are what drive doctrine.
+      Compare them against the same target:</p>
+      <div class="wx" data-widget="seekerrange"></div>
+      <p class="tip">Read the SARH bar carefully — it is the one people get wrong. A semi-active
+      missile's reach is not a fixed number: the signal depends on <b>both</b> legs of the path,
+      <span class="m">∝ σ / (R<sub>t</sub>² · R<sub>m</sub>²)</span>, so as the shooter falls back the
+      missile's own acquisition range shrinks with it. That coupling — plus the requirement to keep
+      illuminating all the way to impact — is exactly why <a data-goto="midcourse">ARH and the
+      pitbull handover</a> replaced SARH for anything that matters.</p>
       <p>Modelled per seeker (all in the Forge): <b>acquisition range</b> (sets pitbull),
       <b>gimbal limit</b> (look-angle before track physically breaks — this is what the notch
       exploits when combined with Doppler), <b>FOV</b>, <b>track bandwidth</b> (agile tracking vs
@@ -1622,6 +1632,10 @@ export const HELP_SECTIONS = [
         the clean lock, tight dispense-plus-break timing, kinematic defeat (drag it slow), and
         <b>DIRCM</b> lasers that dazzle the seeker head directly.</li>
       </ul>
+      <h3>Does this trick still work? — the ladder as a matrix</h3>
+      <p>Click any cell. Read each countermeasure <i>across</i> its row and the whole argument of this
+      page appears as a colour gradient:</p>
+      <div class="wx" data-widget="ccmmatrix"></div>
       <p class="tip">The lesson repeated across the whole domain: a countermeasure buys <b>seconds and
       doubt against the generation it was designed for</b>, and becomes decoration against the next.
       The sim's per-seeker <i>jam susceptibility</i> and <i>burn-through range</i> are exactly where

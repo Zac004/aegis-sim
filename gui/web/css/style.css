@@ -670,3 +670,19 @@ body.learn-standalone #help-nav{width:290px}
 /* sub-headings inside a Learn section (used for equation term breakdowns) */
 .help-body h4{font-family:var(--font-display);font-size:12px;font-weight:700;color:var(--amber);
   letter-spacing:1.2px;margin:16px 0 7px;padding-bottom:4px;border-bottom:1px dashed var(--line)}
+
+/* CCM ladder matrix */
+.wx-ccm{margin-top:4px;overflow-x:auto}
+.ccm-grid{display:grid;gap:3px;min-width:520px}
+.ccm-corner{}
+.ccm-head{font-family:var(--font-mono);font-size:8.5px;line-height:1.35;color:var(--ink-dim);
+  padding:5px 4px;text-align:center;border-bottom:1px solid var(--line2)}
+.ccm-row{font-family:var(--font-mono);font-size:9px;color:var(--ink-dim);padding:8px 6px 8px 0;text-align:right}
+.ccm-cell{display:flex;align-items:center;justify-content:center;height:30px;border-radius:5px;
+  font-family:var(--font-mono);font-size:14px;font-weight:700;cursor:pointer;transition:.14s;
+  border:1px solid transparent}
+.ccm-cell.v2{background:rgba(34,255,156,.16);color:var(--green)}
+.ccm-cell.v1{background:rgba(255,176,0,.16);color:var(--amber)}
+.ccm-cell.v0{background:rgba(255,61,0,.14);color:var(--red)}
+.ccm-cell:hover{filter:brightness(1.4)}
+.ccm-cell.on{border-color:var(--ink);box-shadow:0 0 10px rgba(255,255,255,.25)}

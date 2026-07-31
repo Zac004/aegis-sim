@@ -34,7 +34,8 @@ const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'h
   'wez', 'notchgame', 'sternconv', 'sortgame', 'formations', 'rwrscope', 'irbands',
   'radarderive', 'rcsaspect', 'arrayphysics', 'beamwidth', 'barscan', 'radarpick',
   'radarbands', 'dragcurve', 'gbudget', 'atmoprofile',
-  'loftprofile', 'gtolerance', 'wxsensor', 'fuzegeom', 'batteryclock']);
+  'loftprofile', 'gtolerance', 'wxsensor', 'fuzegeom', 'batteryclock',
+  'seekerrange', 'ccmmatrix']);
 
 export function mountWidgets(root) {
   const teardowns = [];
@@ -4008,5 +4009,152 @@ reg('batteryclock', (node) => {
       `<div class="wx-hint">Every shot is a race between three independent clocks, and the <b>shortest one wins</b> — this is precisely the outcome logic the simulator applies. <b style="color:${COL.green}">Intercept time</b> is geometry: closure is your speed <i>plus</i> the target's closing component, so drag the aspect from hot to cold and watch it stretch — a running target can nearly double the flight time without moving any faster. <b style="color:${COL.blue}">Battery</b> is a fixed one-shot chemical clock that starts at launch and does not care what you are doing; when it expires the fins freeze mid-flight. <b style="color:${COL.amber}">Energy death</b> is integrated here with the core's own drag model: the round is powered for only ~6 s and glides the rest, so raise the <b>altitude</b> and watch thin air stretch its useful life dramatically. Notice how rarely the battery is the binding limit at short range and how often it becomes one at extreme range — that is exactly why very-long-range weapons like the 40N6 need batteries measured in <i>minutes</i>, and why a cold, distant target is defeated by the clock rather than by any manoeuvre.</div>`;
   }
   _V.redraw = draw; draw();
+  return () => {};
+});
+
+// ── SEEKER RANGE: why ARH, SARH and IR see completely different distances ────
+// ARH  : missile's own small radar, two-way  -> R ∝ (P·σ)^¼
+// SARH : big shooter illuminates, missile only receives -> signal ∝ σ/(Rt²·Rm²)
+//        so the missile's reach depends INVERSELY on the illuminator's range.
+// IR   : passive one-way -> R ∝ √(signature), and signature swings hugely with aspect.
+reg('seekerrange', (node) => {
+  const _V = makeCanvas(node, 300); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let rcsExp = Math.log10(5), aspect = 180, rt = 40;
+  const fmtR = x => { const v = 10 ** x; return (v < 0.01 ? v.toExponential(1) : v < 1 ? v.toFixed(3) : v.toFixed(1)) + ' m²'; };
+  const sR = slider('Target RCS σ (log scale)', -4, 2, 0.1, rcsExp, v => { rcsExp = v; draw(); }, fmtR);
+  const sA = slider('Aspect (180 tail-on · 0 nose-on)', 0, 180, 5, aspect, v => { aspect = v; draw(); });
+  const sT = slider('Shooter → target range (km, SARH only)', 10, 120, 5, rt, v => { rt = v; draw(); });
+  ctr.append(sR.row, sA.row, sT.row);
+  const SCALE = 90;                       // km, full width of the bars
+  function ranges() {
+    const sig = 10 ** rcsExp;
+    // ARH: calibrated to ~20 km against a 5 m2 fighter
+    const arh = 20 * Math.pow(sig / 5, 0.25);
+    // SARH: Rm = k*sqrt(sigma)/Rt, calibrated to 35 km with a 40 km illuminator vs 5 m2
+    const sarh = 626 * Math.sqrt(sig) / Math.max(rt, 1);
+    // IR: passive, one-way; signature dominated by plume from behind, skin from the front
+    const rear = (1 + Math.cos((180 - aspect) * Math.PI / 180)) / 2;   // 1 tail-on, 0 nose-on
+    const jrel = 0.12 + 0.88 * Math.pow(rear, 1.6);
+    const ir = 26 * Math.sqrt(jrel);
+    return { arh, sarh: Math.min(sarh, 140), ir, sig, jrel };
+  }
+  function draw() {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const r = ranges();
+    const padL = 108, padR = 66, y0 = 52, rowH = 56;
+    const bw = Math.max(60, w - padL - padR);
+    const X = km => Math.min(km / SCALE, 1) * bw;
+    const rows = [
+      ['ACTIVE RADAR (ARH)', r.arh, COL.green, 'own transmitter · autonomous at pitbull'],
+      ['SEMI-ACTIVE (SARH)', r.sarh, COL.amber, 'shooter illuminates · shooter is chained'],
+      ['INFRARED (IR/IIR)', r.ir, COL.red, 'passive · no RWR warning at all'],
+    ];
+    lbl(g, 12, 20, 'SEEKER ACQUISITION RANGE — same target, three physics', COL.blue, 'left', 10, true);
+    rows.forEach((rw, i) => {
+      const y = y0 + i * rowH;
+      lbl(g, padL - 8, y + 11, rw[0], COL.dim, 'right', 9);
+      g.fillStyle = 'rgba(10,18,30,.7)'; g.fillRect(padL, y, bw, 16);
+      g.strokeStyle = 'rgba(78,128,178,.28)'; g.lineWidth = 1; g.strokeRect(padL, y, bw, 16);
+      g.fillStyle = rw[2]; g.globalAlpha = .85; g.fillRect(padL + 1, y + 1, Math.max(2, X(rw[1]) - 2), 14); g.globalAlpha = 1;
+      lbl(g, padL + bw + 8, y + 12, R(rw[1], 1) + ' km', rw[2], 'left', 9.5, true);
+      lbl(g, padL + 3, y + 31, rw[3], COL.faint, 'left', 8);
+    });
+    // scale ticks
+    g.font = '8px "JetBrains Mono", monospace';
+    for (let km = 0; km <= SCALE; km += 15) {
+      const x = padL + X(km);
+      g.strokeStyle = 'rgba(78,128,178,.18)'; g.beginPath(); g.moveTo(x, y0 - 6); g.lineTo(x, y0 + 3 * rowH - 22); g.stroke();
+      lbl(g, x, y0 - 10, km + '', COL.faint, 'center', 8);
+    }
+    lbl(g, padL + bw / 2, h - 8, 'ACQUISITION RANGE (km)', COL.dim, 'center', 9);
+    read.innerHTML =
+      `<div class="wx-line">σ = <b>${r.sig < 0.01 ? r.sig.toExponential(1) : R(r.sig, 2)} m²</b> at <b>${aspect}°</b> aspect (IR signature <b>${R(100 * r.jrel)}%</b> of tail-on) · illuminator at <b>${rt} km</b> → ` +
+      `ARH <b style="color:${COL.green}">${R(r.arh, 1)}</b> · SARH <b style="color:${COL.amber}">${R(r.sarh, 1)}</b> · IR <b style="color:${COL.red}">${R(r.ir, 1)} km</b></div>` +
+      `<div class="wx-hint">Three seekers, three completely different range laws — and the differences drive doctrine. <b style="color:${COL.green}">ARH</b> carries its own little radar, so it pays the full two-way <b>1/R⁴</b> penalty: acquisition scales as <b>σ<sup>¼</sup></b>, which is why a stealth target barely shortens it (drag the RCS and watch how little the bar moves) but why it is short in absolute terms. Its virtue is not range, it is <b>autonomy</b> — once it goes <a data-goto="midcourse">pitbull</a> the shooter is free. <b style="color:${COL.amber}">SARH</b> lets a big, powerful shooter radar do the transmitting and the missile only listens, so against a normal target it acquires much further — but it has two hidden weaknesses. Slide the <b>illuminator range</b> out and the missile's reach collapses, because the signal depends on <i>both</i> legs (∝ σ/R<sub>t</sub>²R<sub>m</sub>²). And now drop the RCS: because that geometry makes SARH range scale as <b>σ<sup>½</sup></b> rather than ARH's <b>σ<sup>¼</sup></b>, <b>stealth punishes a semi-active seeker roughly twice as hard</b> — at 0.005 m² the SARH bar falls below the ARH one. Add the requirement to keep illuminating all the way to impact and the case against SARH is complete. <b style="color:${COL.red}">IR</b> is passive and one-way, so it is quiet — <b>no RWR warning ever</b> — but its range collapses with aspect: swing from tail-on to nose-on and the hot plume disappears behind the airframe, leaving only <a data-goto="ir101">cool skin</a>. That single curve is why early heat-seekers had to be fought into the rear hemisphere, and why all-aspect IIR changed the merge.</div>`;
+  }
+  _V.redraw = draw; draw();
+  return () => {};
+});
+
+// ── THE CCM LADDER as a playable matrix: does this trick still work? ─────────
+const CCM_CM = [
+  { n: 'CHAFF', k: 'chaff' },
+  { n: 'NOISE JAMMING', k: 'noise' },
+  { n: 'DRFM DECEPTION', k: 'drfm' },
+  { n: 'FLARES (basic)', k: 'flare1' },
+  { n: 'FLARES (spectral + kinematic)', k: 'flare2' },
+  { n: 'THE NOTCH / BEAM', k: 'notch' },
+  { n: 'DIRCM LASER', k: 'dircm' },
+];
+const CCM_ERA = [
+  { n: '1950s — spin-scan IR / early SARH', k: 'e50' },
+  { n: '1970s — con-scan IR / pulse-Doppler', k: 'e70' },
+  { n: '1990s — rosette + monopulse PD', k: 'e90' },
+  { n: 'Modern — IIR two-colour / AESA', k: 'now' },
+];
+// 2 = defeats the seeker, 1 = degrades it, 0 = essentially useless
+const CCM_TAB = {
+  chaff:  { e50: [2, 'A cloud of resonant dipoles simply <b>is</b> a bigger target to a radar with no way to tell motion from metal. Chaff was decisive.'],
+            e70: [1, 'Pulse-Doppler can now sort a 300 m/s jet from foil that decelerates to wind speed within seconds — chaff only works if you also kill your own closure.'],
+            e90: [1, 'Same as before, plus monopulse angle tracking that will not be dragged off by an amplitude blob. Chaff alone is a distraction, not a defeat.'],
+            now: [0, 'Against a modern PD seeker chaff on its own buys almost nothing. It is now a <b>timing tool</b>: useful only married to a hard notch or break.'] },
+  noise:  { e50: [2, 'A loud transmitter buries a simple receiver in noise. This is why early EW was mostly brute power.'],
+            e70: [1, 'Frequency agility and better receivers force the jammer to spread its power thinner, and <b>burn-through</b> ends the protection as range closes.'],
+            e90: [1, 'Monopulse plus agility narrows it further; a noise jammer increasingly just announces where you are.'],
+            now: [0, 'Against an agile AESA a noise jammer is close to a beacon: <b>home-on-jam</b> guides on the strobe itself. Shouting louder makes it worse.'] },
+  drfm:   { e50: [2, 'Digital deception did not exist yet, but a 1950s receiver would be helpless against a coherent replica of its own pulse.'],
+            e70: [2, 'Range-gate and velocity-gate pull-off walk the tracking gates off the target. This is the golden age of deception jamming.'],
+            e90: [1, 'Monopulse resists angle deception, and PD processing plus pulse-to-pulse agility make a convincing replica much harder to sustain.'],
+            now: [1, 'Still genuinely dangerous — a good DRFM makes <i>believable</i> false targets rather than noise — but agile waveforms and multi-static looks shrink the window.'] },
+  flare1: { e50: [2, 'A spin-scan seeker looks for the brightest thing in a rotating field. A magnesium flare is exactly that. Practically a guaranteed break-lock.'],
+            e70: [1, 'Con-scan and better logic reject some of it; you now need the flare and a hard break together, timed properly.'],
+            e90: [0, 'Rosette scan and rise-time gating spot a fireball that appears instantly and then falls behind. Plain flares are largely decoration.'],
+            now: [0, 'An imaging seeker sees a <i>shape</i>. A point-source blob is discarded outright — it does not even resemble an aircraft.'] },
+  flare2: { e50: [2, 'Overkill against a seeker this simple.'],
+            e70: [2, 'Comfortably defeats con-scan.'],
+            e90: [1, 'Spectrally matched and kinematically matched decoys — burning cooler, flying with the aircraft — defeat much of the rise-time and fall-rate logic.'],
+            now: [1, 'The real contest. Two-colour ratios and imaging discrimination are hard to fool, so modern decoys must mimic <b>spectrum, shape and trajectory</b> at once — and timing matters more than quantity.'] },
+  notch:  { e50: [0, 'Nothing to notch: an early SARH set had no Doppler filter to hide in, and an IR seeker does not care about your closure at all.'],
+            e70: [2, 'Now that the radar rejects near-zero-Doppler returns to kill ground clutter, flying perpendicular drops you into the same filter as the dirt. Devastating.'],
+            e90: [1, 'Still works, but the window is narrower and a look-down geometry separates you from the clutter the notch relies on.'],
+            now: [1, 'Modern processors coast through a brief notch on last-known velocity and re-acquire on the far side. It buys seconds, not immunity — and never against an <a data-goto="ir101">IR</a> shot.'] },
+  dircm:  { e50: [2, 'Anachronistic, but a laser dazzling a simple photocell is total.'],
+            e70: [2, 'Modulated laser energy drives the seeker\'s tracking loop off the target completely.'],
+            e90: [2, 'Still highly effective against scanning-reticle seekers, which is exactly what DIRCM was fielded to beat.'],
+            now: [1, 'Against a focal-plane imaging seeker a laser must dazzle or damage specific pixels rather than spoof a scan, so it is harder — effective, but no longer a guaranteed defeat.'] },
+};
+reg('ccmmatrix', (node) => {
+  const wrap = el('div', { class: 'wx-ccm' }); node.appendChild(wrap);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let sel = null;
+  const VERD = [['USELESS', COL.red], ['DEGRADES', COL.amber], ['DEFEATS IT', COL.green]];
+  function render() {
+    wrap.innerHTML = '';
+    const grid = el('div', { class: 'ccm-grid', style: `grid-template-columns: 150px repeat(${CCM_ERA.length}, 1fr)` });
+    grid.appendChild(el('div', { class: 'ccm-corner' }, ''));
+    CCM_ERA.forEach(e => grid.appendChild(el('div', { class: 'ccm-head' }, e.n)));
+    CCM_CM.forEach(cm => {
+      grid.appendChild(el('div', { class: 'ccm-row' }, cm.n));
+      CCM_ERA.forEach(era => {
+        const [v] = CCM_TAB[cm.k][era.k];
+        const cell = el('div', { class: 'ccm-cell v' + v + (sel && sel[0] === cm.k && sel[1] === era.k ? ' on' : ''),
+          onclick: () => { const first = !sel; sel = [cm.k, era.k]; if (first) progress.addXP(6); render(); } },
+          v === 2 ? '✓' : v === 1 ? '~' : '✕');
+        grid.appendChild(cell);
+      });
+    });
+    wrap.appendChild(grid);
+    if (sel) {
+      const cm = CCM_CM.find(c => c.k === sel[0]), era = CCM_ERA.find(e => e.k === sel[1]);
+      const [v, why] = CCM_TAB[sel[0]][sel[1]];
+      read.innerHTML = `<div class="wx-line"><b>${cm.n}</b> vs <b>${era.n}</b> → <b style="color:${VERD[v][1]}">${VERD[v][0]}</b></div>` +
+        `<div class="wx-hint">${why}</div>`;
+    } else {
+      read.innerHTML = `<div class="wx-hint">Click any cell. Each countermeasure is read across its row: it was <b style="color:${COL.green}">decisive</b> against the generation it was invented for, then <b style="color:${COL.amber}">degrades</b>, then becomes <b style="color:${COL.red}">decoration</b> as the seekers catch up. That left-to-right fade is the whole argument of this page — <b>there is no permanent countermeasure</b>, only a temporary lead. Notice the two exceptions that break the pattern: the <b>notch</b> starts useless (there was no Doppler filter to hide in until the 1970s) and DRFM never fully dies, because deception that mimics a real echo is fundamentally harder to reject than noise that does not.</div>`;
+    }
+  }
+  render();
   return () => {};
 });
