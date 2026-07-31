@@ -695,6 +695,10 @@ export const HELP_SECTIONS = [
         you are. That's why misses of a few metres still sometimes spare the target — and why the
         sim's stochastic seeker + closest-approach model produces the same nail-biters.</li>
       </ul>
+      <h3>Why the fuze has to fire early</h3>
+      <p>Fragments are fast, but not instant — and at BVR closing speeds the geometry moves while
+      they cross the gap. Drag the miss distance and the closure and watch the required lead:</p>
+      <div class="wx" data-widget="fuzegeom"></div>
       <p class="tip">Doctrine note: a missile that misses by 30 m produced a <b>defeat</b>, not a
       malfunction. Almost every "missile defeated" story is geometry + energy + fuzing conspiring —
       exactly the three things every defensive move in this academy attacks.</p>
@@ -720,6 +724,11 @@ export const HELP_SECTIONS = [
         max speed genuinely varies with the atmosphere, on top of the thrust-vs-drag balance that
         sets it in the first place.</li>
       </ul>
+      <h3>Race the three clocks</h3>
+      <p>Every shot is a race between intercept time, battery life and energy death — and the
+      <b>shortest clock wins</b>. That is exactly the outcome logic the simulator applies, so you can
+      predict a result before you fire it:</p>
+      <div class="wx" data-widget="batteryclock"></div>
       <p class="tip">Watch a max-range shot's log: motor burnout in the first seconds, then a
       minutes-long unpowered glide managed entirely by the loft — the battery quietly ticking away
       the whole time. Long-range missiles are mostly <i>gliders with excellent brains</i>.</p>

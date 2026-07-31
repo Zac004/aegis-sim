@@ -34,7 +34,7 @@ const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'h
   'wez', 'notchgame', 'sternconv', 'sortgame', 'formations', 'rwrscope', 'irbands',
   'radarderive', 'rcsaspect', 'arrayphysics', 'beamwidth', 'barscan', 'radarpick',
   'radarbands', 'dragcurve', 'gbudget', 'atmoprofile',
-  'loftprofile', 'gtolerance', 'wxsensor']);
+  'loftprofile', 'gtolerance', 'wxsensor', 'fuzegeom', 'batteryclock']);
 
 export function mountWidgets(root) {
   const teardowns = [];
@@ -1032,7 +1032,7 @@ reg('motorrace', (node) => {
   });
   function draw() {
     g.clearRect(0, 0, _V.w, _V.h);
-    const x0 = 44, x1 = _V.w - 12, y0 = 14, y1 = _V.h - 24;
+    const x0 = 44, x1 = Math.max(x0 + 40, _V.w - 12), y0 = 14, y1 = Math.max(y0 + 30, _V.h - 24);
     const X = (tt) => x0 + (tt / T) * (x1 - x0);
     const Y = (m) => y1 - (m / 5) * (y1 - y0);
     g.strokeStyle = COL.grid; g.font = '9px "JetBrains Mono", monospace'; g.fillStyle = COL.faint;
@@ -1729,7 +1729,7 @@ reg('motorx', (node) => {
   function tube(x, y, w, h) { g.strokeStyle = COL.dim; g.lineWidth = 1.5; g.strokeRect(x, y, w, h); }
   function draw() {
     g.clearRect(0, 0, _V.w, _V.h);
-    const x = 20, y = 30, w = _V.w - 120, h = 46;   // motor body
+    const x = 20, y = 30, w = Math.max(60, _V.w - 120), h = 46;   // motor body (clamped: never negative)
     const nz = 14;   // nozzle
     const T = TYPES[ti];
     // body
@@ -3868,5 +3868,145 @@ reg('wxsensor', (node) => {
       `<div class="wx-hint">${wx.note} The physics is wavelength: radar centimetres sail past droplets that are far smaller than a wavelength, while infrared <b>micrometres</b> are comparable to the particles themselves and get scattered and absorbed hard. Note also that radar pays its attenuation <b>twice</b> — out and back — so its dB/km figure is doubled here, and it still wins by an enormous margin. The tactical consequence runs through this whole guide: <a data-goto="ir101">IR and IRST</a> are fair-weather sensors, so weather quietly decides which sensor — and therefore which <a data-goto="seeker">missile</a> — is the right tool on a given day. <i>(Attenuation figures are representative sea-level values for illustration; real values depend on rain rate, drop-size distribution, humidity and exact band.)</i></div>`;
   }
   _V.redraw = draw; sync();
+  return () => {};
+});
+
+// ── FUZING: why the warhead must fire BEFORE closest approach ────────────────
+// Fragments need time to cross the miss distance. At 1-2 km/s closure the
+// geometry moves measurably while they fly, so the fuze has to lead.
+reg('fuzegeom', (node) => {
+  const _V = makeCanvas(node, 300); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let miss = 10, closure = 1200, lethal = 12;
+  const sM = slider('Miss distance (m)', 2, 40, 1, miss, v => { miss = v; });
+  const sC = slider('Closing speed (m/s)', 400, 2000, 50, closure, v => { closure = v; });
+  const sL = slider('Lethal radius (m)', 5, 30, 1, lethal, v => { lethal = v; });
+  ctr.append(sM.row, sC.row, sL.row);
+  const VFRAG = 2000;                       // fragment radial velocity, m/s
+  const stop = frame((now) => {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const cy = h * 0.56;
+    const mPerPx = (miss * 3.2) / Math.max(40, h * 0.34);   // scale so the miss fits
+    const PX = m => m / mPerPx;
+    const cx = w * 0.42;
+    // fragment fly-out time and how far the geometry slides in that time
+    const tFly = miss / VFRAG;
+    const lead = closure * tFly;            // metres of lead the fuze must apply
+    const cyc = 2600, p = (now % cyc) / cyc;
+    // missile runs left→right along cy; target crosses above it at 'miss' offset
+    const mx = cx - PX(lead) + PX(lead * 2) * Math.min(p / 0.45, 1);
+    // detonation happens at p = 0.45, fragments expand after that
+    const det = p >= 0.45;
+    const tSince = det ? (p - 0.45) / 0.55 * (tFly * 2.4) : 0;
+    const ringR = VFRAG * tSince;
+    // target position: at detonation it is 'lead' short of closest approach
+    const tgtX = cx + PX(lead) - PX(closure * Math.min(p / 0.45, 1) * tFly * 2.4 * (det ? 0 : 0));
+    const tgtNow = cx + PX(lead) + PX(closure * (det ? tSince : 0)) - PX(lead * 2 * Math.max(0, 1 - p / 0.45));
+    // lethal envelope around the target
+    g.strokeStyle = 'rgba(255,61,0,.35)'; g.setLineDash([3, 3]); g.lineWidth = 1;
+    g.beginPath(); g.arc(tgtNow, cy - PX(miss), PX(lethal), 0, 7); g.stroke(); g.setLineDash([]);
+    // tracks
+    g.strokeStyle = 'rgba(147,172,203,.25)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(0, cy); g.lineTo(w, cy); g.stroke();
+    g.beginPath(); g.moveTo(0, cy - PX(miss)); g.lineTo(w, cy - PX(miss)); g.stroke();
+    lbl(g, 8, cy + 14, 'missile track', COL.faint, 'left', 8);
+    lbl(g, 8, cy - PX(miss) - 6, 'target track', COL.faint, 'left', 8);
+    // miss-distance bracket
+    g.strokeStyle = COL.dim; g.setLineDash([2, 2]);
+    g.beginPath(); g.moveTo(cx + PX(lead), cy); g.lineTo(cx + PX(lead), cy - PX(miss)); g.stroke(); g.setLineDash([]);
+    lbl(g, cx + PX(lead) + 6, cy - PX(miss) / 2, miss + ' m miss', COL.dim, 'left', 8.5);
+    // fragment ring
+    if (det && ringR > 0) {
+      g.strokeStyle = COL.amber; g.lineWidth = 2; g.globalAlpha = Math.max(0, 1 - tSince / (tFly * 2.4));
+      g.beginPath(); g.arc(mx, cy, PX(ringR), 0, 7); g.stroke();
+      g.globalAlpha = 0.10; g.fillStyle = COL.amber; g.fill(); g.globalAlpha = 1;
+    }
+    // entities
+    g.fillStyle = COL.msl || COL.amber; g.beginPath(); g.arc(mx, cy, 4, 0, 7); g.fill();
+    lbl(g, mx, cy + 26, det ? '✹ DETONATE' : 'missile', det ? COL.amber : COL.dim, 'center', 8.5, det);
+    drawJet(g, tgtNow, cy - PX(miss), Math.PI / 2, COL.red, '');
+    // verdict
+    const hit = miss <= lethal;
+    lbl(g, 12, 18, 'FUZE GEOMETRY — fragments need time to get there', COL.green, 'left', 9.5, true);
+    lbl(g, w - 12, 18, hit ? 'INSIDE LETHAL RADIUS — KILL' : 'OUTSIDE — TARGET LIVES',
+        hit ? COL.green : COL.red, 'right', 9.5, true);
+    read.innerHTML =
+      `<div class="wx-line">Fragments at <b>${VFRAG} m/s</b> take <b style="color:${COL.amber}">${(tFly * 1000).toFixed(1)} ms</b> to cross ${miss} m. ` +
+      `In that time the geometry slides <b style="color:${COL.red}">${lead.toFixed(1)} m</b> — so the fuze must fire that far <i>before</i> closest approach. ` +
+      `Miss ${miss} m vs lethal radius ${lethal} m → <b style="color:${hit ? COL.green : COL.red}">${hit ? 'KILL' : 'MISS'}</b></div>` +
+      `<div class="wx-hint">A proximity fuze does not fire "when closest" — that would be too late. The fragments are still travelling, and at 1–2 km/s closure the target moves a real distance while they cross the gap. So the fuze fires with a <b>lead</b>, and the warhead is designed to throw its fragments in a forward-canted cone rather than a flat ring (the missile's own forward velocity vector-adds to the fragment velocity, sweeping the pattern forward anyway). Now the tactical part: wind the <b>closing speed</b> up and watch the required lead grow. A last-ditch <a data-goto="defence">break turn</a> attacks exactly this computation — it changes the crossing geometry in the final fraction of a second, so a technically in-range detonation throws its fragments through the space the target <i>was going to occupy</i>. That is why misses of a few metres still spare aircraft, and why a "defeated" missile is usually geometry beating the fuze rather than any malfunction.</div>`;
+  });
+  return stop;
+});
+
+// ── BATTERY: the three clocks, and which one ends your flight ────────────────
+reg('batteryclock', (node) => {
+  const _V = makeCanvas(node, 260); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let rngKm = 60, aspect = 180, batt = 100, alt = 10;
+  const sR = slider('Shot range (km)', 10, 200, 5, rngKm, v => { rngKm = v; draw(); });
+  const sAsp = slider('Target aspect (180 hot · 0 cold)', 0, 180, 5, aspect, v => { aspect = v; draw(); });
+  const sB = slider('Battery life (s)', 30, 400, 10, batt, v => { batt = v; draw(); });
+  const sH = slider('Altitude (km)', 3, 18, 1, alt, v => { alt = v; draw(); });
+  ctr.append(sR.row, sAsp.row, sB.row, sH.row);
+  const VT = 300;                                   // target true airspeed, m/s
+  // integrate a level coast with the core's drag model to find energy death
+  function energyDeath() {
+    const D = 0.178, S = Math.PI * D * D / 4, M0 = 152, MPROP = 48, TH = 21000, TB = 6;
+    let h = alt * 1000, v = 1.2 * ATM.sample(h).a, x = 0, t = 0;
+    const dt = 0.1;
+    while (t < 500) {
+      const s = ATM.sample(h), M = v / s.a;
+      if (t > TB && M < 1.0) break;
+      const q = 0.5 * s.rho * v * v;
+      const mass = M0 - MPROP * Math.min(t / TB, 1);
+      const acc = ((t < TB ? TH : 0) - q * S * AERO.cd0(M)) / mass;
+      v = Math.max(v + acc * dt, 1); x += v * dt; t += dt;
+    }
+    return { t, x, vAvg: x / Math.max(t, 1e-6) };
+  }
+  function draw() {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const ed = energyDeath();
+    const closure = ed.vAvg + VT * Math.cos((180 - aspect) * Math.PI / 180);
+    const tInt = rngKm * 1000 / Math.max(closure, 1);
+    const clocks = [
+      ['INTERCEPT', tInt, COL.green],
+      ['BATTERY', batt, COL.blue],
+      ['ENERGY DEATH', ed.t, COL.amber],
+    ];
+    const tMax = Math.max(tInt, batt, ed.t) * 1.15;
+    const padL = 118, padR = 74, y0 = 52, rowH = 46;
+    const bw = Math.max(60, w - padL - padR);
+    const X = t => padL + Math.min(t / tMax, 1) * bw;
+    lbl(g, 12, 20, 'THREE CLOCKS — the first to expire ends the flight', COL.green, 'left', 9.5, true);
+    clocks.forEach((c, i) => {
+      const y = y0 + i * rowH;
+      lbl(g, padL - 8, y + 11, c[0], COL.dim, 'right', 9);
+      g.fillStyle = 'rgba(10,18,30,.7)'; g.fillRect(padL, y, bw, 15);
+      g.strokeStyle = 'rgba(78,128,178,.28)'; g.lineWidth = 1; g.strokeRect(padL, y, bw, 15);
+      g.fillStyle = c[2]; g.globalAlpha = .85; g.fillRect(padL + 1, y + 1, Math.max(2, X(c[1]) - padL - 2), 13); g.globalAlpha = 1;
+      lbl(g, padL + bw + 8, y + 12, R(c[1], 1) + ' s', c[2], 'left', 9.5, true);
+    });
+    // the winner
+    const winner = clocks.reduce((a, b) => b[1] < a[1] ? b : a);
+    const wx = X(winner[1]);
+    g.strokeStyle = COL.red; g.setLineDash([3, 3]); g.lineWidth = 1.6;
+    g.beginPath(); g.moveTo(wx, y0 - 10); g.lineTo(wx, y0 + 3 * rowH - 6); g.stroke(); g.setLineDash([]);
+    lbl(g, wx, y0 - 14, 'FLIGHT ENDS HERE', COL.red, 'center', 8.5, true);
+    lbl(g, w / 2, h - 8, 'TIME FROM LAUNCH (s)', COL.dim, 'center', 9);
+    const verdict = winner[0] === 'INTERCEPT'
+      ? ['HIT — the missile still has power and energy when it arrives', COL.green]
+      : winner[0] === 'BATTERY'
+        ? ['BATTERY EXPIRED — fins freeze, the round goes ballistic before it arrives', COL.blue]
+        : ['LOST ENERGY — subsonic and unable to turn long before it arrives', COL.amber];
+    read.innerHTML =
+      `<div class="wx-line">Closure <b>${R(closure)} m/s</b> → intercept at <b>${R(tInt, 1)} s</b> · battery <b>${batt} s</b> · energy death <b>${R(ed.t, 1)} s</b> ` +
+      `→ <b style="color:${verdict[1]}">${verdict[0]}</b></div>` +
+      `<div class="wx-hint">Every shot is a race between three independent clocks, and the <b>shortest one wins</b> — this is precisely the outcome logic the simulator applies. <b style="color:${COL.green}">Intercept time</b> is geometry: closure is your speed <i>plus</i> the target's closing component, so drag the aspect from hot to cold and watch it stretch — a running target can nearly double the flight time without moving any faster. <b style="color:${COL.blue}">Battery</b> is a fixed one-shot chemical clock that starts at launch and does not care what you are doing; when it expires the fins freeze mid-flight. <b style="color:${COL.amber}">Energy death</b> is integrated here with the core's own drag model: the round is powered for only ~6 s and glides the rest, so raise the <b>altitude</b> and watch thin air stretch its useful life dramatically. Notice how rarely the battery is the binding limit at short range and how often it becomes one at extreme range — that is exactly why very-long-range weapons like the 40N6 need batteries measured in <i>minutes</i>, and why a cold, distant target is defeated by the clock rather than by any manoeuvre.</div>`;
+  }
+  _V.redraw = draw; draw();
   return () => {};
 });
