@@ -373,20 +373,33 @@ export const HELP_SECTIONS = [
       through:</p>
       <div class="wx" data-widget="irbands"></div>
       <div class="workex">Where does a body glow brightest? <b>Wien's law:</b>
-      <span class="m">λ<sub>peak</sub> = 2898 / T µm</span>. Engine hot parts and plume at ~900 K →
-      <span class="m">2898/900 ≈ 3.2 µm</span> — squarely in <b>MWIR</b>, the classic seeker band.
-      Skin friction-heated to ~320 K at high subsonic speed → <span class="m">2898/320 ≈ 9.1 µm</span> —
-      squarely in <b>LWIR</b>, the IRST band. One formula explains the entire sensor market.</div>
+      <span class="m">λ<sub>peak</sub> = 2898 / T µm</span>. Engine hot parts at ~900 K →
+      <span class="m">2898/900 ≈ 3.2 µm</span> — squarely in <b>MWIR</b>.
+      Now the skin, which is heated by <b>compression and friction</b>, not by the engine. Its
+      temperature is the <b>recovery temperature</b>
+      <span class="m">T<sub>r</sub> ≈ T<sub>∞</sub>(1 + 0.89 · 0.2 · M²)</span>. At 10 km
+      (<span class="m">T<sub>∞</sub> = 223 K</span>) and Mach 0.9 that is only
+      <span class="m">223 × 1.14 ≈ 255 K</span> → <span class="m">2898/255 ≈ 11.4 µm</span>, deep in
+      <b>LWIR</b>. Down at sea level the same Mach gives <span class="m">≈330 K</span> — so "how hot is
+      the skin" has no single answer: it depends on altitude and Mach together. One formula, and the
+      whole sensor market falls out of it.</div>
       <ul>
         <li><b>What glows on a jet:</b> the engine hot parts and plume (fiercest, but mostly visible
-        from behind), the exhaust-washed tailpipe, and — at speed — <b>aerodynamic skin heating</b>
-        (a Mach 1.6 jet's leading edges glow tens of degrees above ambient, visible from any aspect;
-        a Mach 5 missile is a torch). Afterburner multiplies signature many times: burner in a fight
-        is a beacon.</li>
-        <li><b>Bands:</b> <b>MWIR (3–5 µm)</b> — hot plumes and tailpipes peak here; classic seeker
-        band. <b>LWIR (8–12 µm)</b> — cooler skin-heat peaks here; the band of imaging sensors and
-        IRSTs that find targets from the front. The atmosphere is opaque between the bands (CO₂ and
-        H₂O absorption), which is why exactly these two windows exist.</li>
+        from behind), the exhaust-washed tailpipe, and — at speed — <b>aerodynamic heating</b>. That
+        last one is bigger than people expect: stagnation temperature is
+        <span class="m">T₀ = T<sub>∞</sub>(1 + 0.2 M²)</span>, so a <b>Mach 1.6</b> jet's leading edges
+        run about <b>100 K above ambient</b> (≈328 K at 10 km), visible from <i>any</i> aspect — and a
+        Mach 5 missile is at roughly <b>six times</b> ambient, a genuine torch. Afterburner multiplies
+        the signature many times over: burner in a fight is a beacon.</li>
+        <li><b>Bands:</b> <b>MWIR (3–5 µm)</b> — hot metal and plume peak here, <i>and</i> it is where
+        essentially every fielded imaging air-to-air seeker actually lives (AIM-9X, IRIS-T, Python-5 and
+        MICA-IR all use indium-antimonide focal planes, which cut off around 5.5 µm; the F-35's EOTS and
+        DAS are MWIR too). <b>LWIR (8–12 µm)</b> — cooler <i>skin</i> heat peaks here, so this is the
+        band for long-wave IRSTs hunting a target from the front, and for dual-band sensors like
+        Typhoon's PIRATE that watch both windows at once. Between them, roughly <b>5–8 µm</b>, water
+        vapour (the 6.3 µm band) shuts the atmosphere almost completely — that wall is why there are two
+        separate windows rather than one. CO₂ does not sit between them: it <b>notches the MWIR window
+        at 4.3 µm</b> and <b>closes the far end past ~15 µm</b>.</li>
         <li><b>Range behaviour:</b> IR intensity falls as 1/R² (one-way — better scaling than radar's
         R⁴!), but atmospheric absorption and weather eat it: haze and cloud shorten IR ranges far
         more than radar. High and dry favours IR; low and humid kills it.</li>
@@ -399,16 +412,17 @@ export const HELP_SECTIONS = [
         flares by geometry, spectrum and kinematics. That ladder is exactly the ir → iir jump in this
         sim's seeker models.</li>
       </ul>
-      <div class="lore">The heat-seeker was born a garage project. At China Lake in the early 1950s,
-      physicist <b>William McLean</b> built the Sidewinder largely off-budget, against official
-      indifference — naming it for the <b>sidewinder rattlesnake</b>, which really does hunt by
-      infrared, sensing prey heat through pit organs between eye and nostril. On <b>24 September
-      1958</b>, Taiwanese F-86s fired AIM-9Bs at MiG-17s over the Taiwan Strait — the first guided
-      air-to-air missile kills in history. One Sidewinder lodged in a MiG <i>without exploding</i>,
-      was shipped to Moscow, and was reverse-engineered bolt-for-bolt into the Soviet <b>K-13 /
-      AA-2 "Atoll"</b> — one of the most consequential unintended technology transfers of the Cold
-      War. Sixty years of upgrades later, the airframe McLean sketched is still on wingtips
-      worldwide.</div>
+      <div class="lore">The heat-seeker was born a garage project. At China Lake, physicist
+      <b>William McLean</b> began the work in <b>1946</b> as an unfunded in-house effort, building the
+      Sidewinder largely off-budget against official indifference — and naming it for the
+      <b>sidewinder rattlesnake</b>, which really does hunt by infrared, sensing prey heat through pit
+      organs between eye and nostril. On <b>24 September 1958</b>, Taiwanese F-86s fired the missile
+      (then designated <b>GAR-8</b> — the familiar "AIM-9B" label only arrived with the 1962
+      tri-service redesignation) at MiG-17s over the Taiwan Strait: the first guided air-to-air missile
+      kills in history. One round lodged in a MiG <i>without exploding</i>, was shipped to Moscow, and
+      was reverse-engineered into the Soviet <b>K-13 / AA-2 "Atoll"</b> — one of the most consequential
+      unintended technology transfers of the Cold War. Nearly seventy years of upgrades later, the
+      airframe McLean sketched is still on wingtips worldwide.</div>
       <p class="tip">Tactically: IR shots give <b>no RWR warning</b> — nothing radiates. A MICA-IR or
       IIR WVR missile arriving silently is why "no spike" never means "no threat". Check the sim: fire
       a MICA-IR with datalink midcourse and note the target's only cue is the missile itself.</p>`,
@@ -483,10 +497,13 @@ export const HELP_SECTIONS = [
       faint <b>line-of-sight lines</b>: when they stay parallel, you're on a collision course — that's
       the whole idea. PN just drives the LOS rotation to zero.</p>
       <div class="wx" data-widget="pnlab"></div>
-      <p class="tip">Which laws loft? Only datalink-capable weapons flying APN or OGL midcourse —
-      because a loft needs a <i>predicted intercept point</i> to fly toward. PN/CLOS home on the
-      here-and-now and IR missiles have no datalink, so none of them loft. The sim enforces exactly
-      this. See the flight paths compared in <a data-goto="guidancelaws">Guidance Laws Compared</a>.</p>
+      <p class="tip">Which laws loft? Only <b>datalink-capable</b> weapons flying APN or OGL midcourse —
+      because a loft needs a <i>predicted intercept point</i> to fly toward, and that has to be fed to
+      the missile. PN and CLOS home on the here-and-now, so they never loft. Note that "IR missile"
+      does <b>not</b> automatically mean "no datalink": most short-range heat-seekers have none, but
+      datalinked IIR weapons exist — <b>MICA-IR</b> in this library carries a datalink and does loft.
+      The rule the sim enforces is about the <i>datalink and the law</i>, not the seeker type. See the
+      flight paths compared in <a data-goto="guidancelaws">Guidance Laws Compared</a>.</p>
       <div class="lore"><b>The mathematics came from space.</b> Proportional navigation is the old mariner's rule mechanised, but the laws above it — the <b>optimal</b> ones — were born in the guidance labs of the early space age. In <b>1960</b> Rudolf Kalman published a recursive filter for estimating a system's true state from noisy measurements; within a few years the same optimal-control mathematics was running in the Apollo guidance computer. Missile engineers recognised their own problem in it: given a noisy seeker, a moving target and a finite control budget, what steering <i>minimises</i> the miss? The answer is the <b>zero-effort miss</b> formulation — where you would miss by if nobody ever steered again — nulled with the least total effort. That is the <b>OGL</b> option in this simulator: PN is the sailor's instinct, OGL is the moon-shot's arithmetic pointed at a fighter.</div>`,
   },
   {
@@ -1189,8 +1206,14 @@ export const HELP_SECTIONS = [
   {
     id: 'aero', title: 'Aerodynamics — Drag, Lift, G, and the Atmosphere in Everything',
     html: `
-      <p>Every aero force scales with <b>dynamic pressure q = ½ρV²</b>. Density falls ~10× from sea
-      level to 16 km, which is why altitude is a weapon:</p>
+      <p>Every aero force scales with <b>dynamic pressure q = ½ρV²</b>. Air density falls by about
+      <b>7× from sea level to 16 km</b> — and roughly <b>14× by 20 km</b> — which is why altitude is a
+      weapon and a tax at the same time.</p>
+      <h3>The curves your missiles actually fly</h3>
+      <p>These are not textbook illustrations: this plot runs the <i>same</i> coefficient model as the
+      physics core, so what you see here is literally what the simulator integrates. Sweep Mach and
+      angle of attack:</p>
+      <div class="wx" data-widget="dragcurve"></div>
       <ul>
         <li><b>Zero-lift drag Cd₀(M)</b> — a subsonic plateau, the <b>transonic spike</b> around
         Mach 1, then a supersonic ease-off. WVR dogfight darts (big canards) carry much more Cd₀
@@ -1210,6 +1233,11 @@ export const HELP_SECTIONS = [
         <li><b>Max-Q & Mach cap</b> — dynamic-pressure and skin-heating structural limits. The Mach
         cap is altitude-dependent by construction (same Mach = different TAS in different air).</li>
       </ul>
+      <h3>How much G is actually available</h3>
+      <p>"Max G" on a data sheet is a structural number. What the missile can <i>really</i> pull is
+      whichever is smaller: that structural cap, or what the air will give it. Watch the second one
+      collapse with altitude:</p>
+      <div class="wx" data-widget="gbudget"></div>
       <div class="workex">Feel what altitude does. Same 300 m/s TAS at sea level
       (<span class="m">ρ = 1.225 kg/m³</span>) vs 12 km (<span class="m">ρ ≈ 0.31 kg/m³</span>):
       <span class="m">q = ½ρV² = 55 kPa</span> vs <span class="m">14 kPa</span> — a <b>4× collapse</b>
@@ -1234,11 +1262,45 @@ export const HELP_SECTIONS = [
         <li><b>Hot day (ISA +20)</b> — thinner air: longer missile reach, weaker turns, higher TAS
         for the same Mach.</li>
         <li><b>Cold day (ISA −20)</b> — denser air: shorter reach, harder turns.</li>
-        <li><b>Tropical (ISA +15)</b> — the hot-and-high performance case.</li>
+        <li><b>Tropical (ISA +15)</b> — a warm-day case. <b>Read the name carefully:</b> this is a
+        uniform +15 K offset at every altitude, not a genuine tropical column. A real tropical
+        atmosphere has a <i>higher and much colder</i> tropopause (~16–17 km at ~195 K, against ISA's
+        11 km at 217 K), so above ~11 km real tropical air is <b>colder</b> than standard, not warmer.
+        Treat this preset as "warm day", and don't read it as a physically tropical profile.</li>
       </ul>
-      <p>Press <b>ATMOS</b> to see the profiles. Then fire the same shot on a hot vs cold day and
-      watch Rmax move — the atmosphere is a tunable experiment variable here, exactly as in
-      professional engagement-modelling tools.</p>
+      <p class="tip">One honest caveat about the ±ΔT days: they follow the standard aviation
+      <b>ISA-deviation</b> convention — the <i>pressure</i> column is held at standard and only
+      temperature, density and speed of sound are re-derived (ρ = P/RT). That is the normal engineering
+      practice, and it is what makes "density altitude" meaningful, but it does mean the offset days
+      are not independently re-integrated hydrostatic atmospheres. Only the <b>Standard</b> profile is
+      the full 7-layer USSA-1976 integration.</p>
+      <h3>The profile, live</h3>
+      <p>This runs the <i>same</i> 7-layer integration as the physics core, so these are the exact
+      numbers your missiles fly through. Slide the altitude, and switch days to see the whole column
+      shift:</p>
+      <div class="wx" data-widget="atmoprofile"></div>
+      <h3>Why the shape matters more than the numbers</h3>
+      <ul>
+        <li><b>Density is the master variable.</b> It appears in q = ½ρV², so it scales <i>both</i> drag
+        and lift. Thin air simultaneously extends a missile's reach and destroys its turn — the same
+        single fact behind <a data-goto="loft">lofting</a>, behind <a data-goto="mar">MAR growing with
+        altitude</a>, and behind breaking low.</li>
+        <li><b>The tropopause is a real feature, not a label.</b> Temperature falls 6.5 K/km up to
+        ~11 km and then simply <b>stops</b> falling. Above 20 km it starts <i>rising</i> again, because
+        ozone is absorbing solar UV up there. That kink is why the speed-of-sound curve flattens at
+        ~295 m/s through the whole 11–20 km band.</li>
+        <li><b>Mach is a temperature measurement in disguise.</b> a = √(γRT) depends on <i>nothing but
+        temperature</i> — not pressure, not density. So "Mach 2" at 12 km is ~590 m/s while at sea
+        level it is ~680 m/s. Every Mach-limited number in this app is therefore altitude-dependent by
+        construction.</li>
+        <li><b>Pressure and density are not the same curve.</b> Both fall roughly exponentially, but
+        through the isothermal band they fall <i>together</i>, while in the troposphere density falls
+        more slowly than pressure because the air is also getting colder (ρ = P/RT with T dropping too).</li>
+      </ul>
+      <p>Press <b>ATMOS</b> in the app to plot the <i>standard</i> profile — density, speed of sound and
+      pressure to 30 km. Then switch the <b>Atmosphere</b> dropdown in panel <b>⑤ CONDITIONS</b>, fire
+      the same shot on a hot vs cold day, and watch Rmax move — the atmosphere is a tunable experiment
+      variable here, exactly as in professional engagement-modelling tools.</p>
       <div class="lore">The "standard day" — 15 °C, 1013.25 hPa, −6.5 °C per km up to an 11 km
       tropopause — is aviation's shared fiction: no real day matches it, but every performance chart,
       altimeter and this simulator agree to pretend. The <b>US Standard Atmosphere 1976</b> and ICAO's
@@ -1256,7 +1318,7 @@ export const HELP_SECTIONS = [
       radius. The sim computes the exact <b>closest approach</b> — including the sub-timestep point
       of a Mach-4 fly-through — and scores:</p>
       <ul>
-        <li><b>HIT</b> — closest approach inside the lethal radius (③ Conditions slider).</li>
+        <li><b>HIT</b> — closest approach inside the lethal radius (⑤ Conditions slider).</li>
         <li><b>MISS</b> — flew through and opened range; the target out-guessed it.</li>
         <li><b>ENERGY DEPLETED</b> — went subsonic coasting with real range to go: a dead round.
         The usual end of an aborted-against shot.</li>

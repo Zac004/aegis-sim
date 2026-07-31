@@ -33,7 +33,7 @@ const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'h
   'irscan', 'prf', 'decisiondrill', 'codex', 'fpole', 'emdiagram', 'grinder',
   'wez', 'notchgame', 'sternconv', 'sortgame', 'formations', 'rwrscope', 'irbands',
   'radarderive', 'rcsaspect', 'arrayphysics', 'beamwidth', 'barscan', 'radarpick',
-  'radarbands']);
+  'radarbands', 'dragcurve', 'gbudget', 'atmoprofile']);
 
 export function mountWidgets(root) {
   const teardowns = [];
@@ -213,7 +213,7 @@ reg('horizon', (node) => {
     const rx = X(0), ry = surfY(0) - altPx(hRadar);
     g.fillStyle = COL.blue; g.shadowColor = COL.blue; g.shadowBlur = 8;
     g.beginPath(); g.arc(rx, ry, 4, 0, 7); g.fill(); g.shadowBlur = 0;
-    g.fillStyle = COL.blue; g.font = '9px "JetBrains Mono"'; g.fillText('RADAR', rx - 6, ry - 8);
+    g.fillStyle = COL.blue; g.font = '9px "JetBrains Mono", monospace'; g.fillText('RADAR', rx - 6, ry - 8);
     // horizon tangent line to the radar's horizon distance
     const hx = X(hd), hy = surfY(hd);
     g.strokeStyle = 'rgba(0,229,255,.5)'; g.setLineDash([4, 4]); g.lineWidth = 1.4;
@@ -227,7 +227,7 @@ reg('horizon', (node) => {
     g.save(); g.translate(tx, ty); g.fillStyle = tc; g.strokeStyle = tc; g.shadowColor = tc; g.shadowBlur = 8;
     g.beginPath(); g.moveTo(-8, 0); g.lineTo(6, -4); g.lineTo(6, 4); g.closePath(); g.fill();
     g.shadowBlur = 0; g.restore();
-    g.fillStyle = tc; g.font = '9px "JetBrains Mono"';
+    g.fillStyle = tc; g.font = '9px "JetBrains Mono", monospace';
     g.fillText(detectable ? 'SEEN' : 'BELOW HORIZON', tx - 20, ty - 9);
     read.innerHTML =
       `<div class="wx-line">Radar horizon to target: <b style="color:${COL.amber}">${R(maxDet)} km</b>` +
@@ -341,7 +341,7 @@ function poly(g, pts, color, w) {
 function dot(g, x, y, color, label) {
   g.fillStyle = color; g.shadowColor = color; g.shadowBlur = 8;
   g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill(); g.shadowBlur = 0;
-  g.font = '9px "JetBrains Mono"'; g.fillText(label, x + 7, y - 6);
+  g.font = '9px "JetBrains Mono", monospace'; g.fillText(label, x + 7, y - 6);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -370,7 +370,7 @@ reg('notch', (node) => {
     g.beginPath(); g.moveTo(rx, ry); g.lineTo(tx, ty); g.stroke(); g.setLineDash([]);
     g.fillStyle = COL.blue; g.shadowColor = COL.blue; g.shadowBlur = 8;
     g.beginPath(); g.arc(rx, ry, 5, 0, 7); g.fill(); g.shadowBlur = 0;
-    g.font = '9px "JetBrains Mono"'; g.fillStyle = COL.blue; g.fillText('RADAR', rx - 8, ry + 20);
+    g.font = '9px "JetBrains Mono", monospace'; g.fillStyle = COL.blue; g.fillText('RADAR', rx - 8, ry + 20);
     // target with velocity arrow (heading measured from LOS)
     const los = Math.atan2(ty - ry, tx - rx);
     const vdir = los + Math.PI - heading * Math.PI / 180;   // heading 0 → toward radar
@@ -383,7 +383,7 @@ reg('notch', (node) => {
     // Doppler scope on the right
     const bx = _V.w - 150, bw = 130, by = 30, bh = _V.h - 60;
     g.strokeStyle = COL.grid; g.strokeRect(bx, by, bw, bh);
-    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono"';
+    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono", monospace';
     g.fillText('DOPPLER', bx, by - 8); g.fillText('+Vc', bx - 2, by + 10); g.fillText('−Vc', bx - 2, by + bh - 2);
     // clutter notch band (around zero Doppler)
     const V = (v) => by + bh / 2 - (v / 450) * (bh / 2);
@@ -438,7 +438,7 @@ reg('marband', (node) => {
     band(g, X(0), X(mar), y, h, 'rgba(255,61,0,.35)', COL.red);       // NEZ
     band(g, X(mar), X(rmax), y, h, 'rgba(255,176,0,.28)', COL.amber);  // abort works
     band(g, X(rmax), X(axMax), y, h, 'rgba(34,255,156,.20)', COL.green); // beyond Rmax
-    g.fillStyle = COL.dim; g.font = '9px "JetBrains Mono"'; g.textAlign = 'center';
+    g.fillStyle = COL.dim; g.font = '9px "JetBrains Mono", monospace'; g.textAlign = 'center';
     g.fillText('NO-ESCAPE ZONE', (X(0) + X(mar)) / 2, y - 6);
     g.fillText('ABORT WORKS', (X(mar) + X(rmax)) / 2, y - 6);
     g.fillText('OUT OF RANGE', (X(rmax) + X(axMax)) / 2, y - 6);
@@ -753,7 +753,7 @@ reg('radareq', (node) => {
     ring(g, cx, cy, rdet * pxPerKm, COL.amber, null, true);
     g.fillStyle = COL.blue; g.shadowColor = COL.blue; g.shadowBlur = 8;
     g.beginPath(); g.arc(cx, cy, 5, 0, 7); g.fill(); g.shadowBlur = 0;
-    g.fillStyle = COL.blue; g.font = '9px "JetBrains Mono"'; g.fillText('RADAR', cx - 16, cy + 18);
+    g.fillStyle = COL.blue; g.font = '9px "JetBrains Mono", monospace'; g.fillText('RADAR', cx - 16, cy + 18);
     // targets legend
     const cls = rcs <= 0.001 ? ['VLO STEALTH (F-22 class)', COL.green]
       : rcs <= 0.1 ? ['LO / reduced (F-35, Rafale-class front)', COL.green]
@@ -773,7 +773,7 @@ reg('radareq', (node) => {
     g.strokeStyle = color; g.lineWidth = glow ? 2 : 1.2;
     if (glow) { g.shadowColor = color; g.shadowBlur = 8; }
     g.beginPath(); g.arc(x, y, Math.max(r, 4), 0, 7); g.stroke(); g.shadowBlur = 0;
-    if (label) { g.fillStyle = color; g.font = '9px "JetBrains Mono"'; g.fillText(label, x + Math.max(r, 4) * 0.72, y - Math.max(r, 4) * 0.72); }
+    if (label) { g.fillStyle = color; g.font = '9px "JetBrains Mono", monospace'; g.fillText(label, x + Math.max(r, 4) * 0.72, y - Math.max(r, 4) * 0.72); }
   }
   _V.redraw = draw;
   const onResize = () => { fit(); draw(); };
@@ -811,7 +811,7 @@ reg('jammer', (node) => {
     const Y = (db) => y1 - ((db + 40) / 110) * (y1 - y0);   // dB scale -40..70
     const dB = (v) => 10 * Math.log10(Math.max(v, 1e-9));
     // axes + grid
-    g.strokeStyle = COL.grid; g.lineWidth = 1; g.font = '9px "JetBrains Mono"'; g.fillStyle = COL.faint;
+    g.strokeStyle = COL.grid; g.lineWidth = 1; g.font = '9px "JetBrains Mono", monospace'; g.fillStyle = COL.faint;
     for (let d = -40; d <= 70; d += 20) { g.beginPath(); g.moveTo(x0, Y(d)); g.lineTo(x1, Y(d)); g.stroke(); g.fillText(d + 'dB', 6, Y(d) + 3); }
     for (let km = 25; km <= 150; km += 25) { g.fillText(km + '', X(km) - 8, _V.h - 8); }
     // curves
@@ -933,7 +933,7 @@ reg('flarefight', (node) => {
     g.strokeStyle = state.tracking === 'jet' ? 'rgba(255,61,0,.5)' : 'rgba(255,176,0,.6)';
     g.setLineDash([4, 4]); g.beginPath(); g.moveTo(state.msl.x, state.msl.y); g.lineTo(tgt.x, tgt.y); g.stroke(); g.setLineDash([]);
     dot(g, state.msl.x, state.msl.y, COL.red, 'MSL');
-    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono"';
+    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono", monospace';
     g.fillText(`seeker: ${seekerType.toUpperCase()} · tracking: ${state.tracking === 'jet' ? 'YOU' : 'FLARE'}`, 12, 16);
     if (state.done) {
       const win = state.result !== 'HIT';
@@ -975,7 +975,7 @@ reg('doghouse', (node) => {
     const X = (v) => x0 + ((v - 80) / 340) * (x1 - x0);
     const maxRate = 28;
     const Y = (r) => y1 - (r / maxRate) * (y1 - y0);
-    g.strokeStyle = COL.grid; g.font = '9px "JetBrains Mono"'; g.fillStyle = COL.faint;
+    g.strokeStyle = COL.grid; g.font = '9px "JetBrains Mono", monospace'; g.fillStyle = COL.faint;
     for (let r = 0; r <= maxRate; r += 7) { g.beginPath(); g.moveTo(x0, Y(r)); g.lineTo(x1, Y(r)); g.stroke(); g.fillText(r + '°/s', 6, Y(r) + 3); }
     for (let v = 100; v <= 400; v += 100) g.fillText(v + '', X(v) - 10, _V.h - 8);
     // the doghouse top: rate vs speed
@@ -1034,7 +1034,7 @@ reg('motorrace', (node) => {
     const x0 = 44, x1 = _V.w - 12, y0 = 14, y1 = _V.h - 24;
     const X = (tt) => x0 + (tt / T) * (x1 - x0);
     const Y = (m) => y1 - (m / 5) * (y1 - y0);
-    g.strokeStyle = COL.grid; g.font = '9px "JetBrains Mono"'; g.fillStyle = COL.faint;
+    g.strokeStyle = COL.grid; g.font = '9px "JetBrains Mono", monospace'; g.fillStyle = COL.faint;
     for (let m = 0; m <= 5; m++) { g.beginPath(); g.moveTo(x0, Y(m)); g.lineTo(x1, Y(m)); g.stroke(); g.fillText('M' + m, 8, Y(m) + 3); }
     for (let s = 0; s <= T; s += 20) g.fillText(s + 's', X(s) - 8, _V.h - 8);
     const tNow = Math.min(t, T);
@@ -1095,7 +1095,7 @@ reg('iads', (node) => {
       g.beginPath(); g.arc(cx, cy, Math.max(eff * pxPerKm, 3), 0, 7); g.stroke(); g.shadowBlur = 0;
     });
     g.fillStyle = COL.red; g.beginPath(); g.arc(cx, cy, 4, 0, 7); g.fill();
-    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono"'; g.fillText('SAM COMPLEX', cx + 8, cy + 3);
+    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono", monospace'; g.fillText('SAM COMPLEX', cx + 8, cy + 3);
     const list = rows.map(r =>
       `<div class="wx-line" style="display:flex;justify-content:space-between"><span style="color:${r.c}">${r.name}</span>` +
       `<span>nominal <b>${r.nom}</b> km → at your altitude <b style="color:${r.eff < r.nom * 0.5 ? COL.green : COL.amber}">${R(r.eff)}</b> km</span></div>`).join('');
@@ -1146,7 +1146,7 @@ reg('timeline_play', (node) => {
     const X = (r) => x1 - (r / 90) * (x1 - x0);     // far left, close right
     // baseline
     g.strokeStyle = COL.grid; g.lineWidth = 2; g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
-    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono"';
+    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono", monospace';
     g.fillText('90 km', x0 - 4, y + 26); g.fillText('MERGE', x1 - 30, y + 26);
     // zones: NEZ shading inside MAR
     g.fillStyle = 'rgba(255,61,0,.08)'; g.fillRect(X(24), y - 30, X(0) - X(24), 60);
@@ -1156,7 +1156,7 @@ reg('timeline_play', (node) => {
       g.strokeStyle = e.c; g.globalAlpha = passed ? 1 : 0.4; g.lineWidth = 2;
       g.beginPath(); g.moveTo(x, y - 14); g.lineTo(x, y + 14); g.stroke();
       g.fillStyle = e.c; g.save(); g.translate(x, y - 20); g.rotate(-Math.PI / 5);
-      g.font = '8.5px "JetBrains Mono"'; g.fillText(e.t, 0, 0); g.restore();
+      g.font = '8.5px "JetBrains Mono", monospace'; g.fillText(e.t, 0, 0); g.restore();
       g.globalAlpha = 1;
     });
     // playhead (your jet closing)
@@ -1226,12 +1226,12 @@ reg('killchain', (node) => {
     g.fillStyle = color; g.shadowColor = color; g.shadowBlur = 6; g.fillRect(x0, y - 8, w * prog, 18); g.shadowBlur = 0;
     // current step label
     const si = Math.min(STEPS.length - 1, Math.floor(prog * STEPS.length));
-    g.fillStyle = '#04121f'; g.font = 'bold 9px "JetBrains Mono"';
+    g.fillStyle = '#04121f'; g.font = 'bold 9px "JetBrains Mono", monospace';
     if (prog > 0.06) g.fillText(STEPS[si], x0 + 6, y + 4);
   }
   function draw() {
     g.clearRect(0, 0, _V.w, _V.h);
-    g.fillStyle = COL.dim; g.font = '9px "JetBrains Mono"';
+    g.fillStyle = COL.dim; g.font = '9px "JetBrains Mono", monospace';
     g.fillText('KILL CHAIN: DETECT → TRACK → IDENTIFY → ENGAGE → LAUNCH', 12, 18);
     bar(70, blue.prog, COL.blue, 'YOU', blue.det);
     bar(120, red.prog, COL.red, 'THREAT', red.det);
@@ -1384,7 +1384,7 @@ function lbl(g, x, y, text, color, align = 'left', size = 10, bold = false) {
 function chip(g, x, y, w, h, text, color, sub) {
   g.strokeStyle = color; g.fillStyle = 'rgba(10,18,30,.6)'; g.lineWidth = 1;
   g.beginPath(); g.rect(x, y, w, h); g.fill(); g.stroke();
-  g.fillStyle = color; g.font = '9px "JetBrains Mono"'; g.textAlign = 'left';
+  g.fillStyle = color; g.font = '9px "JetBrains Mono", monospace'; g.textAlign = 'left';
   g.fillText(text, x + 6, y + 13);
   if (sub) { g.fillStyle = COL.dim; g.fillText(sub, x + 6, y + 25); }
 }
@@ -2036,7 +2036,7 @@ reg('masteryweb', (node) => {
       g.strokeStyle = 'rgba(78,128,178,0.22)'; g.beginPath(); g.moveTo(cx, cy); g.lineTo(ex, ey); g.stroke();
       const [lx, ly] = pt(i, R0 + 18);
       const a = -Math.PI / 2 + i / N * 2 * Math.PI;
-      g.fillStyle = c.frac >= 1 ? COL.green : COL.dim; g.font = '9px "JetBrains Mono"';
+      g.fillStyle = c.frac >= 1 ? COL.green : COL.dim; g.font = '9px "JetBrains Mono", monospace';
       g.textAlign = Math.abs(Math.cos(a)) < 0.35 ? 'center' : (Math.cos(a) > 0 ? 'left' : 'right');
       g.textBaseline = 'middle'; g.fillText(c.short, lx, ly);
     });
@@ -2284,7 +2284,7 @@ reg('emdiagram', (node) => {
     // axes
     g.strokeStyle = COL.grid; g.lineWidth = 1;
     g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, h - padB); g.lineTo(w - padR, h - padB); g.stroke();
-    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono"';
+    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono", monospace';
     for (let V = 100; V <= 600; V += 100) { g.fillText(V + '', X(V) - 8, h - padB + 12); }
     lbl(g, w / 2, h - 4, 'true airspeed  (m/s)', COL.dim, 'center', 9);
     g.save(); g.translate(11, h / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center';
@@ -2348,7 +2348,7 @@ reg('grinder', (node) => {
       g.beginPath(); g.moveTo(F[0], F[1]); g.lineTo(B[0], B[1]); g.stroke(); g.setLineDash([]);
       if (p > 0.93) { g.fillStyle = COL.red; g.font = 'bold 10px "JetBrains Mono"'; g.fillText('✹ STERN KILL', B[0] + 8, B[1]); }
     }
-    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono"';
+    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono", monospace';
     g.fillText(p < 0.4 ? 'SECTION BRACKETS — split the azimuth' : p < 0.75 ? 'BANDIT COMMITS — engaged fighter drags him' : 'FREE FIGHTER CONVERTS — stern shot', 12, 16);
   });
   return stop;
@@ -2386,7 +2386,7 @@ reg('wez', (node) => {
     seg(m.Rmax, SCALE, 'rgba(120,140,170,.13)');     // out of range
     g.strokeStyle = 'rgba(147,172,203,.3)'; g.strokeRect(X(0), y0, X(SCALE) - X(0), barH);
     // scale ticks
-    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono"';
+    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono", monospace';
     for (let k = 0; k <= SCALE; k += 25) { g.fillRect(X(k), y0 + barH, 1, 4); g.fillText(k + '', X(k) - 5, y0 + barH + 15); }
     lbl(g, w - padR, y0 + barH + 15, 'range to target (km) →', COL.dim, 'right', 9);
     // boundary markers
@@ -2484,7 +2484,7 @@ reg('sternconv', (node) => {
     const phiI = Math.atan2(lagPt[1] - iy, lagPt[0] - ix);
     drawJet(g, bx, by, jetHdg(phiB), COL.red, 'BANDIT');
     drawJet(g, ix, iy, jetHdg(phiI), COL.blue, 'YOU');
-    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono"';
+    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono", monospace';
     g.fillText(p < 0.5 ? 'PULL LAG — nose behind him, cut inside his circle' : p < 0.9 ? 'CONVERTING — sliding into the rear quarter' : 'IN CONTROL — matched turn, stern shot', 12, 16);
   });
   return stop;
@@ -2530,14 +2530,14 @@ reg('sortgame', (node) => {
       const assignedTo = picks.findIndex(p => p === i);
       const col = assignedTo === 0 ? COL.blue : assignedTo === 1 ? COL.green : COL.red;
       g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); g.arc(b.x, b.y, 12, 0, 7); g.stroke();
-      g.fillStyle = col; g.font = '9px "JetBrains Mono"';
+      g.fillStyle = col; g.font = '9px "JetBrains Mono", monospace';
       g.fillText('BND' + (i + 1), b.x - 12, b.y - 16);
       if (assignedTo >= 0) { g.strokeStyle = col; g.setLineDash([3, 3]); g.beginPath();
         g.moveTo(assignedTo === 0 ? leadXY[0] : wingXY[0], assignedTo === 0 ? leadXY[1] : wingXY[1]); g.lineTo(b.x, b.y); g.stroke(); g.setLineDash([]); }
     });
     g.fillStyle = COL.amber; g.font = '10px "JetBrains Mono"';
     g.fillText(rule.txt, 10, 16);
-    g.fillStyle = COL.ink; g.font = '9px "JetBrains Mono"';
+    g.fillStyle = COL.ink; g.font = '9px "JetBrains Mono", monospace';
     const who = picks.length === 0 ? 'Click LEAD\'s contact' : picks.length === 1 ? 'Click WINGMAN\'s contact' : '';
     g.fillText(`Round ${round} · score ${score}${who ? ' · ' + who : ''}`, 10, 30);
     if (msg) { g.fillStyle = msg[0] === '✓' ? COL.green : COL.red; g.fillText(msg, 10, h - 6); }
@@ -2635,7 +2635,7 @@ reg('rwrscope', (node) => {
         if (isLaunch) { g.beginPath(); g.moveTo(x, y - 9); g.lineTo(x + 9, y); g.lineTo(x, y + 9); g.lineTo(x - 9, y); g.closePath(); g.stroke(); }
         else if (isLock) { g.beginPath(); g.arc(x, y, 8, 0, 7); g.fill(); }        // solid = locked
         else { g.beginPath(); g.arc(x, y, 8, 0, 7); g.stroke(); }                  // hollow = search
-        g.fillStyle = col; g.font = 'bold 9px "JetBrains Mono"'; g.fillText(th.sym, x - 6, y + 3.5);
+        g.fillStyle = col; g.font = 'bold 9px "JetBrains Mono", monospace'; g.fillText(th.sym, x - 6, y + 3.5);
         if (isLaunch) lbl(g, x, y - 13, 'LAUNCH', COL.red, 'center', 9, true);
       }
     });
@@ -2652,8 +2652,19 @@ reg('rwrscope', (node) => {
 
 // ── IR BANDS — why MWIR & LWIR exist: Planck curves under the atmosphere ─────
 reg('irbands', (node) => {
-  const _V = makeCanvas(node, 300); const { g } = _V;
+  const _V = makeCanvas(node, 320); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
   const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  // A live third curve the reader can drag: watch Wien's peak sweep out of LWIR,
+  // across the H2O wall, and into MWIR as the source gets hotter.
+  let userT = 255;
+  const PRESETS = [[255, 'skin M0.9 @10 km'], [330, 'skin M0.9 sea level'], [325, 'skin M1.6 @10 km'],
+                   [900, 'tailpipe / mil power'], [1400, 'afterburner plume'], [2000, 'decoy flare']];
+  const sT = slider('Your source temperature (K)', 220, 2200, 5, userT, v => { userT = v; draw(); });
+  ctr.appendChild(sT.row);
+  PRESETS.forEach(([T, name]) => ctr.appendChild(el('button', { class: 'wx-tab', onclick: () => {
+    userT = T; sT.input.value = T; sT.out.textContent = T; draw();
+  } }, name)));
   const L0 = 2, L1 = 15;                        // wavelength axis, µm
   // Planck spectral radiance (arbitrary scale): B ∝ λ⁻⁵ / (e^(c₂/λT) − 1)
   const C2 = 14388;                             // µm·K
@@ -2684,42 +2695,64 @@ reg('irbands', (node) => {
     // window band highlights
     const band = (a, b, col, name) => {
       g.fillStyle = col; g.fillRect(X(a), padT - 14, X(b) - X(a), 11);
-      g.fillStyle = COL.ink; g.font = 'bold 8.5px "JetBrains Mono"'; g.textAlign = 'center';
+      g.fillStyle = COL.ink; g.font = 'bold 8.5px "JetBrains Mono", monospace'; g.textAlign = 'center';
       g.fillText(name, (X(a) + X(b)) / 2, padT - 5.5); g.textAlign = 'left';
     };
     band(3, 5, 'rgba(255,176,0,0.25)', 'MWIR 3–5 µm');
     band(8, 13, 'rgba(0,229,255,0.22)', 'LWIR 8–13 µm');
     // absorber callouts
-    g.fillStyle = COL.faint; g.font = '8.5px "JetBrains Mono"'; g.textAlign = 'center';
+    g.fillStyle = COL.faint; g.font = '8.5px "JetBrains Mono", monospace'; g.textAlign = 'center';
     g.fillText('CO₂', X(4.3), Y(0.06) - 2);
     g.fillText('H₂O (opaque)', X(6.5), Y(0.5));
     g.fillText('CO₂', X(14.4), Y(0.35));
     g.textAlign = 'left';
-    // Planck curves, each normalised to its own peak (radiance scales differ hugely)
-    const curves = [[900, COL.amber, 'PLUME & HOT PARTS ~900 K'], [320, COL.blue, 'SKIN ~320 K']];
-    curves.forEach(([T, col, name]) => {
+    // Planck curves, each normalised to its own peak (radiance scales differ hugely).
+    // Labels are STAGGERED vertically: at narrow widths two peaks can sit close
+    // together in wavelength, and side-by-side labels would overlap illegibly.
+    const curves = [
+      [900, COL.amber, 'PLUME & HOT METAL ~900 K', 0.88],
+      [255, COL.blue, 'SKIN at M0.9, 10 km ~255 K', 0.70],
+      [userT, COL.green, 'YOUR SOURCE ' + Math.round(userT) + ' K', 0.52],
+    ];
+    curves.forEach(([T, col, name, band], i) => {
       let peak = 0; for (let lam = L0; lam <= L1; lam += 0.02) peak = Math.max(peak, planck(lam, T));
-      g.strokeStyle = col; g.lineWidth = 2.2; g.beginPath();
+      g.strokeStyle = col; g.lineWidth = i === 2 ? 2.6 : 2.0;
+      if (i === 2) { g.save(); g.shadowColor = col; g.shadowBlur = 6; }
+      g.beginPath();
       let first = true;
       for (let lam = L0; lam <= L1; lam += 0.04) {
         const y = Y(planck(lam, T) / peak * 0.88);
         first ? (g.moveTo(X(lam), y), first = false) : g.lineTo(X(lam), y);
       }
       g.stroke();
+      if (i === 2) g.restore();
       const lp = 2898 / T;                       // Wien's law, µm
-      g.fillStyle = col; g.beginPath(); g.arc(X(lp), Y(0.88), 3.4, 0, 7); g.fill();
-      lbl(g, X(lp), Y(0.88) - 10, `${name} · peak ${lp.toFixed(1)} µm`, col, lp < 7 ? 'left' : 'center', 8.5);
+      const ly = Y(band);
+      g.fillStyle = col; g.beginPath(); g.arc(X(lp), Y(0.88 * (planck(lp, T) / peak)), 3.4, 0, 7); g.fill();
+      // leader line from the label to the peak marker, so staggering stays readable
+      g.strokeStyle = col; g.globalAlpha = 0.45; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(X(lp), Y(0.88)); g.lineTo(X(lp), ly + 3); g.stroke(); g.globalAlpha = 1;
+      const align = X(lp) > (padL + (w - padL - padR) * 0.62) ? 'right' : 'left';
+      lbl(g, X(lp) + (align === 'left' ? 6 : -6), ly, `${name} · peak ${lp.toFixed(1)} µm`, col, align, 8.5);
     });
     // axes
     g.strokeStyle = COL.grid; g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, h - padB); g.lineTo(w - padR, h - padB); g.stroke();
-    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono"';
+    g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono", monospace';
     for (let lam = 2; lam <= 15; lam++) { if (lam % 2 === 1) continue; g.fillText(lam + '', X(lam) - 4, h - padB + 13); }
     lbl(g, w / 2, h - 4, 'wavelength (µm)', COL.dim, 'center', 9);
     g.save(); g.translate(10, h / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center';
-    g.fillStyle = COL.dim; g.font = '9px "JetBrains Mono"'; g.fillText('emission / transmission (norm.)', 0, 0); g.restore();
+    g.fillStyle = COL.dim; g.font = '9px "JetBrains Mono", monospace'; g.fillText('emission / transmission (norm.)', 0, 0); g.restore();
+    // live readout for the draggable curve
+    const lpU = 2898 / userT;
+    const inBand = lpU >= 3 && lpU <= 5 ? ['MWIR', COL.amber] : lpU >= 8 && lpU <= 12 ? ['LWIR', COL.blue]
+      : lpU < 3 ? ['SWIR / below MWIR', COL.red] : lpU > 12 ? ['beyond LWIR', COL.red] : ['the H₂O wall (5–8 µm) — effectively blind', COL.red];
+    read.innerHTML =
+      `<div class="wx-line">Your source at <b style="color:${COL.green}">${Math.round(userT)} K</b> peaks at ` +
+      `<b style="color:${COL.green}">${lpU.toFixed(2)} µm</b> → sits in <b style="color:${inBand[1]}">${inBand[0]}</b>` +
+      ` &nbsp;<span style="color:${COL.dim}">(Wien: λ<sub>peak</sub> = 2898/T)</span></div>` +
+      `<div class="wx-hint">Drag the temperature and watch Wien's peak sweep. A jet's <b style="color:${COL.amber}">plume and hot metal (~900 K)</b> peak near <b>3.2 µm</b>, inside the <b style="color:${COL.amber}">MWIR window</b> — which is why almost every heat-seeker, classic <i>and</i> modern imaging, lives there (note the <b>CO₂ notch at 4.3 µm</b> splitting that window: the plume's own CO₂ emission sits right beside it). <b style="color:${COL.blue}">Airframe skin</b> is far cooler — about <b>255 K</b> at Mach 0.9 and 10 km — so it peaks out near <b>11 µm</b> in the <b style="color:${COL.blue}">LWIR window</b>, the band that lets a long-wave IRST see a fighter from <i>any</i> aspect rather than only up the tailpipe. Push the slider past ~1000 K and the peak marches left out of MWIR entirely: that is exactly why a <b>2000 K flare</b> looks nothing like the aircraft it is defending, and why a two-colour seeker can tell them apart. <b>The windows are not carved by aircraft:</b> they are fixed by where H₂O and CO₂ absorb, and would exist with or without us. The luck is that jet temperatures happen to put their peaks inside them. (Curves are normalised per-peak; in absolute terms the plume outshines the skin enormously.)</div>`;
   }
   _V.redraw = draw; draw();
-  read.innerHTML = `<div class="wx-hint">Two curves, one atmosphere. A jet's <b style="color:${COL.amber}">plume and hot parts (~900 K)</b> radiate with a Planck peak near <b>3.2 µm</b> — right in the <b style="color:${COL.amber}">MWIR window</b>, which is why classic heat-seekers live there (note the <b>CO₂ notch at 4.3 µm</b> splitting that window — the plume's own CO₂ emission band sits just beside it). <b style="color:${COL.blue}">Skin heated by air friction (~320 K)</b> peaks near <b>9 µm</b> — the <b style="color:${COL.blue}">LWIR window</b>, home of IRSTs and imaging sensors that spot a fighter from <i>any</i> aspect. Between them the atmosphere is a wall of <b>H₂O absorption</b> — the two windows exist only because those gaps in the gas spectrum happen to line up with how hot jets get. (Curves normalised per-peak; in absolute terms the plume outshines the skin enormously.)</div>`;
   return () => {};
 });
 
@@ -3195,7 +3228,7 @@ reg('barscan', (node) => {
     g.fillStyle = COL.blue; g.shadowColor = COL.blue; g.shadowBlur = 10;
     g.beginPath(); g.arc(X(azNow), Y(eNow), 6, 0, 7); g.fill(); g.shadowBlur = 0;
     // axes
-    g.fillStyle = COL.dim; g.font = '9px "JetBrains Mono"';
+    g.fillStyle = COL.dim; g.font = '9px "JetBrains Mono", monospace';
     lbl(g, w / 2, h - 34, 'AZIMUTH  (−' + azHalf + '° … +' + azHalf + '°)', COL.dim, 'center', 9);
     lbl(g, padL - 8, padT - 8, 'ELEV', COL.dim, 'right', 9);
     lbl(g, 10, 16, `RASTER SEARCH — ${bars}-bar, ±${azHalf}°`, COL.blue, 'left', 10, true);
@@ -3337,5 +3370,267 @@ reg('radarbands', (node) => {
       `<div class="wx-hint">Band choice is not a detail, it <b>is</b> the radar's job description. Everything above flows from λ. <b>Low bands</b> (VHF/UHF) need enormous antennas to get any angular precision — so they are big, fixed, and coarse, useless for guiding a weapon — but their long wavelengths interact with airframe features on their own scale, so <a data-goto="modern">shaping and coatings tuned for X-band bite far less</a>: that is the entire counter-stealth argument, and its limit. They can tell you <i>something is there</i>; they cannot give you a firing solution. <b>High bands</b> (X/Ku) put a genuinely narrow beam behind a fighter-sized nose and give the precision a <a data-goto="guidance">weapon</a> needs — and are exactly what a stealth designer optimised against, and what rain attenuates. Note the gap around <b>22 GHz</b>: a water-vapour absorption peak everyone designs around.</div>`;
   }
   _V.redraw = draw; draw();
+  return () => {};
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  AERODYNAMICS + ATMOSPHERE — the curves the simulator actually flies
+//  Ported 1:1 from core/aerodynamics.py (ParametricAero) and core/atmosphere.py
+//  (USSA-1976), so these plots ARE the model, not a textbook lookalike.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// -- USSA-1976, identical layer table and integration to core/atmosphere.py ----
+const ATM = (() => {
+  const G0 = 9.80665, R_AIR = 287.053, GAMMA = 1.4, RE = 6356766.0, P0 = 101325.0;
+  const L = [[0, -0.0065, 288.15], [11000, 0, 216.65], [20000, 0.001, 216.65],
+             [32000, 0.0028, 228.65], [47000, 0, 270.65], [51000, -0.0028, 270.65],
+             [71000, -0.002, 214.65]];
+  const baseP = [P0];
+  for (let i = 1; i < L.length; i++) {
+    const [h0, l0, t0] = L[i - 1], h1 = L[i][0], p0 = baseP[i - 1], dh = h1 - h0;
+    baseP.push(Math.abs(l0) < 1e-12
+      ? p0 * Math.exp(-G0 * dh / (R_AIR * t0))
+      : p0 * Math.pow((t0 + l0 * dh) / t0, -G0 / (R_AIR * l0)));
+  }
+  return {
+    G0, R_AIR, GAMMA, RE, layers: L,
+    // dT = ISA offset in K (hot/cold day)
+    sample(hGeom, dT = 0) {
+      const H = RE * hGeom / (RE + hGeom);              // geopotential altitude
+      let i = 0; while (i < L.length - 1 && H >= L[i + 1][0]) i++;
+      const [hb, lr, tb] = L[i], pb = baseP[i], dh = H - hb;
+      const T = tb + lr * dh;
+      const P = Math.abs(lr) < 1e-12
+        ? pb * Math.exp(-G0 * dh / (R_AIR * tb))
+        : pb * Math.pow(T / tb, -G0 / (R_AIR * lr));
+      const Tact = T + dT;                              // offset day shifts T, so rho follows
+      return { T: Tact, P, rho: P / (R_AIR * Tact), a: Math.sqrt(GAMMA * R_AIR * Tact) };
+    },
+    gravity(h) { const r = RE / (RE + Math.max(h, 0)); return G0 * r * r; },
+  };
+})();
+
+// -- ParametricAero, identical to core/aerodynamics.py defaults ---------------
+const AERO = {
+  cdSub: 0.30, cdPeak: 0.75, cdSup: 0.42, k: 0.004, cnA0: 32.0,
+  alphaStall: 28 * Math.PI / 180,
+  cd0(m) {
+    m = Math.max(m, 0);
+    if (m < 0.8) return this.cdSub;
+    if (m < 1.2) { const x = (m - 0.8) / 0.4; return this.cdSub + (this.cdPeak - this.cdSub) * (0.5 - 0.5 * Math.cos(Math.PI * x)); }
+    return this.cdSup + (this.cdPeak - this.cdSup) * Math.exp(-(m - 1.2) / 1.5);
+  },
+  cnAlpha(m) {
+    m = Math.max(m, 0.05);
+    if (m < 0.95) return this.cnA0 / Math.sqrt(Math.max(1 - m * m, 0.15));
+    if (m < 1.05) return this.cnA0 / Math.sqrt(0.15);
+    return this.cnA0 / Math.sqrt(m * m - 1 + 0.4);
+  },
+};
+
+// ── DRAG & LIFT vs MACH — the transonic wall, drawn from the sim's own model ──
+reg('dragcurve', (node) => {
+  const _V = makeCanvas(node, 320); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let mach = 2.2, alphaDeg = 6;
+  const sM = slider('Mach', 0.2, 5, 0.05, mach, v => { mach = v; draw(); });
+  const sA = slider('Angle of attack (°)', 0, 20, 0.5, alphaDeg, v => { alphaDeg = v; draw(); });
+  ctr.append(sM.row, sA.row);
+  const M0 = 0.2, M1 = 5;
+  function draw() {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const padL = 46, padR = 52, padT = 26, padB = 34;
+    const pw = Math.max(60, w - padL - padR), ph = Math.max(50, h - padT - padB);
+    const X = m => padL + (m - M0) / (M1 - M0) * pw;
+    const CDMAX = 1.1, CNMAX = 90;
+    const Ycd = c => padT + ph - Math.min(c / CDMAX, 1) * ph;
+    const Ycn = c => padT + ph - Math.min(c / CNMAX, 1) * ph;
+    // grid
+    g.strokeStyle = COL.grid; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, padT + ph); g.lineTo(padL + pw, padT + ph); g.stroke();
+    g.font = '8.5px "JetBrains Mono", monospace'; g.fillStyle = COL.faint;
+    for (let m = 1; m <= 5; m++) { const x = X(m);
+      g.strokeStyle = 'rgba(78,128,178,.12)'; g.beginPath(); g.moveTo(x, padT); g.lineTo(x, padT + ph); g.stroke();
+      lbl(g, x, padT + ph + 13, 'M' + m, COL.faint, 'center', 8.5); }
+    // transonic band shading
+    g.fillStyle = 'rgba(255,61,0,.07)'; g.fillRect(X(0.8), padT, X(1.2) - X(0.8), ph);
+    lbl(g, (X(0.8) + X(1.2)) / 2, padT + 12, 'TRANSONIC', COL.red, 'center', 8);
+    // Cd0 curve
+    g.strokeStyle = COL.amber; g.lineWidth = 2.4; g.beginPath();
+    for (let m = M0; m <= M1; m += 0.02) { const x = X(m), y = Ycd(AERO.cd0(m)); m === M0 ? g.moveTo(x, y) : g.lineTo(x, y); }
+    g.stroke();
+    // total Cd at the chosen AoA (Cd0 + k*CL^2)
+    g.strokeStyle = COL.red; g.lineWidth = 1.6; g.setLineDash([4, 3]); g.beginPath();
+    const aRad = alphaDeg * Math.PI / 180;
+    for (let m = M0; m <= M1; m += 0.02) {
+      const cl = AERO.cnAlpha(m) * aRad, cd = AERO.cd0(m) + AERO.k * cl * cl;
+      const x = X(m), y = Ycd(cd); m === M0 ? g.moveTo(x, y) : g.lineTo(x, y);
+    }
+    g.stroke(); g.setLineDash([]);
+    // CN_alpha curve (right axis)
+    g.strokeStyle = COL.blue; g.lineWidth = 2; g.beginPath();
+    for (let m = M0; m <= M1; m += 0.02) { const x = X(m), y = Ycn(AERO.cnAlpha(m)); m === M0 ? g.moveTo(x, y) : g.lineTo(x, y); }
+    g.stroke();
+    // marker
+    const cl = AERO.cnAlpha(mach) * aRad, cdTot = AERO.cd0(mach) + AERO.k * cl * cl;
+    g.strokeStyle = COL.ink; g.setLineDash([2, 3]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(X(mach), padT); g.lineTo(X(mach), padT + ph); g.stroke(); g.setLineDash([]);
+    g.fillStyle = COL.amber; g.beginPath(); g.arc(X(mach), Ycd(AERO.cd0(mach)), 4, 0, 7); g.fill();
+    g.fillStyle = COL.red; g.beginPath(); g.arc(X(mach), Ycd(cdTot), 4, 0, 7); g.fill();
+    g.fillStyle = COL.blue; g.beginPath(); g.arc(X(mach), Ycn(AERO.cnAlpha(mach)), 4, 0, 7); g.fill();
+    // axis labels
+    lbl(g, padL - 6, padT + 8, 'Cd', COL.amber, 'right', 9);
+    lbl(g, padL + pw + 8, padT + 8, 'CNα', COL.blue, 'left', 9);
+    lbl(g, w / 2, h - 6, 'MACH', COL.dim, 'center', 9);
+    lbl(g, 12, 16, 'THE SIMULATOR\'S OWN Cd AND LIFT-SLOPE CURVES', COL.green, 'left', 9.5, true);
+    read.innerHTML =
+      `<div class="wx-line">At <b>M${R(mach, 2)}</b>, α=<b>${R(alphaDeg, 1)}°</b>: ` +
+      `<b style="color:${COL.amber}">Cd₀ = ${R(AERO.cd0(mach), 3)}</b> · ` +
+      `<b style="color:${COL.red}">Cd total = ${R(cdTot, 3)}</b> (induced +${R(100 * (cdTot / AERO.cd0(mach) - 1))}%) · ` +
+      `<b style="color:${COL.blue}">CNα = ${R(AERO.cnAlpha(mach), 1)}/rad</b></div>` +
+      `<div class="wx-hint">These are not generic textbook curves — this is the exact model your missiles fly. Three things to read here. <b style="color:${COL.amber}">Cd₀ (amber)</b> sits on a subsonic plateau, more than doubles through the <b style="color:${COL.red}">transonic wall</b> near Mach 1, then eases off supersonically: that hump is the entire reason a coasting missile that falls back through Mach 1 dies so fast — drag peaks exactly where it can least afford it. <b style="color:${COL.red}">Total Cd (dashed)</b> adds <b>induced drag k·C<sub>L</sub>²</b>, so pulling AoA to chase a jink is literally paid for in range — wind the AoA slider up and watch the gap open. <b style="color:${COL.blue}">CNα (blue)</b> is lift per radian: it peaks near Mach 1 and then <b>decays as roughly 1/√(M²−1)</b>, which is the unforgiving part — a very fast missile has <i>less</i> lift slope, so its turn depends on brute dynamic pressure alone.</div>`;
+  }
+  _V.redraw = draw; draw();
+  return () => {};
+});
+
+// ── HOW MANY G CAN IT ACTUALLY PULL — q, altitude and the turn budget ────────
+reg('gbudget', (node) => {
+  const _V = makeCanvas(node, 320); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  // Representative AAM: 0.18 m dia, ~150 kg mid-flight, structural cap 30 g.
+  // ALPHA is the model's own stall limit (alpha_stall in core/aerodynamics.py), i.e.
+  // the MAXIMUM the airframe can demand — so this plots true available G. Validated
+  // against a real sim run: a Meteor above 14 km peaks near 6.7 g, and this curve
+  // gives ~7 g there.
+  const D = 0.18, S = Math.PI * D * D / 4, MASS = 150, GMAX = 30, ALPHA = 28 * Math.PI / 180;
+  let alt = 10, mach = 2.5;
+  const sH = slider('Altitude (km)', 0, 25, 0.5, alt, v => { alt = v; draw(); });
+  const sM = slider('Mach', 0.6, 5, 0.05, mach, v => { mach = v; draw(); });
+  ctr.append(sH.row, sM.row);
+  const gAt = (hKm, m) => {
+    const s = ATM.sample(hKm * 1000);
+    const V = m * s.a, q = 0.5 * s.rho * V * V;
+    const cl = AERO.cnAlpha(m) * ALPHA;
+    const aero = q * S * cl / MASS;               // m/s² available laterally
+    return { g: aero / 9.80665, q, V };
+  };
+  function draw() {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const padL = 44, padR = 16, padT = 26, padB = 34;
+    const pw = Math.max(60, w - padL - padR), ph = Math.max(50, h - padT - padB);
+    const H1 = 25, GDISP = 40;
+    const X = gg => padL + Math.min(gg / GDISP, 1) * pw;
+    const Y = hh => padT + (1 - hh / H1) * ph;
+    g.strokeStyle = COL.grid; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, padT + ph); g.lineTo(padL + pw, padT + ph); g.stroke();
+    g.font = '8.5px "JetBrains Mono", monospace'; g.fillStyle = COL.faint;
+    for (let gg = 10; gg <= 40; gg += 10) { const x = X(gg);
+      g.strokeStyle = 'rgba(78,128,178,.12)'; g.beginPath(); g.moveTo(x, padT); g.lineTo(x, padT + ph); g.stroke();
+      lbl(g, x, padT + ph + 13, gg + ' g', COL.faint, 'center', 8.5); }
+    for (let hh = 5; hh <= 25; hh += 5) { const y = Y(hh);
+      g.strokeStyle = 'rgba(78,128,178,.12)'; g.beginPath(); g.moveTo(padL, y); g.lineTo(padL + pw, y); g.stroke();
+      lbl(g, padL - 6, y + 3, hh + 'km', COL.faint, 'right', 8.5); }
+    // structural cap
+    g.strokeStyle = COL.red; g.setLineDash([4, 4]); g.lineWidth = 1.4;
+    g.beginPath(); g.moveTo(X(GMAX), padT); g.lineTo(X(GMAX), padT + ph); g.stroke(); g.setLineDash([]);
+    lbl(g, X(GMAX) - 4, padT + 10, 'STRUCTURAL LIMIT', COL.red, 'right', 8);
+    // available-G curves for several Machs
+    [[1.0, 'rgba(147,172,203,.75)'], [2.0, COL.blue], [3.0, COL.green], [4.0, COL.amber]].forEach(([m, col]) => {
+      g.strokeStyle = col; g.lineWidth = m === Math.round(mach * 2) / 2 ? 2.6 : 1.6; g.beginPath();
+      let first = true;
+      for (let hh = 0; hh <= H1; hh += 0.25) {
+        const gg = Math.min(gAt(hh, m).g, GMAX);
+        const x = X(gg), y = Y(hh); first ? (g.moveTo(x, y), first = false) : g.lineTo(x, y);
+      }
+      g.stroke();
+      const gTop = Math.min(gAt(H1, m).g, GMAX);
+      lbl(g, X(gTop) + 5, Y(H1) + 10, 'M' + m, col, 'left', 8.5);
+    });
+    // current point
+    const cur = gAt(alt, mach), gg = Math.min(cur.g, GMAX);
+    g.fillStyle = COL.ink; g.shadowColor = COL.ink; g.shadowBlur = 8;
+    g.beginPath(); g.arc(X(gg), Y(alt), 5, 0, 7); g.fill(); g.shadowBlur = 0;
+    lbl(g, 12, 16, 'AVAILABLE LATERAL G vs ALTITUDE', COL.green, 'left', 9.5, true);
+    lbl(g, w - 12, 16, '0.18 m · 150 kg · α at stall limit', COL.faint, 'right', 8);
+    lbl(g, w / 2, h - 6, 'G AVAILABLE', COL.dim, 'center', 9);
+    const limited = cur.g >= GMAX;
+    read.innerHTML =
+      `<div class="wx-line">At <b>${R(alt, 1)} km</b>, <b>M${R(mach, 2)}</b> (${R(cur.V)} m/s): q = <b>${R(cur.q / 1000, 1)} kPa</b> → ` +
+      `<b style="color:${limited ? COL.red : COL.green}">${R(Math.min(cur.g, GMAX), 1)} g available</b> ` +
+      `${limited ? '<span style="color:' + COL.red + '">(structure-limited — the airframe, not the air, is the cap)</span>'
+                 : '<span style="color:' + COL.amber + '">(aero-limited — there simply is not enough air)</span>'}</div>` +
+      `<div class="wx-hint">Turning is bought with <b>dynamic pressure</b>: lateral force = q·S·C<sub>L</sub>, so available G scales with <b>ρV²</b>. Follow any curve upward and watch it collapse — at 20 km the air is <b>~14× thinner</b> than at sea level, so the same missile at the same Mach has a fraction of the turn it had down low. This is the hidden bill for <a data-goto="loft">lofting</a>: you buy range with thin air and pay for it in agility, which is why a lofted shot wants to complete its <b>dive back into thick air before the endgame</b>. It is also exactly why a defender's <a data-goto="defence">last-ditch break works best low</a> — down there <i>you</i> have the q to turn and the arriving missile, slow and coasting, does not. Note where each curve goes vertical: that is the structural cap taking over from the aerodynamic one, the only region where the missile is limited by its own strength rather than by the sky.</div>`;
+  }
+  _V.redraw = draw; draw();
+  return () => {};
+});
+
+// ── THE STANDARD ATMOSPHERE — the invisible player in every engagement ───────
+reg('atmoprofile', (node) => {
+  const _V = makeCanvas(node, 340); const { g } = _V;
+  const tabs = el('div', { class: 'wx-controls' }); node.appendChild(tabs);
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  const DAYS = { std: ['STANDARD', 0, COL.blue], hot: ['HOT  ISA+20', 20, COL.red], cold: ['COLD  ISA−20', -20, '#7fd0ff'], trop: ['TROPICAL ISA+15', 15, COL.amber] };
+  let day = 'std', alt = 10;
+  const btns = {};
+  Object.entries(DAYS).forEach(([k, v]) => { const b = el('button', { class: 'wx-tab', onclick: () => { day = k; sync(); } }, v[0]); btns[k] = b; tabs.appendChild(b); });
+  const sH = slider('Altitude (km)', 0, 30, 0.25, alt, v => { alt = v; draw(); });
+  ctr.appendChild(sH.row);
+  function sync() { Object.entries(btns).forEach(([k, b]) => b.classList.toggle('on', k === day)); draw(); }
+  const H1 = 30;
+  function draw() {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const padL = 40, padR = 14, padT = 30, padB = 30;
+    const pw = Math.max(60, w - padL - padR), ph = Math.max(50, h - padT - padB);
+    const Y = hh => padT + (1 - hh / H1) * ph;
+    const dT = DAYS[day][1];
+    // tropopause band
+    g.fillStyle = 'rgba(0,229,255,.05)'; g.fillRect(padL, Y(20), pw, Y(11) - Y(20));
+    g.strokeStyle = 'rgba(0,229,255,.3)'; g.setLineDash([4, 4]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(padL, Y(11)); g.lineTo(padL + pw, Y(11)); g.stroke(); g.setLineDash([]);
+    lbl(g, padL + pw - 4, Y(11) - 5, 'TROPOPAUSE 11 km — lapse stops here', COL.blue, 'right', 8);
+    lbl(g, padL + pw - 4, Y(20) - 5, '20 km — temperature starts rising', COL.dim, 'right', 8);
+    // axes
+    g.strokeStyle = COL.grid; g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, padT + ph); g.lineTo(padL + pw, padT + ph); g.stroke();
+    for (let hh = 5; hh <= H1; hh += 5) { const y = Y(hh);
+      g.strokeStyle = 'rgba(78,128,178,.10)'; g.beginPath(); g.moveTo(padL, y); g.lineTo(padL + pw, y); g.stroke();
+      lbl(g, padL - 5, y + 3, hh + '', COL.faint, 'right', 8.5); }
+    lbl(g, padL - 5, Y(0) + 3, '0', COL.faint, 'right', 8.5);
+    g.save(); g.translate(11, h / 2); g.rotate(-Math.PI / 2); g.textAlign = 'center';
+    g.fillStyle = COL.dim; g.font = '9px "JetBrains Mono", monospace'; g.fillText('ALTITUDE (km)', 0, 0); g.restore();
+    // three normalised curves: T, rho, a
+    const s0 = ATM.sample(0, dT);
+    const curves = [
+      ['TEMPERATURE', COL.red, s => (s.T - 180) / (330 - 180)],
+      ['DENSITY  ρ/ρ₀', COL.green, s => s.rho / s0.rho],
+      ['SPEED OF SOUND', COL.amber, s => (s.a - 250) / (360 - 250)],
+    ];
+    curves.forEach(([name, col, f], i) => {
+      g.strokeStyle = col; g.lineWidth = 2.2; g.beginPath();
+      let first = true;
+      for (let hh = 0; hh <= H1; hh += 0.2) {
+        const v = Math.max(0, Math.min(1, f(ATM.sample(hh * 1000, dT))));
+        const x = padL + v * pw, y = Y(hh);
+        first ? (g.moveTo(x, y), first = false) : g.lineTo(x, y);
+      }
+      g.stroke();
+      lbl(g, padL + 8 + i * (pw / 3.1), padT - 8, name, col, 'left', 8.5, true);
+    });
+    // marker
+    const s = ATM.sample(alt * 1000, dT);
+    g.strokeStyle = COL.ink; g.setLineDash([2, 3]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(padL, Y(alt)); g.lineTo(padL + pw, Y(alt)); g.stroke(); g.setLineDash([]);
+    lbl(g, 12, 16, 'US STANDARD ATMOSPHERE 1976 — ' + DAYS[day][0], DAYS[day][2], 'left', 9.5, true);
+    read.innerHTML =
+      `<div class="wx-line">At <b>${R(alt, 2)} km</b> (${DAYS[day][0]}): T = <b style="color:${COL.red}">${R(s.T, 1)} K</b> (${R(s.T - 273.15, 1)} °C) · ` +
+      `P = <b>${R(s.P / 1000, 1)} kPa</b> · ρ = <b style="color:${COL.green}">${R(s.rho, 4)} kg/m³</b> (${R(s0.rho / s.rho, 2)}× thinner than sea level) · ` +
+      `a = <b style="color:${COL.amber}">${R(s.a, 1)} m/s</b> · g = <b>${R(ATM.gravity(alt * 1000), 3)} m/s²</b></div>` +
+      `<div class="wx-hint">This is the simulator's actual atmosphere — the same 7-layer integration the physics core runs, not a sketch. Three things drive every engagement. <b style="color:${COL.green}">Density</b> falls roughly exponentially and is the master variable: it sets drag <i>and</i> lift through q = ½ρV², so thin air means long range and feeble turns. <b style="color:${COL.red}">Temperature</b> falls at 6.5 K/km to the <b>tropopause at 11 km</b>, then flatlines — and above 20 km it starts <i>rising</i> again (ozone absorbing sunlight), which is why the profile has a kink rather than a slope. <b style="color:${COL.amber}">Speed of sound</b> depends only on temperature (a = √(γRT)), so it drops to ~295 m/s at the tropopause and stays there: the <i>same Mach number</i> is a much slower true airspeed up high. Switch to a <b>hot day</b> and watch density drop — that is free missile range and stolen turn performance, and it is why the same shot is a different shot in July over the Gulf than in January over the Baltic.</div>`;
+  }
+  _V.redraw = draw; sync();
   return () => {};
 });
