@@ -591,12 +591,17 @@ export const HELP_SECTIONS = [
       climbs — 0 disables), <b>Loft ceiling</b> (apogee cap — above it the air is too thin to hold
       the profile), and the guidance gate (datalink + APN/OGL only). The apogee is sized from the
       shot range: short shots barely rise, max-range shots use the full ceiling.</p>
+      <h3>Fly it yourself</h3>
+      <p>The plot below is a live <b>point-mass integration</b> — thrust, drag from the sim's own
+      Cd₀(M) curve, inverse-square gravity, USSA-1976 density — not an illustration. Sweep the loft
+      angle and the whole trade appears on its own:</p>
+      <div class="wx" data-widget="loftprofile"></div>
       <p class="tip">The Mach chart tells the whole story: boost spike → cruise decay → dive
       re-acceleration → the number that matters: <b>Mach at the merge</b>. A missile arriving below
       ~Mach 1.5 can't out-turn anyone. This is why the best defence is often simply making the shot
-      longer.
+      longer.</p>
       <div class="lore"><b>Point Mugu, 1973 — the loft, proven.</b> To show the <b>AIM-54 Phoenix</b> could defend the fleet at absurd ranges, the US Navy fired one from an F-14 at a target drone about <b>110 nautical miles</b> away. The missile flew this page's profile exactly: pitch up, climb past <b>100,000 ft</b> where drag all but vanishes, cruise across the gap, then nose over and dive onto the drone — the longest air-to-air intercept publicly demonstrated at the time. The motor burned out long before the midpoint; everything after was pure <b>energy management</b> — altitude banked in the climb, cashed in the dive. Half a century on, AMRAAM, R-37M and <a data-goto="propulsion">Meteor</a> ride the same arc. The physics never expired.</div>
-      <div class="workex"><b>What the dive buys back.</b> A missile coasts over apogee at 20 km doing Mach 2.5 — sound speed there is <span class="m">≈295 m/s</span>, so <span class="m">v = 2.5 × 295 ≈ 737 m/s</span>. It noses over and trades 10 km of altitude for speed. Lossless exchange: <span class="m">v'² = v² + 2gΔh = 737² + 2 × 9.81 × 10,000 ≈ 543,200 + 196,200 = 739,400 m²/s²</span>, so <span class="m">v' ≈ 860 m/s</span>. At 10 km sound speed is <span class="m">≈299.5 m/s</span>, giving <span class="m">Mach ≈ 860 / 299.5 ≈ 2.87</span> — the dive returned about <span class="m">+123 m/s</span> without burning a gram of propellant. And the cruise leg was cheap to begin with: at 20 km, density is <span class="m">0.089 / 1.225 ≈ 7%</span> of sea level, so at the same true airspeed the missile pays roughly 7% of the drag a sea-level dash would.</div></p>`,
+      <div class="workex"><b>What the dive buys back.</b> A missile coasts over apogee at 20 km doing Mach 2.5 — sound speed there is <span class="m">≈295 m/s</span>, so <span class="m">v = 2.5 × 295 ≈ 737 m/s</span>. It noses over and trades 10 km of altitude for speed. Lossless exchange: <span class="m">v'² = v² + 2gΔh = 737² + 2 × 9.81 × 10,000 ≈ 543,200 + 196,200 = 739,400 m²/s²</span>, so <span class="m">v' ≈ 860 m/s</span>. At 10 km sound speed is <span class="m">≈299.5 m/s</span>, giving <span class="m">Mach ≈ 860 / 299.5 ≈ 2.87</span> — the dive returned about <span class="m">+123 m/s</span> without burning a gram of propellant. And the cruise leg was cheap to begin with: at 20 km, density is <span class="m">0.089 / 1.225 ≈ 7%</span> of sea level, so at the same true airspeed the missile pays roughly 7% of the drag a sea-level dash would.</div>`,
   },
   {
     id: 'propulsion', title: 'Propulsion — Boost-Sustain, Dual-Pulse, Ramjet',
@@ -1459,6 +1464,10 @@ export const HELP_SECTIONS = [
         <li><b>Fatigue, spatial disorientation, hypoxia</b> — the quiet killers. More aircrew have
         been lost to disorientation and physiology than to enemy missiles in peacetime.</li>
       </ul>
+      <h3>How long can you actually hold it?</h3>
+      <p>"The jet pulls 9 G" is a statement about the airframe. What the <i>pilot</i> can do is a
+      curve with two completely different limits on it — pick your kit and sweep the pull:</p>
+      <div class="wx" data-widget="gtolerance"></div>
       <div class="workex">Why ~5 G greys you out: your brain sits ≈30 cm above your heart, and that
       blood column costs ≈22 mmHg of pressure at 1 G. At <span class="m">+5 G<sub>z</sub></span> the
       same column costs <span class="m">5 × 22 ≈ 110 mmHg</span> — roughly your entire systolic
@@ -1482,6 +1491,10 @@ export const HELP_SECTIONS = [
     html: `
       <p>The same shot on a different day is a different shot. The environment quietly moves every
       number in this sim.</p>
+      <h3>Weather does not treat sensors equally</h3>
+      <p>This is the asymmetry that decides which weapon is the right tool on a given day. Step
+      through the conditions:</p>
+      <div class="wx" data-widget="wxsensor"></div>
       <ul>
         <li><b>Air density (the big one).</b> Drag and lift both scale with ρ. A <a data-goto="atmos">hot
         or high day</a> means thinner air: less drag (missiles reach farther) but less lift (everything

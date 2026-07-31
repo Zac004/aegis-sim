@@ -33,7 +33,8 @@ const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'h
   'irscan', 'prf', 'decisiondrill', 'codex', 'fpole', 'emdiagram', 'grinder',
   'wez', 'notchgame', 'sternconv', 'sortgame', 'formations', 'rwrscope', 'irbands',
   'radarderive', 'rcsaspect', 'arrayphysics', 'beamwidth', 'barscan', 'radarpick',
-  'radarbands', 'dragcurve', 'gbudget', 'atmoprofile']);
+  'radarbands', 'dragcurve', 'gbudget', 'atmoprofile',
+  'loftprofile', 'gtolerance', 'wxsensor']);
 
 export function mountWidgets(root) {
   const teardowns = [];
@@ -3630,6 +3631,241 @@ reg('atmoprofile', (node) => {
       `P = <b>${R(s.P / 1000, 1)} kPa</b> · ρ = <b style="color:${COL.green}">${R(s.rho, 4)} kg/m³</b> (${R(s0.rho / s.rho, 2)}× thinner than sea level) · ` +
       `a = <b style="color:${COL.amber}">${R(s.a, 1)} m/s</b> · g = <b>${R(ATM.gravity(alt * 1000), 3)} m/s²</b></div>` +
       `<div class="wx-hint">This is the simulator's actual atmosphere — the same 7-layer integration the physics core runs, not a sketch. Three things drive every engagement. <b style="color:${COL.green}">Density</b> falls roughly exponentially and is the master variable: it sets drag <i>and</i> lift through q = ½ρV², so thin air means long range and feeble turns. <b style="color:${COL.red}">Temperature</b> falls at 6.5 K/km to the <b>tropopause at 11 km</b>, then flatlines — and above 20 km it starts <i>rising</i> again (ozone absorbing sunlight), which is why the profile has a kink rather than a slope. <b style="color:${COL.amber}">Speed of sound</b> depends only on temperature (a = √(γRT)), so it drops to ~295 m/s at the tropopause and stays there: the <i>same Mach number</i> is a much slower true airspeed up high. Switch to a <b>hot day</b> and watch density drop — that is free missile range and stolen turn performance, and it is why the same shot is a different shot in July over the Gulf than in January over the Baltic.</div>`;
+  }
+  _V.redraw = draw; sync();
+  return () => {};
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  LOFT · G-TOLERANCE · WEATHER — three more Foundations/Missile widgets
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── LOFT: a real point-mass integration using the sim's own atmosphere + drag ──
+// Launch at a flight-path angle and let physics do the rest: thrust, drag from
+// AERO.cd0(M), inverse-square gravity, ATM density. Sweep the angle and the
+// range/terminal-Mach trade appears on its own — nothing here is hand-drawn.
+reg('loftprofile', (node) => {
+  const _V = makeCanvas(node, 330); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let loftDeg = 25, alt0 = 10;
+  const sL = slider('Loft angle (°)', 0, 45, 1, loftDeg, v => { loftDeg = v; draw(); });
+  const sA = slider('Launch altitude (km)', 3, 15, 0.5, alt0, v => { alt0 = v; draw(); });
+  ctr.append(sL.row, sA.row);
+  // representative BVR round: 0.178 m, 152 kg launch, 21 kN for 6 s, then coast
+  const D = 0.178, S = Math.PI * D * D / 4, M0 = 152, MPROP = 48, THRUST = 21000, TB = 6.0;
+
+  function fly(gammaDeg) {
+    const gam = gammaDeg * Math.PI / 180;
+    let h = alt0 * 1000, x = 0, t = 0;
+    const a0 = ATM.sample(h).a;
+    let v = 1.2 * a0;                       // launched from a fighter at M1.2
+    let vx = v * Math.cos(gam), vh = v * Math.sin(gam);
+    const path = [[0, h]];
+    let apogee = h, mach1 = 0, burnoutM = 0;
+    const dt = 0.05;
+    while (t < 400) {
+      const s = ATM.sample(Math.max(h, 0));
+      v = Math.hypot(vx, vh);
+      const M = v / s.a;
+      const q = 0.5 * s.rho * v * v;
+      const mass = M0 - MPROP * Math.min(t / TB, 1);
+      const drag = q * S * AERO.cd0(M);
+      const th = t < TB ? THRUST : 0;
+      if (t >= TB && burnoutM === 0) burnoutM = M;
+      // forces along/normal to velocity: thrust along v, drag opposing, gravity down
+      const ux = v > 1e-6 ? vx / v : 1, uh = v > 1e-6 ? vh / v : 0;
+      const ax = (th - drag) * ux / mass;
+      const ah = (th - drag) * uh / mass - ATM.gravity(Math.max(h, 0));
+      vx += ax * dt; vh += ah * dt;
+      // While the motor burns, guidance holds the commanded flight-path angle
+      // (that is what a loft program actually does). After burnout it is a pure
+      // glider and gravity takes over. Without this, a 0-degree shot would start
+      // falling on step one and the direct case would terminate immediately.
+      if (t < TB) { const sp = Math.hypot(vx, vh); vx = sp * Math.cos(gam); vh = sp * Math.sin(gam); }
+      x += vx * dt; h += vh * dt; t += dt;
+      if (h > apogee) apogee = h;
+      if (t % 0.25 < dt) path.push([x, h]);
+      // energy death: below Mach 1 a coasting round can no longer catch or turn
+      const Mnow = Math.hypot(vx, vh) / s.a;
+      if (t > TB && Mnow < 1.0) { mach1 = Mnow; break; }
+      if (h <= 0) { mach1 = Mnow; break; }
+    }
+    if (mach1 === 0) mach1 = Math.hypot(vx, vh) / ATM.sample(Math.max(h, 0)).a;
+    return { path, range: x, apogee, tof: t, machEnd: mach1, burnoutM };
+  }
+
+  function draw() {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const padL = 44, padR = 14, padT = 26, padB = 34;
+    const pw = Math.max(60, w - padL - padR), ph = Math.max(50, h - padT - padB);
+    const lofted = fly(loftDeg), direct = fly(0);
+    const maxX = Math.max(lofted.range, direct.range, 1000) * 1.05;
+    const maxH = Math.max(lofted.apogee, alt0 * 1000) * 1.12;
+    const X = xx => padL + xx / maxX * pw;
+    const Y = hh => padT + (1 - hh / maxH) * ph;
+    // axes + grid
+    g.strokeStyle = COL.grid; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, padT + ph); g.lineTo(padL + pw, padT + ph); g.stroke();
+    g.font = '8.5px "JetBrains Mono", monospace';
+    const xStep = maxX > 150000 ? 50000 : maxX > 60000 ? 25000 : 10000;
+    for (let xx = xStep; xx <= maxX; xx += xStep) {
+      g.strokeStyle = 'rgba(78,128,178,.10)'; g.beginPath(); g.moveTo(X(xx), padT); g.lineTo(X(xx), padT + ph); g.stroke();
+      lbl(g, X(xx), padT + ph + 13, (xx / 1000) + '', COL.faint, 'center', 8.5);
+    }
+    const hStep = maxH > 30000 ? 10000 : 5000;
+    for (let hh = hStep; hh <= maxH; hh += hStep) {
+      g.strokeStyle = 'rgba(78,128,178,.10)'; g.beginPath(); g.moveTo(padL, Y(hh)); g.lineTo(padL + pw, Y(hh)); g.stroke();
+      lbl(g, padL - 5, Y(hh) + 3, (hh / 1000) + 'km', COL.faint, 'right', 8.5);
+    }
+    // launch-altitude reference
+    g.strokeStyle = 'rgba(147,172,203,.35)'; g.setLineDash([4, 4]);
+    g.beginPath(); g.moveTo(padL, Y(alt0 * 1000)); g.lineTo(padL + pw, Y(alt0 * 1000)); g.stroke(); g.setLineDash([]);
+    // trajectories
+    const drawPath = (p, col, wdt) => {
+      g.strokeStyle = col; g.lineWidth = wdt; g.beginPath();
+      p.forEach(([xx, hh], i) => { const px = X(xx), py = Y(hh); i ? g.lineTo(px, py) : g.moveTo(px, py); });
+      g.stroke();
+    };
+    drawPath(direct.path, 'rgba(147,172,203,.65)', 1.8);
+    drawPath(lofted.path, COL.amber, 2.6);
+    lbl(g, X(direct.range), Y(alt0 * 1000) - 8, 'DIRECT ' + R(direct.range / 1000, 1) + ' km', COL.dim, 'right', 8.5);
+    // apogee marker
+    const ap = lofted.path.reduce((a, b) => b[1] > a[1] ? b : a, lofted.path[0]);
+    g.fillStyle = COL.amber; g.beginPath(); g.arc(X(ap[0]), Y(ap[1]), 4, 0, 7); g.fill();
+    lbl(g, X(ap[0]), Y(ap[1]) - 9, 'apogee ' + R(ap[1] / 1000, 1) + ' km', COL.amber, 'center', 8.5);
+    lbl(g, 12, 16, 'LOFTED vs DIRECT — integrated with the sim\'s own drag + atmosphere', COL.green, 'left', 9.5, true);
+    lbl(g, w / 2, h - 5, 'GROUND RANGE (km)', COL.dim, 'center', 9);
+    const gain = direct.range > 500 ? 100 * (lofted.range / direct.range - 1) : null;
+    read.innerHTML =
+      `<div class="wx-line">Loft <b style="color:${COL.amber}">${loftDeg}°</b>: reaches <b style="color:${COL.amber}">${R(lofted.range / 1000, 1)} km</b> before going energy-dead ` +
+      (gain === null ? '' : `(<b style="color:${gain >= 0 ? COL.green : COL.red}">${gain >= 0 ? '+' : ''}${R(gain)}%</b> vs the direct shot's ${R(direct.range / 1000, 1)} km) `) +
+      `· apogee <b>${R(lofted.apogee / 1000, 1)} km</b> · time of flight <b>${R(lofted.tof, 1)} s</b></div>` +
+      `<div class="wx-hint">This is not a drawing — it is a live <b>point-mass integration</b> using the <i>same</i> atmosphere and Cd₀(M) curve as the physics core: thrust for ${TB} s while guidance holds the commanded climb, then a pure unpowered glider. The run stops when the round decays through <b>Mach 1</b>, because a subsonic missile can no longer catch or out-turn anything — so the number above is honest reach, not a ballistic maximum. Sweep the angle. At <b>0°</b> the missile spends its whole life in thick air and drag eats it quickly. Climb instead and it coasts where <b>ρ is a small fraction of sea level</b>, so the same energy carries far further. Keep going and you can see the cost appear too: very steep lofts spend a large share of the boost fighting gravity and arrive steeply, and the extra range starts to flatten off. Now change the <b>launch altitude</b> and watch a second, larger effect: firing from 15 km instead of 3 km roughly <b>doubles the reach of even a direct shot</b>, because the round spends its entire life in thinner air. Lofting still buys you about the same multiplier on top of that — so <b>altitude and loft compound</b>, and that is precisely why a high, fast shooter with a lofted weapon holds such an enormous range advantage over a low one. It is the same reason the first move in a BVR fight is so often simply <i>being higher</i>. <i>(Simplification: this integrates drag and gravity but not lift or terminal guidance, so read it as the energy story rather than a complete intercept.)</i></div>`;
+  }
+  _V.redraw = draw; draw();
+  return () => {};
+});
+
+// ── G-TOLERANCE: why "the jet pulls 9 G" is not the same as "the pilot does" ──
+reg('gtolerance', (node) => {
+  const _V = makeCanvas(node, 300); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  const KIT = {
+    none: ['RELAXED, NO KIT', 4.5, 'rgba(147,172,203,.85)'],
+    suit: ['G-SUIT ONLY', 5.5, COL.blue],
+    agsm: ['G-SUIT + AGSM STRAIN', 8.5, COL.green],
+  };
+  let kit = 'agsm', gPull = 8;
+  const btns = {};
+  Object.entries(KIT).forEach(([k, v]) => { const b = el('button', { class: 'wx-tab', onclick: () => { kit = k; sync(); } }, v[0]); btns[k] = b; ctr.appendChild(b); });
+  const sG = slider('G you pull', 3, 12, 0.25, gPull, v => { gPull = v; draw(); });
+  node.appendChild(sG.row);
+  function sync() { Object.entries(btns).forEach(([k, b]) => b.classList.toggle('on', k === kit)); draw(); }
+  const RESERVE = 5;            // s of cerebral oxygen reserve — G is free inside it
+  // tolerance time above the sustained threshold: hyperbolic falloff past the reserve
+  const tolTime = (G, Gs) => (G <= Gs ? Infinity : RESERVE + 22 / (G - Gs));
+  function draw() {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const padL = 46, padR = 16, padT = 26, padB = 34;
+    const pw = Math.max(60, w - padL - padR), ph = Math.max(50, h - padT - padB);
+    const TMAX = 40, GMIN = 3, GMAX = 12;
+    const X = t => padL + Math.min(t / TMAX, 1) * pw;
+    const Y = G => padT + (1 - (G - GMIN) / (GMAX - GMIN)) * ph;
+    g.strokeStyle = COL.grid; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, padT + ph); g.lineTo(padL + pw, padT + ph); g.stroke();
+    g.font = '8.5px "JetBrains Mono", monospace';
+    for (let t = 10; t <= TMAX; t += 10) { g.strokeStyle = 'rgba(78,128,178,.10)';
+      g.beginPath(); g.moveTo(X(t), padT); g.lineTo(X(t), padT + ph); g.stroke();
+      lbl(g, X(t), padT + ph + 13, t + ' s', COL.faint, 'center', 8.5); }
+    for (let G = 4; G <= 12; G += 2) { g.strokeStyle = 'rgba(78,128,178,.10)';
+      g.beginPath(); g.moveTo(padL, Y(G)); g.lineTo(padL + pw, Y(G)); g.stroke();
+      lbl(g, padL - 5, Y(G) + 3, G + ' G', COL.faint, 'right', 8.5); }
+    // the 5-second reserve band — G is survivable here whatever the level
+    g.fillStyle = 'rgba(34,255,156,.08)'; g.fillRect(padL, padT, X(RESERVE) - padL, ph);
+    lbl(g, X(RESERVE) - 4, padT + 12, '5 s O₂ RESERVE', COL.green, 'right', 8);
+    // tolerance curves
+    Object.entries(KIT).forEach(([k, [name, Gs, col]]) => {
+      g.strokeStyle = col; g.lineWidth = k === kit ? 2.8 : 1.4;
+      g.globalAlpha = k === kit ? 1 : 0.45;
+      g.beginPath(); let first = true;
+      for (let G = GMAX; G >= Gs + 0.02; G -= 0.02) {
+        const t = tolTime(G, Gs); if (t > TMAX) break;
+        const px = X(t), py = Y(G); first ? (g.moveTo(px, py), first = false) : g.lineTo(px, py);
+      }
+      // the sustained asymptote
+      g.lineTo(X(TMAX), Y(Gs)); g.stroke();
+      g.globalAlpha = 1;
+      lbl(g, X(TMAX) - 4, Y(Gs) - 5, name, col, 'right', 8);
+    });
+    // current pull
+    const Gs = KIT[kit][1], t = tolTime(gPull, Gs);
+    g.strokeStyle = COL.ink; g.setLineDash([2, 3]);
+    g.beginPath(); g.moveTo(padL, Y(gPull)); g.lineTo(padL + pw, Y(gPull)); g.stroke(); g.setLineDash([]);
+    if (isFinite(t) && t <= TMAX) { g.fillStyle = COL.red; g.beginPath(); g.arc(X(t), Y(gPull), 5, 0, 7); g.fill(); }
+    lbl(g, 12, 16, 'G-TIME TOLERANCE — how long you last at a given pull', COL.green, 'left', 9.5, true);
+    lbl(g, w / 2, h - 5, 'TIME HELD AT THAT G', COL.dim, 'center', 9);
+    read.innerHTML =
+      `<div class="wx-line">Pulling <b style="color:${COL.amber}">${R(gPull, 2)} G</b> with <b style="color:${KIT[kit][2]}">${KIT[kit][0]}</b>: ` +
+      (isFinite(t)
+        ? `you have roughly <b style="color:${t < 10 ? COL.red : COL.amber}">${R(t, 1)} s</b> before symptoms force you to unload.`
+        : `<b style="color:${COL.green}">sustainable</b> — this is at or below your indefinite tolerance of ${Gs} G.`) + `</div>` +
+      `<div class="wx-hint">Two separate things limit a pilot, and confusing them is the classic error. The first is the <b style="color:${COL.green}">5-second reserve</b>: the brain carries roughly five seconds of oxygen, so a <i>brief</i> snatch to high G is survivable almost regardless of level — which is exactly why a last-ditch <a data-goto="defence">break turn</a> works at all. The second is the <b>sustained threshold</b>, the G you can hold indefinitely: about <b>4–5 G relaxed</b>, a little more with a <b>G-suit</b> inflating bladders against the legs and abdomen, and around <b>8–9 G</b> only with a properly executed <b>AGSM</b> — the anti-G straining manoeuvre, a violent muscular clench plus rhythmic breathing against a closed glottis, which is physically exhausting and cannot be held for long. Between those two limits lies the curve above. Note what it means tactically: "the jet pulls 9 G" describes the <i>airframe</i>. A pilot who reaches 9 G and holds it is on a countdown, and the moment the strain lapses — task saturation, surprise, fatigue — <b>G-LOC</b> follows in seconds, with roughly 15 more seconds of confused semi-consciousness after recovery. At low altitude that is not a scare, it is fatal. <i>(Curve shape is the classic G-time tolerance relation; individual tolerance varies enormously with hydration, fitness, rest and recent exposure.)</i></div>`;
+  }
+  _V.redraw = draw; sync();
+  return () => {};
+});
+
+// ── WEATHER: what the sky does to each sensor ────────────────────────────────
+reg('wxsensor', (node) => {
+  const _V = makeCanvas(node, 290); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  // one-way specific attenuation, dB/km, representative sea-level values
+  const WX = [
+    { n: 'CLEAR', radar: 0.01, ir: 0.2, vis: 0.05, note: 'Everything works. IR and eyeball are at their best; this is the only weather where a heat-seeker enjoys its full book range.' },
+    { n: 'HAZE', radar: 0.01, ir: 0.9, vis: 0.6, note: 'Radar does not notice. IR and visual ranges are already cut sharply — aerosol scattering is brutal in the infrared long before it bothers a radar.' },
+    { n: 'LIGHT RAIN', radar: 0.05, ir: 2.0, vis: 1.5, note: 'X-band starts to feel it slightly. IR is badly degraded: droplets both scatter and absorb across the thermal bands.' },
+    { n: 'HEAVY RAIN', radar: 0.6, ir: 8.0, vis: 5.0, note: 'Now even X-band pays — and rain also fills the display with clutter returns. IR is close to useless at tactical ranges.' },
+    { n: 'CLOUD / FOG', radar: 0.05, ir: 25.0, vis: 20.0, note: 'The decisive case. Radar sails through almost untouched; IR and the human eye are effectively blind. This single asymmetry is why all-weather interception is a radar mission.' },
+  ];
+  let wi = 0, R0 = 40;
+  WX.forEach((wx, i) => ctr.appendChild(el('button', { class: 'wx-tab', onclick: () => { wi = i; sync(); } }, wx.n)));
+  const sR = slider('Clear-air reference range (km)', 10, 120, 5, R0, v => { R0 = v; draw(); });
+  node.appendChild(sR.row);
+  function sync() { [...ctr.querySelectorAll('.wx-tab')].forEach((b, i) => b.classList.toggle('on', i === wi)); draw(); }
+  // range where two-way (radar) or one-way (IR/visual) signal drops by a usable budget
+  const budget = 20;   // dB of link margin before the sensor loses the target
+  const rangeFor = (att, twoWay) => {
+    const perKm = att * (twoWay ? 2 : 1);
+    if (perKm <= 1e-6) return R0;
+    return Math.min(R0, budget / perKm);
+  };
+  function draw() {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const wx = WX[wi];
+    const rows = [['RADAR (X-band)', rangeFor(wx.radar, true), COL.blue],
+                  ['INFRARED (IRST/seeker)', rangeFor(wx.ir, false), COL.amber],
+                  ['VISUAL (eyeball)', rangeFor(wx.vis, false), COL.green]];
+    const padL = 130, padR = 68, y0 = 54, rowH = 52;
+    const bw = Math.max(50, w - padL - padR);
+    lbl(g, 12, 20, 'DETECTION RANGE RETAINED — ' + wx.n, COL.blue, 'left', 10, true);
+    rows.forEach((r, i) => {
+      const y = y0 + i * rowH;
+      lbl(g, padL - 8, y + 11, r[0], COL.dim, 'right', 9);
+      g.fillStyle = 'rgba(10,18,30,.75)'; g.fillRect(padL, y, bw, 16);
+      g.strokeStyle = 'rgba(78,128,178,.3)'; g.lineWidth = 1; g.strokeRect(padL, y, bw, 16);
+      const frac = Math.max(0, Math.min(1, r[1] / R0));
+      g.fillStyle = r[2]; g.globalAlpha = 0.85; g.fillRect(padL + 1, y + 1, Math.max(2, (bw - 2) * frac), 14); g.globalAlpha = 1;
+      lbl(g, padL + bw + 8, y + 12, R(r[1], 1) + ' km', r[2], 'left', 9.5, true);
+      lbl(g, padL + 4, y + 30, R(100 * frac) + '% of clear-air range', COL.faint, 'left', 8);
+    });
+    read.innerHTML =
+      `<div class="wx-line"><b>${wx.n}</b> — radar <b style="color:${COL.blue}">${R(rangeFor(wx.radar, true), 1)} km</b> · ` +
+      `IR <b style="color:${COL.amber}">${R(rangeFor(wx.ir, false), 1)} km</b> · ` +
+      `visual <b style="color:${COL.green}">${R(rangeFor(wx.vis, false), 1)} km</b> (from a ${R0} km clear-air reference)</div>` +
+      `<div class="wx-hint">${wx.note} The physics is wavelength: radar centimetres sail past droplets that are far smaller than a wavelength, while infrared <b>micrometres</b> are comparable to the particles themselves and get scattered and absorbed hard. Note also that radar pays its attenuation <b>twice</b> — out and back — so its dB/km figure is doubled here, and it still wins by an enormous margin. The tactical consequence runs through this whole guide: <a data-goto="ir101">IR and IRST</a> are fair-weather sensors, so weather quietly decides which sensor — and therefore which <a data-goto="seeker">missile</a> — is the right tool on a given day. <i>(Attenuation figures are representative sea-level values for illustration; real values depend on rain rate, drop-size distribution, humidity and exact band.)</i></div>`;
   }
   _V.redraw = draw; sync();
   return () => {};
