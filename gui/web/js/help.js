@@ -559,6 +559,10 @@ export const HELP_SECTIONS = [
         it doesn't kill, the shot.</li>
         <li><b>INERTIAL</b> — an IR fire-and-forget weapon that hasn't acquired: truly blind.</li>
       </ul>
+      <h3>Watch the PIP go stale</h3>
+      <p>Fly the same shot three ways against a target that breaks. The missile always steers at a
+      <b>Predicted Intercept Point</b> — the question is whether that point is still being refreshed:</p>
+      <div class="wx" data-widget="midcoursepip"></div>
       <p><b>Shooter support matters.</b> After launch you choose: <b>Straight</b> (press in — best
       guidance, most exposure), <b>Crank</b> (hold the target at the gimbal edge — open range while
       still guiding), or <b>Turn cold</b> (drop the link immediately — the missile flies INS and the
@@ -1436,9 +1440,13 @@ export const HELP_SECTIONS = [
       only changes through <b>specific excess power</b> P<sub>s</sub> = (T − D)·V / W: thrust minus
       drag, times speed, per weight. Positive P<sub>s</sub> = you're gaining energy; negative = bleeding
       it. Every hard turn spikes induced drag and drives P<sub>s</sub> deeply negative.</p>
-      <h3>The turn trade, in your hands</h3>
-      <p>Turn rate and radius fight each other, and both bow to energy. Sweep the doghouse:</p>
-      <div class="wx" data-widget="doghouse"></div>
+      <h3>The chart Boyd actually drew</h3>
+      <p>Altitude and speed are the same thing in different clothes. These contours are lines of
+      constant energy height — slide along one for free, climb to the next only with excess thrust:</p>
+      <div class="wx" data-widget="psdiagram"></div>
+      <p>(The turn-rate side of the same story — rate against radius — lives in
+      <a data-goto="wvr">the WVR arena</a> and <a data-goto="energy">corner speed</a>. This page is
+      about the <i>fuel</i> for those turns.)</p>
       <ul>
         <li><b>Sustained turn</b> — the hardest turn you can hold at constant speed/altitude (P<sub>s</sub>=0).
         An <b>energy fighter</b> (lots of thrust, low drag) has a big sustained-G circle and dictates
@@ -1796,6 +1804,14 @@ export const HELP_SECTIONS = [
         <li><b>Bracket / grinder</b> — split a section across the bandit's nose so one fighter's crank is the
         other's flanking shot (see <a data-goto="section2ship">fighting as a section</a>).</li>
       </ul>
+      <div class="lore"><b>The word comes from the weapon.</b> "F-pole" entered the vocabulary with the
+      first generation of fire-and-forget radar missiles, because before them the idea was meaningless: a
+      <a data-goto="seeker">semi-active</a> shooter had to illuminate all the way to impact, so his range at
+      his own missile's impact was simply <i>zero separation</i> — he was still pointing at the target. The
+      moment <b>AMRAAM</b> made the missile autonomous at pitbull, a shooter suddenly owned a decision that
+      had never existed: how much of the remaining flight time to spend running away. Everything on this
+      page — cranking, the pole study, the whole language of separation — is downstream of that single
+      change in what a missile could do without its parent.</div>
       <p class="tip">The sim models this directly. Set a datalink shot, choose shooter support <b>straight vs
       crank</b>, and read the <b>pole study</b> in ◈ TACTICAL-AI — it plots A-pole and F-pole against your crank
       angle so you can see the exact trade for a given weapon and range.</p>`,
@@ -1826,6 +1842,13 @@ export const HELP_SECTIONS = [
       into the turn later; pulling into the vertical also tightens the radius as gravity helps bring the nose
       down. This is why energy fighters go up and angles fighters stay level. <b>Specific energy</b>
       E<sub>s</sub> = h + V²/2g captures it in one number — good BVR pilots arrive at the merge with more of it.</p>
+      <div class="lore"><b>Corner speed built two fighters.</b> When Boyd's <a data-goto="emtheory">EM
+      charts</a> reached the aircraft designers, they turned an argument about opinion into an argument about
+      curves. The camp that prized <i>sustained</i> performance — hold energy, dictate from range — pushed
+      toward the big, powerful <b>F-15</b>. The camp that prized <i>instantaneous</i> turn and low wing
+      loading, Boyd's own "Fighter Mafia" among them, pushed for something small and light that lived near
+      corner speed; that argument produced the <b>F-16</b>. Both aircraft are still flying, which is the
+      honest verdict: the plot has two axes, and no airframe has ever won both ends of it at once.</div>
       <p>Climb with the altitude slider and watch corner speed rise and peak rate fall: thin air means less lift,
       so turning <b>bleeds you down</b> in both speed and altitude — the fight naturally sinks. That's the same
       density physics behind missile <a data-goto="loft">lofting</a> and <a data-goto="mar">MAR growing with

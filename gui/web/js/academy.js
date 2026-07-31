@@ -35,7 +35,7 @@ const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'h
   'radarderive', 'rcsaspect', 'arrayphysics', 'beamwidth', 'barscan', 'radarpick',
   'radarbands', 'dragcurve', 'gbudget', 'atmoprofile',
   'loftprofile', 'gtolerance', 'wxsensor', 'fuzegeom', 'batteryclock',
-  'seekerrange', 'ccmmatrix']);
+  'seekerrange', 'ccmmatrix', 'midcoursepip', 'psdiagram']);
 
 export function mountWidgets(root) {
   const teardowns = [];
@@ -4156,5 +4156,190 @@ reg('ccmmatrix', (node) => {
     }
   }
   render();
+  return () => {};
+});
+
+// ── MIDCOURSE / PIP: what the datalink is actually worth ────────────────────
+// Solves the true intercept point each step. With the link up the missile flies a
+// refreshed PIP; drop the link and it keeps steering to a STALE one, so a target
+// that turns afterwards walks straight out of the basket.
+reg('midcoursepip', (node) => {
+  const _V = makeCanvas(node, 330); const { g } = _V;
+  const tabs = el('div', { class: 'wx-controls' }); node.appendChild(tabs);
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  const MODES = {
+    straight: ['STRAIGHT — press in', COL.green],
+    crank:    ['CRANK — hold gimbal edge', COL.amber],
+    cold:     ['TURN COLD — drop the link', COL.red],
+  };
+  let mode = 'crank', turnAt = 12;
+  const btns = {};
+  Object.entries(MODES).forEach(([k, v]) => { const b = el('button', { class: 'wx-tab', onclick: () => { mode = k; sync(); } }, v[0]); btns[k] = b; tabs.appendChild(b); });
+  const sT = slider('Target breaks at t = (s)', 4, 30, 1, turnAt, v => { turnAt = v; render(); });
+  ctr.appendChild(sT.row);
+  // repaint immediately on input rather than waiting for the next animation frame
+  // (rAF is throttled in background tabs, which would make the controls feel dead)
+  function sync() { Object.entries(btns).forEach(([k, b]) => b.classList.toggle('on', k === mode)); render(); }
+  const VM = 900, VT = 280, GIMBAL = 60 * Math.PI / 180;
+
+  function run() {
+    // world in metres; shooter at origin, target 45 km out closing head-on
+    let M = [0, 0], T = [45000, 0], S = [0, 0];
+    let tv = [-VT, 0];                       // target initially closing
+    const dt = 0.1;
+    const mTrack = [[0, 0]], tTrack = [[45000, 0]], sTrack = [[0, 0]];
+    let pip = null, lastPip = null, linkUp = true, linkLostAt = null, best = 1e9, t = 0, turned = 0;
+    // shooter behaviour
+    const sHdg = mode === 'straight' ? 0 : mode === 'crank' ? 50 * Math.PI / 180 : 160 * Math.PI / 180;
+    const sv = [Math.cos(sHdg) * 250, Math.sin(sHdg) * 250];
+    while (t < 90) {
+      // Target flies a single realistic break turn, then steadies. A sustained 9 g
+      // at 280 m/s is omega = g*sqrt(n^2-1)/V ~= 0.31 rad/s; it rolls out after ~110
+      // degrees rather than spiralling forever (an endless turn is not a manoeuvre,
+      // it is a circle, and no shot would ever be taken against it).
+      if (t >= turnAt && turned < 110 * Math.PI / 180) {
+        const sp = Math.hypot(tv[0], tv[1]);
+        const om = 9.80665 * Math.sqrt(9 * 9 - 1) / sp;      // rad/s at 9 g
+        const a = Math.atan2(tv[1], tv[0]) + om * dt;
+        tv = [Math.cos(a) * sp, Math.sin(a) * sp];
+        turned += om * dt;
+      }
+      // datalink alive? needs the target inside the shooter's gimbal cone
+      const toT = [T[0] - S[0], T[1] - S[1]];
+      const off = Math.abs(Math.atan2(toT[1], toT[0]) - sHdg);
+      const nowUp = mode !== 'cold' && off < GIMBAL;
+      if (linkUp && !nowUp) { linkLostAt = t; }
+      linkUp = nowUp;
+      // PIP: solve |T + tv*tau - M| = VM*tau  (iterate a few times)
+      let tau = Math.hypot(T[0] - M[0], T[1] - M[1]) / VM;
+      for (let k = 0; k < 4; k++) {
+        const px = T[0] + tv[0] * tau, py = T[1] + tv[1] * tau;
+        tau = Math.hypot(px - M[0], py - M[1]) / VM;
+      }
+      const truePip = [T[0] + tv[0] * tau, T[1] + tv[1] * tau];
+      // The missile always receives a launch solution; after that the PIP is only
+      // refreshed while the link is up. Seeding lastPip here matters: without it a
+      // cold shooter would fall through to the TRUE pip and fly perfectly.
+      if (linkUp || lastPip === null) lastPip = truePip;
+      pip = lastPip;                          // stale once the link is gone
+      // fly the missile at the PIP it believes in
+      const d = [pip[0] - M[0], pip[1] - M[1]], dl = Math.hypot(d[0], d[1]) || 1;
+      M = [M[0] + d[0] / dl * VM * dt, M[1] + d[1] / dl * VM * dt];
+      T = [T[0] + tv[0] * dt, T[1] + tv[1] * dt];
+      S = [S[0] + sv[0] * dt, S[1] + sv[1] * dt];
+      t += dt;
+      const sep = Math.hypot(T[0] - M[0], T[1] - M[1]);
+      if (sep < best) best = sep;
+      if (t % 0.4 < dt) { mTrack.push([...M]); tTrack.push([...T]); sTrack.push([...S]); }
+      if (sep > best && sep > 400 && t > 5) break;   // past closest approach
+    }
+    return { mTrack, tTrack, sTrack, miss: best, linkLostAt, tof: t };
+  }
+
+  function render() {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const r = run();
+    const all = [...r.mTrack, ...r.tTrack, ...r.sTrack];
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    all.forEach(p => { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); });
+    const pad = 42, pw = Math.max(60, w - 2 * pad), ph = Math.max(50, h - 2 * pad - 16);
+    const sc = Math.min(pw / Math.max(x1 - x0, 1000), ph / Math.max(y1 - y0, 1000));
+    const X = xx => pad + (xx - x0) * sc, Y = yy => pad + 8 + (yy - y0) * sc;
+    const line = (trk, col, wd) => { g.strokeStyle = col; g.lineWidth = wd; g.beginPath();
+      trk.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.stroke(); };
+    line(r.sTrack, 'rgba(0,229,255,.55)', 1.6);
+    line(r.tTrack, COL.red, 2);
+    line(r.mTrack, COL.amber, 2.4);
+    const last = a => a[a.length - 1];
+    drawJet(g, X(last(r.sTrack)[0]), Y(last(r.sTrack)[1]), 0, COL.blue, 'SHOOTER');
+    drawJet(g, X(last(r.tTrack)[0]), Y(last(r.tTrack)[1]), 0, COL.red, 'TARGET');
+    g.fillStyle = COL.amber; g.beginPath(); g.arc(X(last(r.mTrack)[0]), Y(last(r.mTrack)[1]), 4, 0, 7); g.fill();
+    lbl(g, 12, 16, MODES[mode][0], MODES[mode][1], 'left', 10, true);
+    // three-tier verdict: a 20 m class warhead kills inside its lethal radius,
+    // is marginal just outside it, and is comfortably defeated beyond that.
+    const tier = r.miss < 20 ? 0 : r.miss < 60 ? 1 : 2;
+    const TIER = [['KILL', COL.green], ['MARGINAL', COL.amber], ['DEFEATED', COL.red]];
+    const ok = tier === 0;
+    lbl(g, w - 12, 16, 'MISS ' + R(r.miss) + ' m — ' + TIER[tier][0], TIER[tier][1], 'right', 10, true);
+    read.innerHTML =
+      `<div class="wx-line">${MODES[mode][0]} · target breaks at <b>${turnAt} s</b> → ` +
+      (r.linkLostAt !== null ? `datalink lost at <b style="color:${COL.red}">${R(r.linkLostAt, 1)} s</b> · ` : `<b style="color:${COL.green}">link held all the way</b> · `) +
+      `closest approach <b style="color:${TIER[tier][1]}">${R(r.miss)} m</b> (${TIER[tier][0].toLowerCase()})</div>` +
+      `<div class="wx-hint">The missile does not chase the target — it steers at a <b>Predicted Intercept Point</b>, solved from where the target <i>will be</i> after the time-of-flight. Keeping that PIP fresh is the entire job of the datalink. <b style="color:${COL.green}">Straight</b> guarantees the link but flies you into his weapon. <b style="color:${COL.amber}">Crank</b> is the compromise this whole guide keeps returning to: turn to the edge of your radar's gimbal cone so the link survives while you open range — the PIP keeps refreshing and the break gets tracked. <b style="color:${COL.red}">Turn cold</b> and the link dies at that instant: the missile keeps flying to a <b>stale PIP</b>, and the moment the target manoeuvres afterwards it walks out of the basket. Slide the break time and watch the pattern — an early break against a cold shooter is devastating, but the <i>same</i> break barely dents a cranking shooter, because the update arrives before the geometry goes stale. That is why <a data-goto="polegame">cranking</a> is not caution, it is the shot.</div>`;
+  }
+  _V.redraw = render;
+  const stop = frame(() => render());
+  sync();
+  return stop;
+});
+
+// ── BOYD'S ACTUAL CHART: energy height and the trade between speed and altitude
+reg('psdiagram', (node) => {
+  const _V = makeCanvas(node, 320); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let mach = 0.9, altKm = 5;
+  const sM = slider('Mach', 0.3, 2.2, 0.05, mach, v => { mach = v; draw(); });
+  const sA = slider('Altitude (km)', 0, 18, 0.5, altKm, v => { altKm = v; draw(); });
+  ctr.append(sM.row, sA.row);
+  const G0 = 9.80665;
+  const Es = (M, hKm) => hKm * 1000 + Math.pow(M * ATM.sample(hKm * 1000).a, 2) / (2 * G0);
+  function draw() {
+    const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
+    const padL = 46, padR = 16, padT = 26, padB = 34;
+    const pw = Math.max(60, w - padL - padR), ph = Math.max(50, h - padT - padB);
+    const M0 = 0.3, M1 = 2.2, H1 = 18;
+    const X = M => padL + (M - M0) / (M1 - M0) * pw;
+    const Y = hh => padT + (1 - hh / H1) * ph;
+    g.strokeStyle = COL.grid; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, padT + ph); g.lineTo(padL + pw, padT + ph); g.stroke();
+    g.font = '8.5px "JetBrains Mono", monospace';
+    for (let M = 0.5; M <= M1; M += 0.5) { g.strokeStyle = 'rgba(78,128,178,.10)';
+      g.beginPath(); g.moveTo(X(M), padT); g.lineTo(X(M), padT + ph); g.stroke();
+      lbl(g, X(M), padT + ph + 13, 'M' + M.toFixed(1), COL.faint, 'center', 8.5); }
+    for (let hh = 3; hh <= H1; hh += 3) { g.strokeStyle = 'rgba(78,128,178,.10)';
+      g.beginPath(); g.moveTo(padL, Y(hh)); g.lineTo(padL + pw, Y(hh)); g.stroke();
+      lbl(g, padL - 5, Y(hh) + 3, hh + 'km', COL.faint, 'right', 8.5); }
+    // constant energy-height contours: every point on one is reachable by a
+    // lossless zoom or dive from any other point on it
+    for (let e = 4000; e <= 34000; e += 5000) {
+      g.strokeStyle = 'rgba(34,255,156,.45)'; g.lineWidth = 1.2; g.beginPath();
+      let first = true, drew = false;
+      for (let M = M0; M <= M1; M += 0.01) {
+        // solve h for Es(M,h) = e  (a is nearly constant above 11 km, so bisect)
+        let lo = 0, hi = H1;
+        for (let k = 0; k < 24; k++) { const mid = (lo + hi) / 2; if (Es(M, mid) < e) lo = mid; else hi = mid; }
+        const hh = (lo + hi) / 2;
+        if (hh <= 0.02 || hh >= H1 - 0.02) { first = true; continue; }
+        const px = X(M), py = Y(hh);
+        first ? (g.moveTo(px, py), first = false) : g.lineTo(px, py); drew = true;
+      }
+      g.stroke();
+      if (drew) { // label the contour where it leaves the right edge
+        let lo = 0, hi = H1;
+        for (let k = 0; k < 24; k++) { const mid = (lo + hi) / 2; if (Es(M1, mid) < e) lo = mid; else hi = mid; }
+        const hh = (lo + hi) / 2;
+        if (hh > 0.3 && hh < H1 - 0.4) lbl(g, X(M1) - 3, Y(hh) - 4, (e / 1000) + ' km Es', COL.green, 'right', 8);
+      }
+    }
+    // current state
+    const e = Es(mach, altKm);
+    g.strokeStyle = COL.amber; g.setLineDash([2, 3]);
+    g.beginPath(); g.moveTo(X(mach), padT + ph); g.lineTo(X(mach), Y(altKm)); g.lineTo(padL, Y(altKm)); g.stroke(); g.setLineDash([]);
+    g.fillStyle = COL.amber; g.shadowColor = COL.amber; g.shadowBlur = 10;
+    g.beginPath(); g.arc(X(mach), Y(altKm), 6, 0, 7); g.fill(); g.shadowBlur = 0;
+    lbl(g, 12, 16, 'ENERGY HEIGHT — the currency you actually spend', COL.green, 'left', 9.5, true);
+    lbl(g, w / 2, h - 5, 'MACH', COL.dim, 'center', 9);
+    // what a lossless zoom would buy
+    const zoomTo = e / 1000;
+    const v = mach * ATM.sample(altKm * 1000).a;
+    read.innerHTML =
+      `<div class="wx-line">At <b>M${R(mach, 2)}</b>, <b>${R(altKm, 1)} km</b> (${R(v)} m/s): ` +
+      `<b style="color:${COL.green}">E<sub>s</sub> = ${R(e / 1000, 2)} km</b> of energy height — ` +
+      `trade it all for altitude and a lossless zoom tops out near <b>${R(zoomTo, 1)} km</b>; trade it all for speed at sea level and you would hold about <b>M${R(Math.sqrt(2 * G0 * e) / 340.3, 2)}</b>.</div>` +
+      `<div class="wx-hint">This is Boyd's actual insight, and it is not the doghouse plot — it is this. <b>Specific energy</b> E<sub>s</sub> = h + V²/2g collapses altitude and speed into a <i>single</i> number measured in metres, and the green curves are lines of constant E<sub>s</sub>. Anywhere on one curve is reachable from anywhere else on it by a pure zoom or dive, costing nothing but time: that is what "trading altitude for speed" literally means. Moving to a <b>higher</b> curve requires <b>specific excess power</b>, P<sub>s</sub> = (T−D)·V/W — thrust you have left over after drag. Every hard turn spikes induced drag, drives P<sub>s</sub> sharply negative, and drops you down through the contours; that is the real meaning of "bleeding energy", and why a fighter that turns hard twice is suddenly slow <i>and</i> low. Now the part that matters for this simulator: <b>a missile after burnout has no thrust at all</b>, so its P<sub>s</sub> is permanently negative and it can only ever fall through these lines. Everything about <a data-goto="mar">MAR</a>, the no-escape zone and <a data-goto="defence">dragging a shot out</a> is just this one fact applied — you are not out-running the missile, you are making it spend energy it can never earn back.</div>`;
+  }
+  _V.redraw = draw; draw();
   return () => {};
 });
