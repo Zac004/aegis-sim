@@ -130,7 +130,7 @@ reg('aspect', (node) => {
     // LOS
     g.strokeStyle = 'rgba(147,172,203,.5)'; g.setLineDash([5, 5]); g.lineWidth = 1.5;
     g.beginPath(); g.moveTo(cx, you); g.lineTo(cx, band); g.stroke(); g.setLineDash([]);
-    g.fillStyle = COL.faint; g.font = '10px "JetBrains Mono"';
+    g.fillStyle = COL.faint; g.font = '10px "JetBrains Mono", monospace';
     g.fillText('LINE OF SIGHT', cx + 8, (you + band) / 2);
     // you (interceptor) — arrow pointing up (at the bandit)
     drawJet(g, cx, you, 0, COL.blue, 'YOU');
@@ -170,7 +170,7 @@ function drawJet(g, x, y, heading, color, label) {
   g.fillStyle = color; g.strokeStyle = color; g.shadowColor = color; g.shadowBlur = 8;
   g.beginPath(); g.moveTo(0, -13); g.lineTo(9, 11); g.lineTo(0, 5); g.lineTo(-9, 11); g.closePath();
   g.fill(); g.shadowBlur = 0; g.restore();
-  g.fillStyle = color; g.font = 'bold 10px "JetBrains Mono"';
+  g.fillStyle = color; g.font = 'bold 10px "JetBrains Mono", monospace';
   g.fillText(label, x + 14, y + 3);
 }
 
@@ -922,8 +922,11 @@ reg('flarefight', (node) => {
   }
   function render() {
     g.clearRect(0, 0, _V.w, _V.h);
-    // jet
-    drawJet(g, state.jet.x, state.jet.y, Math.PI / 2, COL.blue, 'YOU');
+    // jet — heading banks into the weave instead of being frozen. The jet holds
+    // station in x (relative frame: the missile closes on it) and weaves in y, so
+    // the bank angle comes from the weave rate against an assumed forward speed.
+    const weaveRate = 34 * 1.2 * Math.cos(state.t * 1.2);
+    drawJet(g, state.jet.x, state.jet.y, Math.PI / 2 + Math.atan2(weaveRate, 220), COL.blue, 'YOU');
     // flares
     state.flares.forEach(f => {
       const a = Math.max(0, 1 - f.age / 4.2);
@@ -939,7 +942,7 @@ reg('flarefight', (node) => {
     g.fillText(`seeker: ${seekerType.toUpperCase()} · tracking: ${state.tracking === 'jet' ? 'YOU' : 'FLARE'}`, 12, 16);
     if (state.done) {
       const win = state.result !== 'HIT';
-      g.fillStyle = win ? COL.green : COL.red; g.font = 'bold 18px "JetBrains Mono"';
+      g.fillStyle = win ? COL.green : COL.red; g.font = 'bold 18px "JetBrains Mono", monospace';
       g.fillText(state.result === 'HIT' ? '✗ HIT — you\'re dead' : state.result === 'DECOYED' ? '✓ SEEKER TOOK THE FLARE' : '✓ MISSED', _V.w / 2 - 90, _V.h / 2);
     }
     read.innerHTML =
@@ -1220,7 +1223,7 @@ reg('killchain', (node) => {
   });
   function bar(y, prog, color, label, det) {
     const x0 = 90, x1 = _V.w - 20, w = x1 - x0;
-    g.fillStyle = COL.faint; g.font = '10px "JetBrains Mono"'; g.fillText(label, 12, y + 4);
+    g.fillStyle = COL.faint; g.font = '10px "JetBrains Mono", monospace'; g.fillText(label, 12, y + 4);
     g.fillText(Math.round(det) + ' km', 12, y + 17);
     g.strokeStyle = COL.grid; g.strokeRect(x0, y - 8, w, 18);
     // step ticks
@@ -1238,7 +1241,7 @@ reg('killchain', (node) => {
     bar(70, blue.prog, COL.blue, 'YOU', blue.det);
     bar(120, red.prog, COL.red, 'THREAT', red.det);
     if (winner) {
-      g.fillStyle = winner === 'BLUE' ? COL.green : COL.red; g.font = 'bold 16px "JetBrains Mono"';
+      g.fillStyle = winner === 'BLUE' ? COL.green : COL.red; g.font = 'bold 16px "JetBrains Mono", monospace';
       g.fillText(winner === 'BLUE' ? '✓ YOU SHOOT FIRST' : '✗ HE SHOOTS FIRST', _V.w / 2 - 90, 175);
     }
     read.innerHTML =
@@ -1428,7 +1431,7 @@ reg('prf', (node) => {
     const regime = prf < 8 ? ['LOW PRF', 'unambiguous RANGE, aliased Doppler → poor look-down. Old search radars.'] :
       prf < 40 ? ['MEDIUM PRF', 'BOTH ambiguous but resolved by hopping PRFs — the fighter-radar workhorse, decent everywhere.'] :
       ['HIGH PRF', 'clean DOPPLER (great vs closing/look-down targets) but ambiguous range — "velocity search".'];
-    g.fillStyle = COL.amber; g.font = 'bold 13px "JetBrains Mono"'; g.textAlign = 'left';
+    g.fillStyle = COL.amber; g.font = 'bold 13px "JetBrains Mono", monospace'; g.textAlign = 'left';
     g.fillText(regime[0], x0, _V.h - 30);
     read.innerHTML = `<div class="wx-big" style="color:${COL.amber}">${regime[0]}</div>` +
       `<div class="wx-line">${regime[1]}</div>` +
@@ -2022,7 +2025,7 @@ reg('masteryweb', (node) => {
     const D = data();
     g.clearRect(0, 0, _V.w, _V.h);
     if (!D.length) {
-      g.fillStyle = COL.dim; g.font = '12px "JetBrains Mono"';
+      g.fillStyle = COL.dim; g.font = '12px "JetBrains Mono", monospace';
       g.fillText('Open some topics to chart your mastery…', 20, _V.h / 2);
       cap.innerHTML = ''; return;
     }
@@ -2348,7 +2351,7 @@ reg('grinder', (node) => {
     if (p > 0.8) {                                   // free-side shot on convert
       g.strokeStyle = COL.amber; g.setLineDash([2, 3]); g.lineWidth = 1.3;
       g.beginPath(); g.moveTo(F[0], F[1]); g.lineTo(B[0], B[1]); g.stroke(); g.setLineDash([]);
-      if (p > 0.93) { g.fillStyle = COL.red; g.font = 'bold 10px "JetBrains Mono"'; g.fillText('✹ STERN KILL', B[0] + 8, B[1]); }
+      if (p > 0.93) { g.fillStyle = COL.red; g.font = 'bold 10px "JetBrains Mono", monospace'; g.fillText('✹ STERN KILL', B[0] + 8, B[1]); }
     }
     g.fillStyle = COL.faint; g.font = '9px "JetBrains Mono", monospace';
     g.fillText(p < 0.4 ? 'SECTION BRACKETS — split the azimuth' : p < 0.75 ? 'BANDIT COMMITS — engaged fighter drags him' : 'FREE FIGHTER CONVERTS — stern shot', 12, 16);
@@ -2440,7 +2443,7 @@ reg('notchgame', (node) => {
     if (live && phase === 'sweep') { x += dir * speed * 0.03; if (x > 1) { x = 1; dir = -1; } if (x < -1) { x = -1; dir = 1; } }
     g.strokeStyle = Math.abs(x) <= WIN ? COL.green : COL.amber; g.lineWidth = 2.5;
     g.beginPath(); g.moveTo(X(x), cy - 20); g.lineTo(X(x), cy + 20); g.stroke();
-    g.fillStyle = COL.ink; g.font = '10px "JetBrains Mono"';
+    g.fillStyle = COL.ink; g.font = '10px "JetBrains Mono", monospace';
     g.fillText(live ? `ROUND ${round}/${ROUNDS} · score ${score} · locks ${locks}` : (phase === 'done' ? `DONE — ${score} pts (${locks}/${ROUNDS} breaks) · best ${best}` : 'Break the missile\'s lock: BEAM when the needle hits the green notch.'), padX, 18);
     if (msg) { g.fillStyle = msg[0] === '✓' ? COL.green : COL.red; g.fillText(msg, padX, h - 8); }
   }
@@ -2537,7 +2540,7 @@ reg('sortgame', (node) => {
       if (assignedTo >= 0) { g.strokeStyle = col; g.setLineDash([3, 3]); g.beginPath();
         g.moveTo(assignedTo === 0 ? leadXY[0] : wingXY[0], assignedTo === 0 ? leadXY[1] : wingXY[1]); g.lineTo(b.x, b.y); g.stroke(); g.setLineDash([]); }
     });
-    g.fillStyle = COL.amber; g.font = '10px "JetBrains Mono"';
+    g.fillStyle = COL.amber; g.font = '10px "JetBrains Mono", monospace';
     g.fillText(rule.txt, 10, 16);
     g.fillStyle = COL.ink; g.font = '9px "JetBrains Mono", monospace';
     const who = picks.length === 0 ? 'Click LEAD\'s contact' : picks.length === 1 ? 'Click WINGMAN\'s contact' : '';
@@ -2618,7 +2621,7 @@ reg('rwrscope', (node) => {
     g.strokeStyle = COL.grid; g.lineWidth = 1;
     [1, 0.66, 0.33].forEach(f => { g.beginPath(); g.arc(cx, cy, R * f, 0, 7); g.stroke(); });
     g.beginPath(); g.moveTo(cx, cy - R); g.lineTo(cx, cy + R); g.moveTo(cx - R, cy); g.lineTo(cx + R, cy); g.stroke();
-    g.fillStyle = COL.faint; g.font = '8px "JetBrains Mono"';
+    g.fillStyle = COL.faint; g.font = '8px "JetBrains Mono", monospace';
     g.fillText('NOSE', cx - 12, cy - R - 4); g.fillText('TAIL', cx - 10, cy + R + 12);
     // own ship
     drawJet(g, cx, cy, 0, COL.blue, '');
@@ -2642,7 +2645,7 @@ reg('rwrscope', (node) => {
       }
     });
     // legend
-    g.font = '8px "JetBrains Mono"';
+    g.font = '8px "JetBrains Mono", monospace';
     g.fillStyle = COL.green; g.fillText('○ search', 8, h - 20);
     g.fillStyle = COL.amber; g.fillText('● lock', 70, h - 20);
     g.fillStyle = COL.red; g.fillText('◇ LAUNCH (spike)', 120, h - 20);
@@ -2874,7 +2877,7 @@ reg('rcsaspect', (node) => {
     g.clearRect(0, 0, w, h);
     const rOf = db => Math.max(1, R0 * Math.max(0.04, (Math.min(Math.max(db, DBMIN), DBMAX) - DBMIN) / (DBMAX - DBMIN)));
     // rings (dBsm)
-    g.font = '8px "JetBrains Mono"';
+    g.font = '8px "JetBrains Mono", monospace';
     for (let db = -30; db <= 20; db += 10) {
       const r = rOf(db);
       g.strokeStyle = 'rgba(78,128,178,0.16)'; g.lineWidth = 1;
@@ -3062,7 +3065,7 @@ reg('arrayphysics', (node) => {
       g.strokeStyle = COL.amber; g.lineWidth = 2;
       g.beginPath(); g.moveTo(cx, hwY + 4); g.lineTo(cx, hwY + 22); g.stroke();
       g.fillStyle = COL.amber; g.fillRect(cx - 30, hwY + 22, 60, 14);
-      g.fillStyle = '#06121f'; g.font = 'bold 8px "JetBrains Mono"'; g.textAlign = 'center';
+      g.fillStyle = '#06121f'; g.font = 'bold 8px "JetBrains Mono", monospace'; g.textAlign = 'center';
       g.fillText('1 TRANSMITTER', cx, hwY + 32); g.textAlign = 'left';
       // the gimbal that has to physically move it
       g.strokeStyle = COL.red; g.lineWidth = 1.6;
@@ -3090,7 +3093,7 @@ reg('arrayphysics', (node) => {
       }
       if (mode === 'pesa') {
         g.fillStyle = COL.amber; g.fillRect(cx - 30, hwY + 36, 60, 15);
-        g.fillStyle = '#06121f'; g.font = 'bold 8px "JetBrains Mono"'; g.textAlign = 'center';
+        g.fillStyle = '#06121f'; g.font = 'bold 8px "JetBrains Mono", monospace'; g.textAlign = 'center';
         g.fillText('1 TRANSMITTER', cx, hwY + 46); g.textAlign = 'left';
         lbl(g, cx, hwY + 62, 'one source → divider → φ shifters: ONE beam, ONE frequency', COL.amber, 'center', 8.5);
       } else {
@@ -3136,7 +3139,7 @@ reg('beamwidth', (node) => {
     g.strokeStyle = 'rgba(78,128,178,.16)';
     for (const db of [0, -10, -20, -30]) { const r = rOf(db);
       g.beginPath(); g.arc(cx, cy, r, Math.PI, 2 * Math.PI); g.stroke();
-      g.fillStyle = COL.faint; g.font = '8px "JetBrains Mono"'; g.fillText(db + ' dB', cx + 3, cy - r - 2); }
+      g.fillStyle = COL.faint; g.font = '8px "JetBrains Mono", monospace'; g.fillText(db + ' dB', cx + 3, cy - r - 2); }
     for (const a of [-60, -30, 0, 30, 60]) { const rad = a * Math.PI / 180;
       g.strokeStyle = 'rgba(78,128,178,.14)'; g.beginPath(); g.moveTo(cx, cy);
       g.lineTo(cx + R0 * Math.sin(rad), cy - R0 * Math.cos(rad)); g.stroke();
@@ -3330,7 +3333,7 @@ reg('radarbands', (node) => {
       if (x1 - x0 > 16) lbl(g, (x0 + x1) / 2, y0 + 20, b.n, b.col, 'center', 10, true);
     });
     // frequency ticks
-    g.fillStyle = COL.faint; g.font = '8px "JetBrains Mono"';
+    g.fillStyle = COL.faint; g.font = '8px "JetBrains Mono", monospace';
     [0.03, 0.1, 0.3, 1, 3, 10, 30].forEach(f => {
       const x = X(Math.log10(f));
       g.strokeStyle = 'rgba(78,128,178,.3)'; g.beginPath(); g.moveTo(x, y0 + barH); g.lineTo(x, y0 + barH + 4); g.stroke();

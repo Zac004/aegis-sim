@@ -1882,6 +1882,15 @@ export const HELP_SECTIONS = [
       radars looking; a <b>box</b> or <b>champagne</b> adds depth so a trailing element can shoot bandits that
       commit on the leaders; an <b>offset/ladder</b> stacks shooters in range. Each is a different answer to the
       same question: how do we present the most shooters while giving the enemy the fewest solvable problems?</p>
+      <div class="lore"><b>Loose deuce versus the welded wing.</b> The two-ship is old, but <i>how</i> the
+      pair should fight was argued bitterly. The classic model made the wingman a bodyguard: he held
+      position, cleared the leader's tail, and rarely shot — a rigid arrangement that spent half the
+      formation's firepower on lookout. The US Navy pushed the opposite idea, <b>loose deuce</b>: the two
+      fighters fly wide, either may become the engaged fighter, and the roles swap freely depending on who
+      has the better picture and the better angle. It asks far more of the wingman — he must think like a
+      leader — but it doubles the number of jets that can actually kill something. The lesson generalised:
+      a formation is not a shape, it is an <b>agreement about who does what</b>, and the tighter you weld
+      the shape, the fewer of your own weapons you can bring to bear.</div>
       <p><b>Why it matters here.</b> This sim flies 1-v-1, but every number it gives you — <a data-goto="mar">MAR</a>,
       <a data-goto="polegame">F-pole</a>, <a data-goto="mar">NEZ</a>, cold-time — is an input to these section
       tactics. The 2-ship simply lets two fighters spend those numbers as a team: one buys F-pole by cranking
@@ -1906,6 +1915,14 @@ export const HELP_SECTIONS = [
         <li><b style="color:#FF3D00">Rmin</b> — too close: the motor/fuze can't arm and settle, or the required
         lead exceeds the seeker's gimbal. Point-blank is a dead zone.</li>
       </ul>
+      <div class="lore"><b>The number on the brochure is the number nobody shoots at.</b> Every published
+      "range" for an air-to-air missile is an <b>Rmax</b> figure: a high-altitude, head-on, co-operative
+      shot against a target that never manoeuvres. It is a real number and it is nearly useless, because no
+      defender agrees to be co-operative. The gap between that headline and the <b>no-escape zone</b> — often
+      only a third to a half of it — is where careers and aircraft are lost, and it is exactly why air forces
+      spend so much effort teaching crews to think in <i>zones</i> rather than in a single number. The pattern
+      is old: a weapon whose paper envelope is enormous still gets employed, in practice, from far closer in,
+      because the shot that counts is the one he cannot simply turn around and out-run.</div>
       <p><b>Aspect is everything.</b> Drag him from <b>hot</b> (nose-on) to <b>cold</b> (running) and the envelope
       shrinks to a fraction — closure was doing half the missile's work, and a tail-chase spends the motor just
       catching up. That collapse is <i>why</i> the whole <a data-goto="polegame">pole game</a> and the abort
@@ -1930,6 +1947,14 @@ export const HELP_SECTIONS = [
         <li><b>Lag</b> — nose <i>behind</i> him. You cut to the <b>inside</b> of his turn circle and slide into the
         control zone without flying out front. This is how you <b>convert</b> to the stern.</li>
       </ul>
+      <div class="lore"><b>Korea proved conversion beats raw performance.</b> Over the Yalu in 1950–53 the
+      <b>MiG-15</b> held real advantages over the <b>F-86 Sabre</b>: it climbed better and it could operate
+      higher, so it frequently chose when to fight. What the Sabre had was a better cockpit view, a
+      radar-ranging gunsight, and — decisively — pilots drilled in <b>converting</b> an advantage into a
+      firing position rather than merely gaining one. That is precisely the skill on this page: arriving in
+      the control zone with the right angle and closure instead of overshooting past it. Every generation
+      relearns it. Superior aircraft performance buys you the <i>opportunity</i>; pursuit-curve discipline is
+      what turns the opportunity into a shot.</div>
       <p>The animation pulls <b>lag</b> into the rear-quarter cone: nose behind the bandit, matching his turn,
       settling where he can't point back. It's the same line-of-sight logic as <a data-goto="guidance">proportional
       navigation</a> — except here <i>you're</i> the seeker, managing closure and angle so you stop in control
