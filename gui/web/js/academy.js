@@ -4164,114 +4164,153 @@ reg('ccmmatrix', (node) => {
 // refreshed PIP; drop the link and it keeps steering to a STALE one, so a target
 // that turns afterwards walks straight out of the basket.
 reg('midcoursepip', (node) => {
-  const _V = makeCanvas(node, 330); const { g } = _V;
+  const _V = makeCanvas(node, 340); const { g } = _V;
   const tabs = el('div', { class: 'wx-controls' }); node.appendChild(tabs);
   const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
   const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
   const MODES = {
-    straight: ['STRAIGHT — press in', COL.green],
-    crank:    ['CRANK — hold gimbal edge', COL.amber],
-    cold:     ['TURN COLD — drop the link', COL.red],
+    straight: ['STRAIGHT — press in', COL.green, 0],
+    crank:    ['CRANK — hold gimbal edge', COL.amber, 50],
+    cold:     ['TURN COLD — drop the link', COL.red, 160],
   };
-  let mode = 'crank', turnAt = 12;
+  let mode = 'crank', turnAt = 12, sim = null;
   const btns = {};
-  Object.entries(MODES).forEach(([k, v]) => { const b = el('button', { class: 'wx-tab', onclick: () => { mode = k; sync(); } }, v[0]); btns[k] = b; tabs.appendChild(b); });
-  const sT = slider('Target breaks at t = (s)', 4, 30, 1, turnAt, v => { turnAt = v; render(); });
+  Object.entries(MODES).forEach(([k, v]) => {
+    const b = el('button', { class: 'wx-tab', onclick: () => { mode = k; sim = simulate(); sync(); } }, v[0]);
+    btns[k] = b; tabs.appendChild(b);
+  });
+  const sT = slider('Target breaks at t = (s)', 4, 30, 1, turnAt, v => { turnAt = v; sim = simulate(); render(performance.now()); });
   ctr.appendChild(sT.row);
-  // repaint immediately on input rather than waiting for the next animation frame
-  // (rAF is throttled in background tabs, which would make the controls feel dead)
-  function sync() { Object.entries(btns).forEach(([k, b]) => b.classList.toggle('on', k === mode)); render(); }
+  // repaint immediately on any input: rAF is throttled in a background tab and
+  // the controls must never feel dead.
+  function sync() { Object.entries(btns).forEach(([k, b]) => b.classList.toggle('on', k === mode)); render(performance.now()); }
   const VM = 900, VT = 280, GIMBAL = 60 * Math.PI / 180;
+  const wrap = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 
-  function run() {
-    // world in metres; shooter at origin, target 45 km out closing head-on
-    let M = [0, 0], T = [45000, 0], S = [0, 0];
-    let tv = [-VT, 0];                       // target initially closing
-    const dt = 0.1;
-    const mTrack = [[0, 0]], tTrack = [[45000, 0]], sTrack = [[0, 0]];
-    let pip = null, lastPip = null, linkUp = true, linkLostAt = null, best = 1e9, t = 0, turned = 0;
-    // shooter behaviour
-    const sHdg = mode === 'straight' ? 0 : mode === 'crank' ? 50 * Math.PI / 180 : 160 * Math.PI / 180;
+  // Simulate ONCE into a frame list so the drawing loop can play it back and the
+  // viewer can actually watch the PIP freeze and drift.
+  function simulate() {
+    let M = [0, 0], T = [45000, 0], S = [0, 0], tv = [-VT, 0];
+    let lastPip = null, linkLostAt = null, linkUp = true, best = 1e9, t = 0, turned = 0;
+    const sHdg = MODES[mode][2] * Math.PI / 180;
     const sv = [Math.cos(sHdg) * 250, Math.sin(sHdg) * 250];
+    const frames = [];
+    const dt = 0.1;
     while (t < 90) {
-      // Target flies a single realistic break turn, then steadies. A sustained 9 g
-      // at 280 m/s is omega = g*sqrt(n^2-1)/V ~= 0.31 rad/s; it rolls out after ~110
-      // degrees rather than spiralling forever (an endless turn is not a manoeuvre,
-      // it is a circle, and no shot would ever be taken against it).
-      if (t >= turnAt && turned < 110 * Math.PI / 180) {
+      if (t >= turnAt && turned < 110 * Math.PI / 180) {          // one 9 g break, then steady
         const sp = Math.hypot(tv[0], tv[1]);
-        const om = 9.80665 * Math.sqrt(9 * 9 - 1) / sp;      // rad/s at 9 g
+        const om = 9.80665 * Math.sqrt(80) / sp;
         const a = Math.atan2(tv[1], tv[0]) + om * dt;
-        tv = [Math.cos(a) * sp, Math.sin(a) * sp];
-        turned += om * dt;
+        tv = [Math.cos(a) * sp, Math.sin(a) * sp]; turned += om * dt;
       }
-      // datalink alive? needs the target inside the shooter's gimbal cone
-      const toT = [T[0] - S[0], T[1] - S[1]];
-      const off = Math.abs(Math.atan2(toT[1], toT[0]) - sHdg);
+      // link alive only while the target sits inside the shooter's gimbal cone
+      const off = Math.abs(wrap(Math.atan2(T[1] - S[1], T[0] - S[0]) - sHdg));
       const nowUp = mode !== 'cold' && off < GIMBAL;
-      if (linkUp && !nowUp) { linkLostAt = t; }
+      if (linkUp && !nowUp) linkLostAt = t;
       linkUp = nowUp;
-      // PIP: solve |T + tv*tau - M| = VM*tau  (iterate a few times)
+      // true PIP: solve |T + tv*tau - M| = VM*tau
       let tau = Math.hypot(T[0] - M[0], T[1] - M[1]) / VM;
-      for (let k = 0; k < 4; k++) {
+      for (let k = 0; k < 5; k++) {
         const px = T[0] + tv[0] * tau, py = T[1] + tv[1] * tau;
         tau = Math.hypot(px - M[0], py - M[1]) / VM;
       }
       const truePip = [T[0] + tv[0] * tau, T[1] + tv[1] * tau];
-      // The missile always receives a launch solution; after that the PIP is only
-      // refreshed while the link is up. Seeding lastPip here matters: without it a
-      // cold shooter would fall through to the TRUE pip and fly perfectly.
-      if (linkUp || lastPip === null) lastPip = truePip;
-      pip = lastPip;                          // stale once the link is gone
-      // fly the missile at the PIP it believes in
-      const d = [pip[0] - M[0], pip[1] - M[1]], dl = Math.hypot(d[0], d[1]) || 1;
+      if (linkUp || lastPip === null) lastPip = truePip;          // launch solution, then frozen
+      const aim = lastPip;
+      const d = [aim[0] - M[0], aim[1] - M[1]], dl = Math.hypot(d[0], d[1]) || 1;
+      // record actual velocity vectors so the drawn headings follow the flight
+      // path instead of being frozen at a launch value
+      frames.push({ t, M: [...M], T: [...T], S: [...S], truePip: [...truePip], aim: [...aim], linkUp,
+                    tv: [...tv], sv: [...sv], mv: [d[0] / dl, d[1] / dl] });
       M = [M[0] + d[0] / dl * VM * dt, M[1] + d[1] / dl * VM * dt];
       T = [T[0] + tv[0] * dt, T[1] + tv[1] * dt];
       S = [S[0] + sv[0] * dt, S[1] + sv[1] * dt];
       t += dt;
       const sep = Math.hypot(T[0] - M[0], T[1] - M[1]);
       if (sep < best) best = sep;
-      if (t % 0.4 < dt) { mTrack.push([...M]); tTrack.push([...T]); sTrack.push([...S]); }
-      if (sep > best && sep > 400 && t > 5) break;   // past closest approach
+      if (sep > best && sep > 400 && t > 5) break;
     }
-    return { mTrack, tTrack, sTrack, miss: best, linkLostAt, tof: t };
+    return { frames, miss: best, linkLostAt, tof: t };
   }
 
-  function render() {
+  function render(now) {
+    if (!sim) sim = simulate();
+    const F = sim.frames, n = F.length;
     const w = _V.w, h = _V.h; g.clearRect(0, 0, w, h);
-    const r = run();
-    const all = [...r.mTrack, ...r.tTrack, ...r.sTrack];
+    // playhead: run the engagement then hold briefly on the outcome
+    const cyc = 7000, p = ((now || 0) % cyc) / cyc;
+    const i = Math.min(n - 1, Math.floor(p / 0.82 * n));
+    const fr = F[i];
+    // world bounds from the whole run so the view never jumps
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
-    all.forEach(p => { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); });
-    const pad = 42, pw = Math.max(60, w - 2 * pad), ph = Math.max(50, h - 2 * pad - 16);
+    F.forEach(f => [f.M, f.T, f.S, f.truePip].forEach(q => {
+      x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }));
+    const pad = 46, pw = Math.max(60, w - 2 * pad), ph = Math.max(50, h - pad - 60);
     const sc = Math.min(pw / Math.max(x1 - x0, 1000), ph / Math.max(y1 - y0, 1000));
-    const X = xx => pad + (xx - x0) * sc, Y = yy => pad + 8 + (yy - y0) * sc;
-    const line = (trk, col, wd) => { g.strokeStyle = col; g.lineWidth = wd; g.beginPath();
-      trk.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.stroke(); };
-    line(r.sTrack, 'rgba(0,229,255,.55)', 1.6);
-    line(r.tTrack, COL.red, 2);
-    line(r.mTrack, COL.amber, 2.4);
-    const last = a => a[a.length - 1];
-    drawJet(g, X(last(r.sTrack)[0]), Y(last(r.sTrack)[1]), 0, COL.blue, 'SHOOTER');
-    drawJet(g, X(last(r.tTrack)[0]), Y(last(r.tTrack)[1]), 0, COL.red, 'TARGET');
-    g.fillStyle = COL.amber; g.beginPath(); g.arc(X(last(r.mTrack)[0]), Y(last(r.mTrack)[1]), 4, 0, 7); g.fill();
+    const X = xx => pad + (xx - x0) * sc, Y = yy => 34 + (yy - y0) * sc;
+    const trail = (key, col, wd) => {
+      g.strokeStyle = col; g.lineWidth = wd; g.beginPath();
+      for (let k = 0; k <= i; k++) { const q = F[k][key]; k ? g.lineTo(X(q[0]), Y(q[1])) : g.moveTo(X(q[0]), Y(q[1])); }
+      g.stroke();
+    };
+    trail('S', 'rgba(0,229,255,.5)', 1.5);
+    trail('T', COL.red, 2);
+    trail('M', COL.amber, 2.4);
+    // PIP state for this instant (declared before anything draws with it)
+    const tp = fr.truePip, ap = fr.aim;
+    const err = Math.hypot(tp[0] - ap[0], tp[1] - ap[1]);
+    const diamond = (x, y, r, col, fill) => {
+      g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 1.8;
+      g.beginPath(); g.moveTo(x, y - r); g.lineTo(x + r, y); g.lineTo(x, y + r); g.lineTo(x - r, y); g.closePath();
+      fill ? g.fill() : g.stroke();
+    };
+    // where the missile is steering right now
+    g.strokeStyle = 'rgba(255,176,0,.45)'; g.setLineDash([2, 4]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(X(fr.M[0]), Y(fr.M[1])); g.lineTo(X(ap[0]), Y(ap[1])); g.stroke(); g.setLineDash([]);
+    // datalink beam, while it lives
+    if (fr.linkUp) {
+      g.strokeStyle = 'rgba(34,255,156,.45)'; g.setLineDash([5, 4]); g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(X(fr.S[0]), Y(fr.S[1])); g.lineTo(X(fr.M[0]), Y(fr.M[1])); g.stroke(); g.setLineDash([]);
+    }
+    // heading from the actual velocity vector (drawJet: radians, 0 = nose up)
+    const hdg = v => Math.atan2(v[0], -v[1]);
+    drawJet(g, X(fr.S[0]), Y(fr.S[1]), hdg(fr.sv), COL.blue, 'SHOOTER');
+    drawJet(g, X(fr.T[0]), Y(fr.T[1]), hdg(fr.tv), COL.red, 'TARGET');
+    g.save(); g.translate(X(fr.M[0]), Y(fr.M[1])); g.rotate(hdg(fr.mv));
+    g.fillStyle = COL.amber; g.shadowColor = COL.amber; g.shadowBlur = 8;
+    g.beginPath(); g.moveTo(0, -7); g.lineTo(3.5, 5); g.lineTo(0, 2.5); g.lineTo(-3.5, 5);
+    g.closePath(); g.fill(); g.shadowBlur = 0; g.restore();
+    // ── the PIP markers, drawn LAST so they sit on top of the aircraft ──
+    diamond(X(tp[0]), Y(tp[1]), 7, COL.green, false);
+    lbl(g, X(tp[0]), Y(tp[1]) - 12, 'TRUE PIP', COL.green, 'center', 8);
+    // the PIP the missile is actually steering at
+    const aimCol = fr.linkUp ? COL.green : COL.red;
+    diamond(X(ap[0]), Y(ap[1]), 5, aimCol, true);
+    if (!fr.linkUp) {
+      lbl(g, X(ap[0]), Y(ap[1]) + 18, 'STALE PIP', COL.red, 'center', 8, true);
+      // the growing error between what it believes and what is true
+      g.strokeStyle = COL.red; g.setLineDash([3, 3]); g.lineWidth = 1.4;
+      g.beginPath(); g.moveTo(X(ap[0]), Y(ap[1])); g.lineTo(X(tp[0]), Y(tp[1])); g.stroke(); g.setLineDash([]);
+      lbl(g, (X(ap[0]) + X(tp[0])) / 2, (Y(ap[1]) + Y(tp[1])) / 2 - 5,
+          R(err / 1000, 1) + ' km error', COL.red, 'center', 8.5, true);
+    }
+    // header / status
     lbl(g, 12, 16, MODES[mode][0], MODES[mode][1], 'left', 10, true);
-    // three-tier verdict: a 20 m class warhead kills inside its lethal radius,
-    // is marginal just outside it, and is comfortably defeated beyond that.
-    const tier = r.miss < 20 ? 0 : r.miss < 60 ? 1 : 2;
+    lbl(g, w - 12, 16, fr.linkUp ? '● DATALINK UP' : '✕ DATALINK LOST — PIP FROZEN',
+        fr.linkUp ? COL.green : COL.red, 'right', 10, true);
+    lbl(g, 12, h - 8, 't + ' + fr.t.toFixed(1) + ' s', COL.dim, 'left', 9);
+    const tier = sim.miss < 20 ? 0 : sim.miss < 60 ? 1 : 2;
     const TIER = [['KILL', COL.green], ['MARGINAL', COL.amber], ['DEFEATED', COL.red]];
-    const ok = tier === 0;
-    lbl(g, w - 12, 16, 'MISS ' + R(r.miss) + ' m — ' + TIER[tier][0], TIER[tier][1], 'right', 10, true);
+    lbl(g, w - 12, h - 8, 'final miss ' + R(sim.miss) + ' m — ' + TIER[tier][0], TIER[tier][1], 'right', 9, true);
     read.innerHTML =
-      `<div class="wx-line">${MODES[mode][0]} · target breaks at <b>${turnAt} s</b> → ` +
-      (r.linkLostAt !== null ? `datalink lost at <b style="color:${COL.red}">${R(r.linkLostAt, 1)} s</b> · ` : `<b style="color:${COL.green}">link held all the way</b> · `) +
-      `closest approach <b style="color:${TIER[tier][1]}">${R(r.miss)} m</b> (${TIER[tier][0].toLowerCase()})</div>` +
-      `<div class="wx-hint">The missile does not chase the target — it steers at a <b>Predicted Intercept Point</b>, solved from where the target <i>will be</i> after the time-of-flight. Keeping that PIP fresh is the entire job of the datalink. <b style="color:${COL.green}">Straight</b> guarantees the link but flies you into his weapon. <b style="color:${COL.amber}">Crank</b> is the compromise this whole guide keeps returning to: turn to the edge of your radar's gimbal cone so the link survives while you open range — the PIP keeps refreshing and the break gets tracked. <b style="color:${COL.red}">Turn cold</b> and the link dies at that instant: the missile keeps flying to a <b>stale PIP</b>, and the moment the target manoeuvres afterwards it walks out of the basket. Slide the break time and watch the pattern — an early break against a cold shooter is devastating, but the <i>same</i> break barely dents a cranking shooter, because the update arrives before the geometry goes stale. That is why <a data-goto="polegame">cranking</a> is not caution, it is the shot.</div>`;
+      `<div class="wx-line">${MODES[mode][0]} · break at <b>${turnAt} s</b> · ` +
+      (sim.linkLostAt !== null ? `link lost at <b style="color:${COL.red}">${R(sim.linkLostAt, 1)} s</b>` : `<b style="color:${COL.green}">link held all the way</b>`) +
+      ` → closest approach <b style="color:${TIER[tier][1]}">${R(sim.miss)} m</b> (${TIER[tier][0].toLowerCase()})</div>` +
+      `<div class="wx-hint">Watch the two diamonds. The <b style="color:${COL.green}">hollow green diamond</b> is the <b>true</b> Predicted Intercept Point — where the target will actually be after the missile's remaining time-of-flight. The <b>solid diamond</b> is the point the missile is steering at, and the dotted amber line is its current aim. While the datalink is up the two sit on top of each other, because every update rewrites the solution. The instant the link drops the solid diamond turns <b style="color:${COL.red}">red and stops moving</b> — that is the PIP going stale — and the red dashed line shows the error opening as the target keeps turning away from a prediction that is no longer being corrected. <b style="color:${COL.green}">Straight</b> holds the link to impact and the diamonds never separate. <b style="color:${COL.amber}">Crank</b> holds it while you open range, and only loses it late if the target's break swings outside your gimbal cone. <b style="color:${COL.red}">Turn cold</b> freezes the PIP at launch, so the missile flies confidently at a point the target left long ago. That is why <a data-goto="polegame">cranking</a> is not caution — it is what keeps the shot alive.</div>`;
   }
-  _V.redraw = render;
-  const stop = frame(() => render());
+  _V.redraw = () => render(performance.now());
   sync();
-  return stop;
+  return frame(render);
 });
 
 // ── BOYD'S ACTUAL CHART: energy height and the trade between speed and altitude
