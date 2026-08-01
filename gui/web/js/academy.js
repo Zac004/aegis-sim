@@ -35,7 +35,7 @@ const LAB_WIDGETS = new Set(['aspect', 'pnlab', 'notch', 'jammer', 'marband', 'h
   'radarderive', 'rcsaspect', 'arrayphysics', 'beamwidth', 'barscan', 'radarpick',
   'radarbands', 'dragcurve', 'gbudget', 'atmoprofile',
   'loftprofile', 'gtolerance', 'wxsensor', 'fuzegeom', 'batteryclock',
-  'seekerrange', 'ccmmatrix', 'midcoursepip', 'psdiagram']);
+  'seekerrange', 'ccmmatrix', 'midcoursepip', 'psdiagram', 'vlspitch']);
 
 export function mountWidgets(root) {
   const teardowns = [];
@@ -195,7 +195,7 @@ reg('horizon', (node) => {
     const hd = horizonKm(hRadar), ht = horizonKm(hTgt), maxDet = hd + ht;
     const detectable = tgtRange <= maxDet;
     // side view: curved earth arc
-    const pad = 30, base = _V.h - 26, span = _V.w - 2 * pad;
+    const pad = 30, base = _V.h - 26, span = Math.max(60, _V.w - 2 * pad);   // clamp: never negative
     const Rearth = span * 3.4;   // exaggerated curvature for legibility
     const cx = _V.w / 2, cyEarth = base + Rearth;
     g.strokeStyle = COL.grid; g.lineWidth = 2;
@@ -1222,7 +1222,7 @@ reg('killchain', (node) => {
     draw();
   });
   function bar(y, prog, color, label, det) {
-    const x0 = 90, x1 = _V.w - 20, w = x1 - x0;
+    const x0 = 90, x1 = Math.max(x0 + 60, _V.w - 20), w = x1 - x0;   // clamp: never inverted
     g.fillStyle = COL.faint; g.font = '10px "JetBrains Mono", monospace'; g.fillText(label, 12, y + 4);
     g.fillText(Math.round(det) + ' km', 12, y + 17);
     g.strokeStyle = COL.grid; g.strokeRect(x0, y - 8, w, 18);
@@ -4383,5 +4383,193 @@ reg('psdiagram', (node) => {
       `<div class="wx-hint">This is Boyd's actual insight, and it is not the doghouse plot — it is this. <b>Specific energy</b> E<sub>s</sub> = h + V²/2g collapses altitude and speed into a <i>single</i> number measured in metres, and the green curves are lines of constant E<sub>s</sub>. Anywhere on one curve is reachable from anywhere else on it by a pure zoom or dive, costing nothing but time: that is what "trading altitude for speed" literally means. Moving to a <b>higher</b> curve requires <b>specific excess power</b>, P<sub>s</sub> = (T−D)·V/W — thrust you have left over after drag. Every hard turn spikes induced drag, drives P<sub>s</sub> sharply negative, and drops you down through the contours; that is the real meaning of "bleeding energy", and why a fighter that turns hard twice is suddenly slow <i>and</i> low. Now the part that matters for this simulator: <b>a missile after burnout has no thrust at all</b>, so its P<sub>s</sub> is permanently negative and it can only ever fall through these lines. Everything about <a data-goto="mar">MAR</a>, the no-escape zone and <a data-goto="defence">dragging a shot out</a> is just this one fact applied — you are not out-running the missile, you are making it spend energy it can never earn back.</div>`;
   }
   _V.redraw = draw; draw();
+  return () => {};
+});
+
+// ── VERTICAL LAUNCH & PITCH-OVER ─────────────────────────────────────────────
+// Straight off the rail a SAM has almost no dynamic pressure, so its fins cannot
+// bite. It tips over on THRUST-BORNE lift: lateral force = T·sin(alpha). Watch q
+// build until the fins take over — that handover is the whole trick.
+reg('vlspitch', (node) => {
+  const _V = makeCanvas(node, 330); const { g } = _V;
+  const ctr = el('div', { class: 'wx-controls' }); node.appendChild(ctr);
+  const read = el('div', { class: 'wx-readout' }); node.appendChild(read);
+  let brgDeg = 55, tvc = true;
+  const sB = slider('Target bearing off vertical (°)', 15, 80, 5, brgDeg, v => { brgDeg = v; render(); });
+  ctr.appendChild(sB.row);
+  const bT = el('button', { class: 'wx-tab on', onclick: () => { tvc = !tvc; bT.classList.toggle('on', tvc);
+    bT.textContent = tvc ? 'TVC / JET VANES: ON' : 'TVC / JET VANES: OFF'; render(); } }, 'TVC / JET VANES: ON');
+  ctr.appendChild(bT);
+  // canister-launched SAM: 2.0 m, 400 kg, 120 kN boost for 5 s
+  const D = 0.4, S = Math.PI * D * D / 4, M0 = 400, MPROP = 150, TH = 120000, TB = 5.0;
+  const CN = 12.0, ALPHA_MAX = 20 * Math.PI / 180;
+
+  function fly(tvcOn) {
+    let h = 0, x = 0, vx = 0, vh = 1, t = 0;          // straight up out of the tube
+    const path = [], dt = 0.02;
+    const want = brgDeg * Math.PI / 180;               // desired flight-path angle from vertical
+    let qAtHandover = null, tHandover = null, tTurn = null, hTurn = null, xTurn = null;
+    while (t < 22 && h > -1) {
+      const s = ATM.sample(Math.max(h, 0));
+      const v = Math.hypot(vx, vh) || 1e-3;
+      const q = 0.5 * s.rho * v * v;
+      const mass = M0 - MPROP * Math.min(t / TB, 1);
+      const th = t < TB ? TH : 0;
+      // current flight-path angle measured from vertical
+      const fpa = Math.atan2(vx, vh);
+      const errA = Math.max(-ALPHA_MAX, Math.min(ALPHA_MAX, want - fpa));
+      // two sources of turning force
+      const aeroSide = q * S * CN * errA / mass;                     // fins: need q
+      const thrustSide = (tvcOn && t < TB) ? th * Math.sin(errA) / mass : 0;  // TVC: needs only thrust
+      // Fin authority is a property of the flight condition, not of the current
+      // command: it is what the fins COULD pull at full deflection. (Measuring the
+      // commanded force instead reports "no authority" whenever the missile is
+      // already on bearing and therefore asking for nothing.)
+      const aeroCapacity = q * S * CN * ALPHA_MAX / mass;
+      if (qAtHandover === null && aeroCapacity > 5 * 9.80665 && t > 0.05) {
+        qAtHandover = q; tHandover = t;
+      }
+      // when the commanded bearing is actually achieved, and what it cost in height
+      if (tTurn === null && Math.abs(want - fpa) < 5 * Math.PI / 180 && t > 0.2) {
+        tTurn = t; hTurn = h; xTurn = x;
+      }
+      const side = aeroSide + thrustSide;
+      // resolve along/normal to velocity
+      const ux = vx / v, uh = vh / v;
+      const drag = q * S * AERO.cd0(v / s.a);
+      const axAlong = (th - drag) / mass;
+      vx += (axAlong * ux + side * uh) * dt;
+      vh += (axAlong * uh - side * ux - ATM.gravity(Math.max(h, 0))) * dt;
+      x += vx * dt; h += vh * dt; t += dt;
+      // every step: the whole pitch-over can be over in 0.2 s, so a coarse sample
+      // would draw the turn as a single segment and hide the shape entirely
+      path.push([x, h, q, fpa, t]);
+    }
+    return { path, qAtHandover, tHandover, tTurn, hTurn, xTurn };
+  }
+
+  const atTime = (path, tX) => {
+    for (let i = 0; i < path.length; i++) if (path[i][4] >= tX) return path[i];
+    return path[path.length - 1];
+  };
+
+  function render() {
+    const w = _V.w, hgt = _V.h; g.clearRect(0, 0, w, hgt);
+    const rOn = fly(true), rOff = fly(false);
+    const r = tvc ? rOn : rOff;
+    if (!r.path.length) return;
+    const padL = 60, padR = 18, padT = 50, padB = 34;
+    const pw = Math.max(60, w - padL - padR), ph = Math.max(50, hgt - padT - padB);
+    // Frame the PITCH-OVER, not the whole flight. The turn is finished inside the
+    // first kilometre while the round goes on to ~13 km downrange and ~15 km up, so
+    // scaling to the full trajectory squeezes the entire lesson into three pixels at
+    // the origin and both traces degenerate to the same straight ray.
+    const hEnd = z => (z.hTurn === null ? z.path[z.path.length - 1][1] : z.hTurn);
+    const hWin = Math.max(hEnd(rOn), hEnd(rOff), 60) * 1.7;
+    // ONE scale for both axes, so the drawn angle really is the commanded bearing
+    const sc = ph / hWin;
+    const X = xx => padL + xx * sc, Y = hh => padT + ph - hh * sc;
+
+    // altitude grid — the cost of the turn is read off this axis
+    const raw = hWin / 4, mag = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1))));
+    const u = raw / mag, step = (u < 1.5 ? 1 : u < 3.5 ? 2 : u < 7.5 ? 5 : 10) * mag;
+    g.lineWidth = 1;
+    for (let hh = step; hh <= hWin; hh += step) {
+      g.strokeStyle = COL.grid;
+      g.beginPath(); g.moveTo(padL, Y(hh)); g.lineTo(padL + pw, Y(hh)); g.stroke();
+      lbl(g, padL - 8, Y(hh) + 3, hh >= 1000 ? R(hh / 1000, 1) + ' km' : R(hh) + ' m', COL.faint, 'right', 8);
+    }
+    // ground + launcher
+    g.strokeStyle = 'rgba(78,128,178,.45)'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(padL - 22, Y(0)); g.lineTo(padL + pw, Y(0)); g.stroke();
+    g.fillStyle = COL.dim; g.fillRect(X(0) - 7, Y(0) - 14, 14, 14);
+    lbl(g, X(0), Y(0) + 14, 'TEL', COL.dim, 'center', 8);
+
+    g.save();
+    g.beginPath(); g.rect(padL - 22, padT - 6, pw + 22, ph + 6); g.clip();
+
+    // desired bearing to the target — a plain reference ray, kept visually quiet so
+    // it cannot be mistaken for one of the two trajectories
+    const want = brgDeg * Math.PI / 180;
+    const L = (pw + ph) * 1.6;   // already a pixel length; the axes share one scale
+    g.strokeStyle = 'rgba(228,238,252,.28)'; g.setLineDash([5, 5]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(X(0), Y(0));
+    g.lineTo(X(0) + Math.sin(want) * L, Y(0) - Math.cos(want) * L); g.stroke();
+    g.setLineDash([]);
+    const lx = X(0) + Math.sin(want) * ph * 0.92, ly = Y(0) - Math.cos(want) * ph * 0.92;
+    lbl(g, lx + 6, ly, 'to target  ' + brgDeg + '°', COL.faint, 'left', 8);
+
+    // both branches every time: the toggle highlights one, but the comparison is the
+    // point and it is worthless if you have to remember what the other one looked like
+    const trace = (z, col, active) => {
+      g.strokeStyle = col; g.globalAlpha = active ? 1 : 0.3;
+      g.lineWidth = active ? 2.8 : 1.8;
+      g.beginPath();
+      for (let i = 0; i < z.path.length; i++) {
+        const p = z.path[i];
+        if (i === 0) g.moveTo(X(p[0]), Y(p[1])); else g.lineTo(X(p[0]), Y(p[1]));
+        if (p[1] > hWin * 1.4) break;
+      }
+      g.stroke(); g.globalAlpha = 1;
+    };
+    trace(rOff, COL.amber, !tvc);
+    trace(rOn, COL.green, tvc);
+
+    // where each branch actually arrives on bearing — the altitude gap IS the lesson
+    const mark = (z, col, active, tag) => {
+      if (z.tTurn === null) return;
+      const px = X(z.xTurn), py = Y(z.hTurn);
+      g.globalAlpha = active ? 1 : 0.45;
+      g.strokeStyle = col; g.setLineDash([2, 3]); g.lineWidth = 1;
+      g.beginPath(); g.moveTo(padL, py); g.lineTo(px, py); g.stroke(); g.setLineDash([]);
+      g.fillStyle = col; g.beginPath(); g.arc(px, py, active ? 5 : 3.5, 0, 7); g.fill();
+      lbl(g, px + 9, py - 5, tag, col, 'left', 8.5, active);
+      g.globalAlpha = 1;
+    };
+    mark(rOff, COL.amber, !tvc, 'FINS ONLY');
+    mark(rOn, COL.green, tvc, 'TVC');
+
+    // handover: the instant the fins alone could pull 5 g
+    if (r.tHandover !== null) {
+      const p = atTime(r.path, r.tHandover);
+      g.strokeStyle = COL.blue; g.lineWidth = 1.4;
+      g.beginPath(); g.arc(X(p[0]), Y(p[1]), 6.5, 0, 7); g.stroke();
+    }
+    g.restore();
+
+    lbl(g, 12, 16, 'VERTICAL LAUNCH — tipping over on thrust, not fins', COL.green, 'left', 9.5, true);
+    lbl(g, w - 12, 16, tvc ? 'TVC ON' : 'TVC OFF — fins only', tvc ? COL.green : COL.red, 'right', 9.5, true);
+    // Legend lives ABOVE the plot rather than beside each marker: with TVC on, the
+    // turn and the handover both happen within a few pixels of the launcher, so
+    // point-anchored text overlapped itself and ran off the bottom of the frame.
+    const cost = z => z.tTurn === null ? 'never on bearing'
+                    : 'on bearing ' + R(z.hTurn) + ' m · t+' + z.tTurn.toFixed(1) + ' s';
+    const keys = [
+      [COL.green, true, 'TVC  ' + cost(rOn)],
+      [COL.amber, true, 'FINS ONLY  ' + cost(rOff)],
+    ];
+    if (r.tHandover !== null) keys.push([COL.blue, false, 'fins reach 5 g  t+' + r.tHandover.toFixed(1) + ' s']);
+    let kx = padL;
+    g.font = '8.5px "JetBrains Mono", monospace';
+    for (const [c, solid, text] of keys) {
+      if (kx > w - 40) break;                       // narrow canvas: drop what will not fit
+      g.strokeStyle = c; g.fillStyle = c; g.lineWidth = 1.4;
+      g.beginPath(); g.arc(kx + 4, padT - 15, 3.6, 0, 7); solid ? g.fill() : g.stroke();
+      lbl(g, kx + 12, padT - 12, text, c, 'left', 8.5);
+      kx += g.measureText(text).width + 34;
+      g.font = '8.5px "JetBrains Mono", monospace';  // lbl() reset it
+    }
+    lbl(g, padL + pw / 2, hgt - 6, 'GROUND RANGE  (same scale as altitude — the drawn angle is the real one)',
+        COL.dim, 'center', 8.5);
+    read.innerHTML =
+      `<div class="wx-line">Commanded <b>${brgDeg}°</b> off vertical · ` +
+      (r.tTurn !== null
+        ? `on bearing after <b style="color:${tvc ? COL.green : COL.red}">${r.tTurn.toFixed(1)} s</b>, having climbed <b style="color:${tvc ? COL.green : COL.red}">${R(r.hTurn)} m</b>`
+        : `<b style="color:${COL.red}">never gets on bearing</b>`) +
+      (r.tHandover !== null ? ` · fins could first pull 5 g at t+<b>${r.tHandover.toFixed(1)} s</b> (q ≈ ${R(r.qAtHandover / 1000, 1)} kPa)`
+                            : ` · <b style="color:${COL.red}">fins never reach 5 g authority</b>`) + `</div>` +
+      `<div class="wx-hint">A canister-launched SAM leaves the tube pointing at the <b>sky</b>, not at the target — that is what lets one launcher cover 360° with no traverse and no reload geometry. But straight off the rail it is barely moving, so <b>q = ½ρV² is almost zero</b> and the fins have nothing to push against. The turn has to come from the motor: tilt the thrust vector with <b>jet vanes or TVC</b> and you get a lateral force of <b>T·sin α</b> that does not care about airspeed at all. Switch <b>TVC off</b> and read the two numbers: the round still gets there eventually, but it must first <i>climb</i> until it is fast enough for the fins to bite, so it arrives on bearing seconds later and hundreds of metres higher — altitude and time spent pointing the wrong way, at the exact moment a close-in threat is still closing. The green marker is the <b>handover</b>: the instant aerodynamic control finally out-pulls the thrust vector. Everything after it is a normal <a data-goto="loft">lofted intercept</a>; everything before it is rocket science in the literal sense. Drag the bearing toward the horizon and notice the handover comes later and the turn costs more — which is exactly why a low, close, fast-crossing target is the hardest shot a vertically-launched system has.</div>`;
+  }
+  _V.redraw = render; render();
   return () => {};
 });

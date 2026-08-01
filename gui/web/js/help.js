@@ -1226,6 +1226,11 @@ export const HELP_SECTIONS = [
         <li><b>Terminal</b> — ARH rounds go pitbull on their own; SARH/TVM rounds ride the ground
         radar's illumination all the way; CLOS point-defenders (Tor) ride the beam itself.</li>
       </ol>
+      <h3>Off the rail with no airspeed</h3>
+      <p>Step 1 above is worth watching rather than reading. A vertically-launched SAM leaves its
+      canister pointing straight up and must <b>tip over</b> onto the intercept before its fins can do
+      anything at all — switch the thrust-vectoring off to see why it is not optional:</p>
+      <div class="wx" data-widget="vlspitch"></div>
       <p>The defender's counterplay is the same playbook: beam the site's radar, drag off, get low —
       but note the asymmetry: the SAM site never runs out of fuel, only your patience and its
       battery/kinematics.</p>
@@ -1969,6 +1974,15 @@ export const HELP_SECTIONS = [
       <a data-goto="cm">clutter filter</a> throws you out with the ground return. But the window is narrow and the
       timing is everything — too hot and you're still seen, too cold and you pop back out. Train the reflex:</p>
       <div class="wx" data-widget="notchgame"></div>
+      <div class="lore"><b>The notch is a gift from the ground.</b> No engineer ever set out to build a
+      blind spot into a radar — it is the unavoidable price of solving a different problem. A look-down
+      radar sees the earth returning vastly more energy than any aircraft, and the only thing separating a
+      jet from the dirt is <b>Doppler</b>: the ground sits at a predictable closing rate, so you filter
+      that rate out. The moment you do, you have also filtered out anything that happens to match it. Fly
+      perpendicular and your closure collapses to the same near-zero value as the terrain, and the radar
+      discards you along with the mountains. Every pulse-Doppler set ever built has this hole, because the
+      hole <i>is</i> the clutter rejection. Modern processors narrow it and coast through it, but they
+      cannot remove it without going blind to the ground again.</div>
       <p>Beam the instant closure crosses <b>zero</b>. Each clean break scores; the needle speeds up as you go, and
       40+ points banks XP. In the real fight it's harder still: you must hold the beam through the missile's flight
       while bleeding energy and staying out of its <a data-goto="mar">terminal basket</a>, and a
